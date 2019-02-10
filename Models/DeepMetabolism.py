@@ -1,7 +1,9 @@
 import torch
+import os
+import csv
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import Datasets, LoadData
+from utils import Datasets, LoadData, Arguments, KFoldSplits
 
 
 class Encoder(nn.Module):
@@ -175,4 +177,45 @@ class DeepMetabolism:
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
         return self.supervised_test(test_dataloader)
+
+
+if __name__ == '__main__':
+
+    args = Arguments.parse_args()
+
+    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data(
+        args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    deep_metabolism = DeepMetabolism(500, [200], 10, nn.ReLU(), device)
+
+    unsupervised_dataset = Datasets.UnsupervisedDataset(unsupervised_data)
+
+    test_results = []
+
+    for test_idx, validation_idx, train_idx in KFoldSplits.k_fold_splits_with_validation(len(unsupervised_data), 10):
+        train_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in train_idx],
+                                                   [supervised_labels[i] for i in train_idx])
+        validation_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in validation_idx],
+                                                        [supervised_labels[i] for i in validation_idx])
+        test_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in test_idx],
+                                                  [supervised_labels[i] for i in test_idx])
+
+        deep_metabolism.full_train(unsupervised_data, train_dataset, validation_dataset)
+
+        correct_percentage = deep_metabolism.full_test(test_dataset)
+
+        test_results.append(correct_percentage)
+
+    if not os.path.exists('../results'):
+        os.mkdir('../results')
+        os.mkdir('../results/deep_metabolism')
+    elif not os.path.exists('../results/deep_metabolism'):
+        os.mkdir('../results/deep_metabolism')
+
+    accuracy_file = open('../results/deep_metabolism/accuracy.csv', 'w')
+    accuracy_writer = csv.writer(accuracy_file)
+
+    accuracy_writer.write_row(test_results)
 

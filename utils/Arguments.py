@@ -5,9 +5,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Take arguments to construct model")
     parser.add_argument("unsupervised_file", type=str,
                         help="Relative path to file containing data for unsupervised training")
-    parser.add_argument("supervised_input_file", type=str,
+    parser.add_argument("supervised_data_file", type=str,
                         help="Relative path to file containing the input data for supervised training")
-    parser.add_argument("output_file", type=str,
+    parser.add_argument("supervised_labels_file", type=str,
                         help="Relative path to file containing the output data for supervised training")
     parser.add_argument("--model", dest="unsupervised_model_file", type=str, default="model.pt",
                         help="Relative path to file to store the trained unsupervised model")

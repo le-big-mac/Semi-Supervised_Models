@@ -1,7 +1,9 @@
 import torch
+import os
+import csv
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import Datasets, LoadData
+from utils import Datasets, LoadData, Arguments, KFoldSplits
 
 
 class Classifier(nn.Module):
@@ -193,7 +195,7 @@ class SS_GAN:
         return validation_loss/len(supervised_dataloader.dataset)
 
     def test(self, dataloader):
-        model = self.SDAE
+        model = self.D
 
         model.eval()
 
@@ -210,8 +212,8 @@ class SS_GAN:
     def full_train(self, unsupervised_dataset, train_dataset, validation_dataset):
 
         # TODO: don't use arbitrary values for batch size
-        unsupervised_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=256, shuffle=True)
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
+        unsupervised_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=180, shuffle=True)
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=20, shuffle=True)
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         # simple early stopping employed (can change later)
@@ -231,3 +233,45 @@ class SS_GAN:
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
         return self.test(test_dataloader)
+
+
+if __name__ == '__main__':
+
+    args = Arguments.parse_args()
+
+    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data(
+        args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    ss_gan = SS_GAN([200], [200], 500, 25, 10, nn.ReLU(), device)
+
+    unsupervised_dataset = Datasets.UnsupervisedDataset(unsupervised_data)
+
+    test_results = []
+
+    for test_idx, validation_idx, train_idx in KFoldSplits.k_fold_splits_with_validation(len(unsupervised_data), 10):
+
+        train_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in train_idx],
+                                                   [supervised_labels[i] for i in train_idx])
+        validation_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in validation_idx],
+                                                        [supervised_labels[i] for i in validation_idx])
+        test_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in test_idx],
+                                                  [supervised_labels[i] for i in test_idx])
+
+        ss_gan.full_train(unsupervised_data, train_dataset, validation_dataset)
+
+        correct_percentage = ss_gan.full_test(test_dataset)
+
+        test_results.append(correct_percentage)
+
+    if not os.path.exists('../results'):
+        os.mkdir('../results')
+        os.mkdir('../results/ss-gan')
+    elif not os.path.exists('../results/ss-gan'):
+        os.mkdir('../results/ss-gan')
+
+    accuracy_file = open('../results/ss-gan/accuracy.csv', 'w')
+    accuracy_writer = csv.writer(accuracy_file)
+
+    accuracy_writer.write_row(test_results)
