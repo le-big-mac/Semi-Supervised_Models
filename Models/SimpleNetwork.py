@@ -1,206 +1,144 @@
 import torch
 import csv
-import shutil
 import os
-import sys
 from torch import nn
-import argparse
-import numpy as np
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
-from random import shuffle
+from utils import Datasets, Arguments, KFoldSplits, LoadData
 
 
-class SimpleNetwork(nn.Module):
-    def __init__(self):
-        super(SimpleNetwork, self).__init__()
+class Classifier(nn.Module):
+    def __init__(self, input_size, hidden_dimensions, num_classes, activation):
+        super(Classifier, self).__init__()
 
-        self.regression = nn.Sequential(
-            nn.Linear(1366, 256),
-            nn.ReLU(),
-            nn.Linear(256, 1)
-        )
+        dimensions = [input_size] + hidden_dimensions
+
+        self.fc_layers = [nn.Sequential(
+            nn.Linear(dimensions[i], dimensions[i+1]),
+            activation,
+        ) for i in list(range(len(dimensions)-1))]
+
+        self.classification_layer = nn.Linear(dimensions[-1], num_classes)
 
     def forward(self, x):
-        return self.regression(x)
+        for layer in self.fc_layers:
+            x = layer(x)
 
-parser = argparse.ArgumentParser(description="Take arguments to construct model")
-parser.add_argument("unsupervised_file", type=str,
-                    help="Relative path to file containing data for unsupervised training")
-parser.add_argument("supervised_input_file", type=str,
-                    help="Relative path to file containing the input data for supervised training")
-parser.add_argument("output_file", type=str,
-                    help="Relative path to file containing the output data for supervised training")
+        return self.classification_layer(x)
 
-args = parser.parse_args()
+class SimpleNetwork:
+    def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
+        self.Classifier = Classifier(input_size, hidden_dimensions, num_classes, activation).to(device)
+        self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
+        self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
+        self.device = device
 
-gene_max = 10.0
-gene_min = -10.0
-
-unsupervised_load = np.loadtxt(open(args.unsupervised_file, "rb"), dtype=float, delimiter=",")
-supervised_input_load = np.loadtxt(open(args.supervised_input_file, "rb"), dtype=float, delimiter=",")
-supervised_output_load = np.loadtxt(open(args.output_file, "rb"), dtype=float, delimiter=",")
-
-unsupervised_matrix = np.maximum(np.minimum(unsupervised_load - gene_min, gene_max - gene_min), 0) \
-                      / (gene_max - gene_min)
-supervised_input_matrix = np.maximum(np.minimum(supervised_input_load - gene_min, gene_max - gene_min), 0) \
-                          / (gene_max - gene_min)
-supervised_output_matrix = np.asarray(supervised_output_load)
-
-input_size = len(list(supervised_input_matrix[0]))
-output_size = 1
-
-
-class MyDataset(Dataset):
-    def __init__(self, inputs, outputs):
-        super(MyDataset, self).__init__()
-
-        self.inputs = [torch.from_numpy(np.atleast_1d(vec)).float() for vec in inputs]
-        self.outputs = [torch.from_numpy(np.atleast_1d(vec)).float() for vec in outputs]
-
-    def __len__(self):
-        return len(self.outputs)
-
-    def __getitem__(self, index):
-        return self.inputs[index], self.outputs[index]
-
-unsupervised_dataset = MyDataset(inputs=unsupervised_matrix, outputs=unsupervised_matrix)
-supervised_dataset_biomass = MyDataset(inputs=supervised_input_matrix, outputs=[vec[0] for vec in supervised_output_matrix])
-supervised_dataset_succinate = MyDataset(inputs=supervised_input_matrix, outputs=[vec[1] for vec in supervised_output_matrix])
-supervised_dataset_ethanol = MyDataset(inputs=supervised_input_matrix, outputs=[vec[2] for vec in supervised_output_matrix])
-
-
-def repeat(supervised_dataset, model_state_path):
-    model = SimpleNetwork()
-    model.cuda()
-    criterion = nn.MSELoss(reduction='sum')
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
-    torch.save(model.state_dict(), model_state_path)
-
-    def train(dataloader, epoch):
-        model.train()
+    def train_classifier_one_epoch(self, dataloader):
+        self.Classifier.train()
         train_loss = 0
-        total_items = 0
 
-        for batch_idx, (inputs, outputs) in enumerate(dataloader):
-            inputs = inputs.cuda()
-            outputs = outputs.cuda()
+        for batch_idx, (data, labels) in enumerate(dataloader):
+            data.to(self.device)
+            labels.to(self.device)
 
-            optimizer.zero_grad()
+            self.Classifier_optim.zero_grad()
 
-            predictions = model(inputs)
+            preds = self.Classifier(data)
 
-            loss = criterion(predictions, outputs)
+            loss = self.Classifier_criterion(preds, data)
 
             train_loss += loss.item()
-            total_items += len(predictions)
 
             loss.backward()
-            optimizer.step()
+            self.Classifier_optim.step()
 
-        if epoch % 10 == 0:
-            print("Simple Network Train Epoch {} Loss {}".format(epoch, (train_loss / total_items) * 1e6))
+        return train_loss/len(dataloader.dataset)
 
-    def test(dataloader):
-        model.eval()
+    def supervised_validation(self, dataloader):
+        self.Classifier.eval()
+        validation_loss = 0
 
         with torch.no_grad():
-            within_error = 0
-            test_loss = 0
-            total_items = 0
+            for batch_idx, (data, labels) in enumerate(dataloader):
+                data.to(self.device)
+                labels.to(self.device)
 
-            for batch_idx, (inputs, outputs) in enumerate(dataloader):
-                inputs = inputs.cuda()
-                outputs = outputs.cuda()
+                predictions = self.Classifier(data)
 
-                predictions = model(inputs)
+                loss = self.Classifier_criterion(predictions, labels)
 
-                loss = criterion(predictions, outputs)
+                validation_loss += loss.item()
 
-                for i in range(len(predictions)):
-                    real = outputs[i].item()
-                    pred = predictions[i].item()
+        return validation_loss/len(dataloader.dataset)
 
-                    if 1.1*real > pred > 0.9*real:
-                        within_error += 1
+    def supervised_test(self, dataloader):
+        self.Classifier.eval()
 
-                test_loss += loss.item()
-                total_items += len(predictions)
+        correct = 0
 
-            print("### Simple Network TEST Loss {}".format((test_loss / total_items) * 1e6))
-            print("Within error: {} Total: {}".format(within_error, total_items))
+        with torch.no_grad():
+            for batch_idx, (data, labels) in enumerate(dataloader):
+                outputs = self.Classifier(data)
 
-            return test_loss/total_items, within_error/total_items
+                _, predicted = torch.max(outputs.data, 1)
+                correct += (predicted == labels).sum().item()
 
-    indices = list(range(dataset.__len__()))
-    shuffle(indices)
+        return correct/len(dataloader.dataset)
 
-    train_indexes = np.array_split(indices, 10)
+    def full_train(self, train_dataset, validation_dataset):
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
+        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
-    test_result_loss = [0] * 10
-    test_result_within_error = [0] * 10
+        # simple early stopping employed (can change later)
+        validation_result = float("inf")
+        for epoch in range(50):
 
-    i = 0
-    for test_idx in train_indexes:
-        train_idx = list(set(indices) - set(test_idx))
+            self.train_classifier_one_epoch(supervised_dataloader)
+            val = self.supervised_validation(validation_dataloader)
 
-        model.load_state_dict(torch.load(model_state_path))
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+            if val > validation_result:
+                break
 
-        train_sampler = SubsetRandomSampler(train_idx)
-        test_sampler = SubsetRandomSampler(test_idx)
+            validation_result = val
 
-        train_loader = DataLoader(dataset=supervised_dataset, batch_size=1000, sampler=train_sampler)
-        test_loader = DataLoader(dataset=supervised_dataset, batch_size=100, sampler=test_sampler)
+    def full_test(self, test_dataset):
+        test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        for epoch in range(100):
-            train(train_loader, epoch)
+        return self.supervised_test(test_dataloader)
 
-        test_result_loss[i], test_result_within_error[i] = test(test_loader)
 
-        i += 1
+if __name__ == '__main__':
 
-    torch.save(model.state_dict(), model_state_path)
+    args = Arguments.parse_args()
 
-    return test_result_loss, test_result_within_error
+    _, supervised_data, supervised_labels = LoadData.load_data(
+        args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
 
-if __name__ == "__main__":
-    directory = "./outputs/simple_network"
-    model_directory = "./models/simple_network"
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    if not os.path.exists("outputs"):
-        os.mkdir("outputs")
-    else:
-        shutil.rmtree(directory, ignore_errors=True)
+    simple_network = SimpleNetwork(500, [200], 10, nn.ReLU(), device)
 
-    if not os.path.exists("models"):
-        os.mkdir("models")
-    else:
-        shutil.rmtree(model_directory, ignore_errors=True)
+    test_results = []
+    for test_idx, validation_idx, train_idx in KFoldSplits.k_fold_splits_with_validation(len(unsupervised_data), 10):
+        train_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in train_idx],
+                                                   [supervised_labels[i] for i in train_idx])
+        validation_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in validation_idx],
+                                                        [supervised_labels[i] for i in validation_idx])
+        test_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in test_idx],
+                                                  [supervised_labels[i] for i in test_idx])
 
-    os.mkdir(directory)
-    os.mkdir(model_directory)
+        simple_network.full_train(train_dataset, validation_dataset)
 
-    sys.stdout = open("{}/Main.txt".format(directory), "w")
+        correct_percentage = simple_network.full_test(test_dataset)
 
-    phenotypes = ["biomass", "succinate", "ethanol"]
-    datasets = [supervised_dataset_biomass, supervised_dataset_succinate, supervised_dataset_ethanol]
+        test_results.append(correct_percentage)
 
-    for i in range(3):
-        phenotype = phenotypes[i]
-        dataset = datasets[i]
+    if not os.path.exists('../results'):
+        os.mkdir('../results')
+        os.mkdir('../results/simple_network')
+    elif not os.path.exists('../results/simple_network'):
+        os.mkdir('../results/simple_network')
 
-        loss_file = open("{}/{}_loss.csv".format(directory, phenotype), "w")
-        error_file = open("{}/{}_within_error.csv".format(directory, phenotype), "w")
+    accuracy_file = open('../results/simple_network/accuracy.csv', 'w')
+    accuracy_writer = csv.writer(accuracy_file)
 
-        loss_writer = csv.writer(loss_file)
-        error_writer = csv.writer(error_file)
-
-        for j in range(5):
-            test_loss, test_within_error = repeat(dataset, "{}/{}_{}.pt".format(model_directory, phenotype, j))
-
-            loss_writer.writerow(test_loss)
-            error_writer.writerow(test_within_error)
-
-        loss_file.close()
-        error_file.close()
+    accuracy_writer.write_row(test_results)
