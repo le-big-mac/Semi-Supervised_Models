@@ -95,7 +95,7 @@ class SDAE:
                     for layer in previous_layers:
                         data = layer(data)
 
-            noisy_data = data.add(0.2*torch.randn(data.size())).to(self.device)
+            noisy_data = data.add(0.2*torch.randn(data.size()).to(self.device))
 
             optimizer.zero_grad()
 

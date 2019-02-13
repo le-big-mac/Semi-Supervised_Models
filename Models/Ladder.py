@@ -1,38 +1,42 @@
 import torch
-import csv
-import shutil
-import os
-import sys
 from torch import nn
-from torch import functional as F
-import argparse
-import numpy as np
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
-from random import shuffle
 
 
 class Encoder(nn.Module):
-    def __init__(self, input_size, output_size, activation, noise_level, device):
+    def __init__(self, input_size, output_size, activation, noise_level, is_linear, device):
         super(Encoder, self).__init__()
 
         self.W = nn.Linear(input_size, output_size, bias=False)
         self.activation = activation
-        self.batch_norm = nn.BatchNorm1d(output_size, affine=False)
-        self.beta = nn.Parameter(torch.zeros(1, output_size)).to(device)
+        self.batch_norm_noisy = nn.BatchNorm1d(output_size, affine=False)
+        self.batch_norm_clean = nn.BatchNorm1d(output_size, affine=False)
+        self.beta = nn.Parameter(torch.zeros(1, output_size).to(device))
+
+        if not is_linear:
+            self.gamma = nn.Parameter(torch.ones(1, output_size).to(device))
+
         self.noise = noise_level
-        # assume all linear for the moments so don't need gamma
 
     def forward_clean(self, x):
         z_pre = self.W(x)
-        z = self.batch_norm(z_pre)
-        h = self.activation(z + self.beta.expand_as(z))
+        z = self.batch_norm_clean(z_pre)
+
+        z_beta = z + self.beta.expand_as(z)
+
+        if self.is_linear:
+            h = self.activation(z_beta)
+        else:
+            ones = torch.ones(z.size()[0], 1).to(self.device)
+            gamma = ones.mm(self.gamma)
+            h = self.activation(torch.mul(gamma, z_beta))
 
         # z_pre used in reconstruction cost
         return h, z, z_pre
 
     def forward_noisy(self, x):
         z_pre_tilde = self.W(x) + self.noise*torch.randn(x.size()).to(self.device)
-        z_tilde = self.batch_norm(z_pre_tilde)
+        z_tilde = self.batch_norm_noisy(z_pre_tilde)
         h_tilde = self.activation(z_tilde + self.beta.expand_as(z_tilde))
 
         return h_tilde, z_tilde
@@ -45,13 +49,13 @@ class Encoder(nn.Module):
 
 
 class Classifier(nn.Module):
-    def __init__(self, input_size, hidden_dimensions, num_classes, activations, noise_level, device):
+    def __init__(self, input_size, hidden_dimensions, num_classes, activations, is_linear, noise_level, device):
         super(Classifier, self).__init__()
 
         dimensions = [input_size] + hidden_dimensions + [num_classes]
 
-        self.encoders = [Encoder(dimensions[i], dimensions[i+1], activations[i], noise_level, device)
-                         for i, _ in list(range(len(dimensions)-1))]
+        self.encoders = [Encoder(dimensions[i], dimensions[i+1], activations[i], noise_level, is_linear[i], device)
+                         for i in list(range(len(dimensions)-1))]
 
         self.noise = noise_level
         self.device = device
@@ -71,11 +75,15 @@ class Classifier(nn.Module):
 
         return y, zs, z_pres
 
+    def get_zs(self):
+        return self.zs, self.z_pres
+
     def forward_noisy(self, x):
         z_tildes = []
 
-        # no need to add noise here, added by encoder
-        h_tilde = x
+        # h_tilde(0) = z_tilde(0)
+        h_tilde = x + self.noise*torch.randn(x.size()).to(self.device)
+        z_tildes.append(h_tilde)
         for encoder in self.encoders:
             h_tilde, z_tilde = encoder.forward_noisy(h_tilde)
 
@@ -94,10 +102,13 @@ class Classifier(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, input_size, output_size, device):
+    def __init__(self, input_size, output_size, is_bottom, device):
         super(Decoder, self).__init__()
 
-        self.V = nn.Linear(input_size, output_size, bias=False)
+        if is_bottom:
+            self.V = lambda x: x
+        else:
+            self.V = nn.Linear(input_size, output_size, bias=False)
         self.batch_norm = nn.BatchNorm1d(output_size, affine=False)
         self.device = device
 
@@ -137,9 +148,198 @@ class Decoder(nn.Module):
 
     def forward(self, z_tilde_l, z_hat_l_plus_1):
         # maybe take in u_l instead, would maybe make stacked decoder easier
-
         u_l = self.batch_norm(self.V(z_hat_l_plus_1))
 
         z_hat_l = self.g(u_l, z_tilde_l)
 
         return z_hat_l
+
+
+class StackedDecoders(nn.Module):
+    def __init__(self, num_classes, hidden_dimensions, input_size, device):
+        super(StackedDecoders, self).__init__()
+
+        dimensions = [num_classes] + hidden_dimensions + [input_size]
+
+        # TODO: change this so first layer accepts y_tilde as u_L not z_tilde_L+1
+        self.decoders = Decoder(num_classes, num_classes, True, device)
+        self.decoders = self.decoders + [Decoder(dimensions[i], dimensions[i+1], False, device)
+                                         for i in list(range(len(dimensions)-1))]
+
+        self.device = device
+
+    def forward(self, u_L, z_tildes, z_pre_layers):
+        z_hats = []
+        z_hats_BN = []
+        z_hat_l = u_L
+
+        for decoder, z_tilde, z_pre_l in zip(self.decoders, z_tildes, z_pre_layers):
+            z_hat_l = decoder.forward(z_tilde, z_hat_l)
+
+            z_hats.append(z_hat_l)
+
+            assert(z_hat_l.size() == z_pre_l.size())
+
+            mu = z_pre_l.mean(dim=0)
+            sigma = z_pre_l.std(dim=0)
+            ones = torch.ones(z_pre_l.size()[0], 1).to(self.device)
+
+            z_hats_BN.append(torch.div(z_hat_l - mu.expand_as(z_hat_l), ones.mm(sigma)))
+
+        return z_hats, z_hats_BN
+
+
+class Ladder(nn.Module):
+    def __init__(self, input_size, hidden_dimensions, num_classes, activations, is_linear, noise_level, device):
+        super(Ladder, self).__init__()
+
+        self.Classifier = Classifier(input_size, hidden_dimensions, num_classes, activations, is_linear, noise_level,
+                                     device)
+        self.StackedDecoders = StackedDecoders(num_classes, hidden_dimensions[::-1], input_size, device)
+
+        self.device = device
+
+    def encoder_forward_clean(self, x):
+        return self.Classifier.forward_clean(x)
+
+    def encoder_forward_noisy(self, x):
+        return self.Classifier.forward_noisy(x)
+
+    def encoder_get_zs(self):
+        return self.Classifier.get_zs()
+
+    def decoder_forward(self, h_L, z_tildes, z_pre_layers):
+        return self.StackedDecoders.forward(h_L, z_tildes, z_pre_layers)
+
+    def forward(self, x):
+        return self.encoder_forward_clean(x)
+
+
+class LadderNetwork:
+    def __init__(self, input_size, hidden_dimensions, num_classes, activation_strings, noise_level,
+                 unsupervised_loss_multipliers, device):
+
+        activations = []
+        is_linear = []
+        for act in activation_strings:
+            if act == 'relu':
+                activations.append(nn.ReLU())
+                is_linear.append(True)
+            elif act == 'softmax':
+                activations.append(nn.Softmax())
+                is_linear.append(False)
+            else:
+                raise ValueError("Not an available activation function")
+
+        self.Ladder = Ladder(input_size, hidden_dimensions, num_classes, activations, is_linear, noise_level, device)
+        self.device = device
+        self.unsupervised_loss_multipliers = unsupervised_loss_multipliers
+        self.unsupervised_criterion = nn.MSELoss()
+        self.supervised_criterion = nn.NLLLoss()
+        self.optimizer = torch.optim.Adam(self.Ladder.parameters(), lr=1e-3)
+
+    def train_one_epoch(self, supervised_dataloader, unsupervised_dataloader):
+        total_supervised_loss = 0
+        total_unsupervised_loss = 0
+
+        supervised_samples = 0
+        unsupervised_samples = 0
+
+        self.Ladder.train()
+
+        for i, (supervised, unlabeled_data) in enumerate(zip(supervised_dataloader, unsupervised_dataloader)):
+
+            supervised.to(self.device)
+            unlabeled_data.to(self.device)
+
+            self.optimizer.zero_grad()
+
+            labeled_data, labels = supervised
+
+            supervised_samples += len(labeled_data)
+            unsupervised_samples += len(unlabeled_data)
+
+            y_tilde_un, z_tildes_un = self.Ladder.encoder_forward_noisy(unlabeled_data)
+            y_tilde_lab, z_tildes_lab = self.Ladder.encoder_forward_noisy(labeled_data)
+
+            y_un, zs_un, z_pres_un = self.Ladder.encoder_forward_clean(unlabeled_data)
+            y_lab, zs_lab, z_pres_lab = self.Ladder.encoder_forward_clean(labeled_data)
+
+            assert(len(z_tildes_un) == len(z_pres_un))
+
+            z_hats_un, z_hats_BN_un = self.Ladder.decoder_forward(y_tilde_un, z_tildes_un, z_pres_un)
+            z_hats_lab, z_hats_BN_lab = self.Ladder.decoder_forward(y_tilde_lab, z_tildes_lab, z_pres_lab)
+
+            supervised_cost = self.supervised_criterion(y_tilde_lab, labels)
+            total_supervised_loss += supervised_cost.item()
+
+            unsupervised_cost = 0
+            for z, z_hat_BN in zip(zs_un, z_hats_BN_un):
+                unsupervised_cost += self.unsupervised_criterion(z, z_hat_BN)
+            for z, z_hat_BN in zip(zs_lab, z_hats_BN_lab):
+                unsupervised_cost += self.unsupervised_criterion(z, z_hat_BN)
+
+            total_unsupervised_loss += unsupervised_cost.item()
+
+            cost = supervised_cost + unsupervised_cost
+
+            cost.backward()
+            self.optimizer.step()
+
+        return total_supervised_loss/supervised_samples, total_unsupervised_loss/unsupervised_samples
+
+    def validation(self, supervised_dataloader):
+        self.Ladder.eval()
+        validation_loss = 0
+
+        with torch.no_grad():
+            for batch_idx, (data, labels) in enumerate(supervised_dataloader):
+                data.to(self.device)
+                labels.to(self.device)
+
+                y, _, _ = self.Ladder(data)
+
+                loss = self.supervised_criterion(y, labels)
+
+                validation_loss += loss.item()
+
+        return validation_loss/len(supervised_dataloader.dataset)
+
+    def test(self, dataloader):
+        self.Ladder.eval()
+
+        correct = 0
+
+        with torch.no_grad():
+            for batch_idx, (data, labels) in enumerate(dataloader):
+                y, _, _ = self.Ladder(data)
+                _, predicted = torch.max(y.data, 1)
+                correct += (predicted == labels).sum().item()
+
+        return correct/len(dataloader.dataset)
+
+    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset):
+
+        # TODO: don't use arbitrary values for batch size
+        unsupervised_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=180, shuffle=True)
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=20, shuffle=True)
+        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+
+        # simple early stopping employed (can change later)
+
+        validation_result = float("inf")
+        for epoch in range(50):
+
+            self.train_one_epoch(supervised_dataloader, unsupervised_dataloader)
+            val = self.validation(validation_dataloader)
+
+            if val > validation_result:
+                break
+
+            validation_result = val
+
+    def full_test(self, test_dataset):
+        test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
+
+        return self.test(test_dataloader)
+

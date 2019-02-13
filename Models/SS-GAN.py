@@ -108,6 +108,9 @@ class SS_GAN:
         unsupervised_samples = 0
         gen_samples = 0
 
+        self.D.train()
+        self.G.train()
+
         # any additional batches in the supervised or unsupervised dataloader will be ignored
         # num_batches = min(supervised_batches, unsupervised_batches)
         for i, (labeled_data, unlabeled_data) in enumerate(zip(supervised_dataloader, unsupervised_dataloader)):
@@ -117,7 +120,6 @@ class SS_GAN:
             labeled_data.to(self.device)
             unlabeled_data.to(self.device)
 
-            self.D.train()
             self.D_optimizer.zero_grad()
 
             labeled_inputs, labeled_outputs = labeled_data
@@ -160,7 +162,6 @@ class SS_GAN:
             # Generator training
             # ------------------
 
-            self.G.train()
             self.G_optimizer.zero_grad()
 
             validity, _ = self.D(fake)
