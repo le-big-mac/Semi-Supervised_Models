@@ -1,6 +1,7 @@
 import torch
 import os
 import csv
+import sys
 from torch import nn
 from itertools import cycle
 from torch.utils.data import DataLoader
@@ -358,6 +359,8 @@ class LadderNetwork:
 
 
 if __name__ == '__main__':
+
+    sys.path.append('../utils')
 
     mnist_train = datasets.MNIST(root='../data/MNIST', train=True, download=True, transform=None)
     mnist_test = datasets.MNIST(root='../data/MNIST', train=False, download=True, transform=transforms.ToTensor())
