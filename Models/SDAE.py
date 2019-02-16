@@ -1,6 +1,7 @@
 import torch
 import os
 import csv
+import numpy as np
 from torch import nn
 from torch.utils.data import DataLoader
 from utils import Datasets, LoadData, Arguments, KFoldSplits
@@ -26,7 +27,7 @@ class DAE(nn.Module):
         super(DAE, self).__init__()
 
         self.encoder = encoder
-        self.decoder = nn.Linear(encoder.layer.out_features, encoder.layer.in_feature)
+        self.decoder = nn.Linear(encoder.layer.out_features, encoder.layer.in_features)
 
     def forward(self, x):
         h = self.encoder(x)
@@ -39,7 +40,7 @@ class PretrainedSDAE(nn.Module):
 
         self.activation = activation
         self.pretrained_hidden_fc_layers = layers
-        self.classification_layer = nn.Linear(layers[-1].out_features, num_classes)
+        self.classification_layer = nn.Linear(layers[-1].layer.out_features, num_classes)
 
     def forward(self, x):
         cur = x
@@ -55,18 +56,22 @@ class SDAE:
         self.hidden_dimensions = hidden_dimensions
         self.input_size = input_size
         self.num_classes = num_classes
-        self.hidden_layers = []
-        self.SDAE = self.setup_model(hidden_dimensions, input_size, num_classes, activation)
+        self.hidden_layers = nn.ModuleList()
         self.device = device
+        self.SDAE = self.setup_model(hidden_dimensions, input_size, num_classes, activation)
+        self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
+        self.criterion = nn.CrossEntropyLoss(reduction='sum')
+        self.state_path = 'state/sdae.pt'
+        torch.save(self.SDAE.state_dict(), self.state_path)
 
     def setup_model(self, hidden_dimensions, input_size, num_classes, activation):
-        self.hidden_layers.append(Encoder(input_size=input_size, layer_size=hidden_dimensions[0],
-                                          activation=activation))
+        layers = [Encoder(input_size=input_size, layer_size=hidden_dimensions[0], activation=activation)]
 
         for i in range(1, len(hidden_dimensions)):
-            self.hidden_layers.append(Encoder(input_size=hidden_dimensions[i-1], layer_size=hidden_dimensions[i],
-                                              activation=activation))
+            layers.append(Encoder(input_size=hidden_dimensions[i-1], layer_size=hidden_dimensions[i],
+                                  activation=activation))
 
+        self.hidden_layers = nn.ModuleList(layers)
         return PretrainedSDAE(self.hidden_layers, num_classes, activation).to(self.device)
 
     def pretrain_hidden_layers(self, dataloader):
@@ -110,7 +115,7 @@ class SDAE:
 
         return train_loss/len(dataloader.dataset)
 
-    def supervised_train_one_epoch(self, dataloader, criterion, optimizer):
+    def supervised_train_one_epoch(self, epoch, dataloader):
         model = self.SDAE
 
         model.train()
@@ -120,16 +125,19 @@ class SDAE:
             data.to(self.device)
             labels.to(self.device)
 
-            optimizer.zero_grad()
+            self.optimizer.zero_grad()
 
             predictions = model(data)
 
-            loss = criterion(predictions, data)
+            loss = self.criterion(predictions, labels)
 
             train_loss += loss.item()
 
             loss.backward()
-            optimizer.step()
+            self.optimizer.step()
+
+        if epoch % 10 == 0:
+            print("Epoch: {} Supervised Loss: {}".format(epoch, train_loss/len(dataloader.dataset)))
 
         return train_loss/len(dataloader.dataset)
 
@@ -167,32 +175,39 @@ class SDAE:
 
         return correct/len(dataloader.dataset)
 
-    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset):
+    def reset_model(self):
+        self.SDAE.load_state_dict(torch.load(self.state_path))
 
-        combined_dataset = Datasets.UnsupervisedDataset(unsupervised_dataset.raw_data + train_dataset.raw_input)
+        self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
+
+    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
+        self.reset_model()
+
+        combined_dataset = Datasets.UnsupervisedDataset(unsupervised_dataset.data + train_dataset.inputs)
 
         pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=200, shuffle=True)
 
         self.pretrain_hidden_layers(pretraining_dataloader)
 
-        criterion = nn.CrossEntropyLoss(reduction='sum')
-        optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=40, shuffle=True)
 
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+        if validation_dataset:
+            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         # simple early stopping employed (can change later)
 
         validation_result = float("inf")
         for epoch in range(50):
 
-            self.supervised_train_one_epoch(supervised_dataloader, criterion, optimizer)
-            val = self.supervised_validation(validation_dataloader, criterion)
+            self.supervised_train_one_epoch(epoch, supervised_dataloader)
 
-            if val > validation_result:
-                break
+            if validation_dataset:
+                val = self.supervised_validation(validation_dataloader)
 
-            validation_result = val
+                if val > validation_result:
+                    break
+
+                validation_result = val
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
@@ -215,15 +230,13 @@ if __name__ == '__main__':
 
     test_results = []
 
-    for test_idx, validation_idx, train_idx in KFoldSplits.k_fold_splits_with_validation(len(unsupervised_data), 10):
-        train_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in train_idx],
-                                                   [supervised_labels[i] for i in train_idx])
-        validation_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in validation_idx],
-                                                        [supervised_labels[i] for i in validation_idx])
-        test_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in test_idx],
-                                                  [supervised_labels[i] for i in test_idx])
+    for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
+        train_dataset = Datasets.SupervisedClassificationDataset(np.asarray([supervised_data[i] for i in train_idx]),
+                                                                 np.asarray([supervised_labels[i] for i in train_idx]))
+        test_dataset = Datasets.SupervisedClassificationDataset(np.asarray([supervised_data[i] for i in test_idx]),
+                                                                np.asarray([supervised_labels[i] for i in test_idx]))
 
-        sdae.full_train(unsupervised_data, train_dataset, validation_dataset)
+        sdae.full_train(unsupervised_dataset, train_dataset)
 
         correct_percentage = sdae.full_test(test_dataset)
 
@@ -238,5 +251,5 @@ if __name__ == '__main__':
     accuracy_file = open('../results/sdae/accuracy.csv', 'w')
     accuracy_writer = csv.writer(accuracy_file)
 
-    accuracy_writer.write_row(test_results)
+    accuracy_writer.writerow(test_results)
 

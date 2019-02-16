@@ -12,10 +12,12 @@ class Classifier(nn.Module):
 
         dimensions = [input_size] + hidden_dimensions
 
-        self.fc_layers = [nn.Sequential(
+        layers = [nn.Sequential(
             nn.Linear(dimensions[i], dimensions[i+1]),
             activation,
         ) for i in list(range(len(dimensions)-1))]
+
+        self.fc_layers = nn.ModuleList(layers)
 
         self.classification_layer = nn.Linear(dimensions[-1], num_classes)
 
@@ -28,11 +30,13 @@ class Classifier(nn.Module):
 class SimpleNetwork:
     def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
         self.Classifier = Classifier(input_size, hidden_dimensions, num_classes, activation).to(device)
-        self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
-        self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
+        self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
+        self.criterion = nn.CrossEntropyLoss(reduction='sum')
+        self.state_path = 'state/simple_mlp.pt'
         self.device = device
+        torch.save(self.Classifier.state_dict(), self.state_path)
 
-    def train_classifier_one_epoch(self, dataloader):
+    def train_classifier_one_epoch(self, epoch, dataloader):
         self.Classifier.train()
         train_loss = 0
 
@@ -40,16 +44,18 @@ class SimpleNetwork:
             data.to(self.device)
             labels.to(self.device)
 
-            self.Classifier_optim.zero_grad()
+            self.optimizer.zero_grad()
 
             preds = self.Classifier(data)
 
-            loss = self.Classifier_criterion(preds, data)
+            loss = self.criterion(preds, labels)
 
             train_loss += loss.item()
 
             loss.backward()
-            self.Classifier_optim.step()
+            self.optimizer.step()
+
+        print('Epoch: {} Loss: {}'.format(epoch, train_loss/len(dataloader.dataset)))
 
         return train_loss/len(dataloader.dataset)
 
@@ -64,7 +70,7 @@ class SimpleNetwork:
 
                 predictions = self.Classifier(data)
 
-                loss = self.Classifier_criterion(predictions, labels)
+                loss = self.criterion(predictions, labels)
 
                 validation_loss += loss.item()
 
@@ -84,21 +90,32 @@ class SimpleNetwork:
 
         return correct/len(dataloader.dataset)
 
-    def full_train(self, train_dataset, validation_dataset):
+    def reset_model(self):
+        self.Classifier.load_state_dict(torch.load(self.state_path))
+
+        self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
+
+    def full_train(self, train_dataset, validation_dataset=None):
+        self.reset_model()
+
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+
+        if validation_dataset:
+            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         # simple early stopping employed (can change later)
         validation_result = float("inf")
         for epoch in range(50):
 
-            self.train_classifier_one_epoch(supervised_dataloader)
-            val = self.supervised_validation(validation_dataloader)
+            self.train_classifier_one_epoch(epoch, supervised_dataloader)
 
-            if val > validation_result:
-                break
+            if validation_dataset:
+                val = self.supervised_validation(epoch, validation_dataloader)
 
-            validation_result = val
+                if val > validation_result:
+                    break
+
+                validation_result = val
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
@@ -118,15 +135,13 @@ if __name__ == '__main__':
     simple_network = SimpleNetwork(500, [200], 10, nn.ReLU(), device)
 
     test_results = []
-    for test_idx, validation_idx, train_idx in KFoldSplits.k_fold_splits_with_validation(len(unsupervised_data), 10):
-        train_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in train_idx],
-                                                   [supervised_labels[i] for i in train_idx])
-        validation_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in validation_idx],
-                                                        [supervised_labels[i] for i in validation_idx])
-        test_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in test_idx],
-                                                  [supervised_labels[i] for i in test_idx])
+    for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
+        train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
+                                                                 [supervised_labels[i] for i in train_idx])
+        test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
+                                                                [supervised_labels[i] for i in test_idx])
 
-        simple_network.full_train(train_dataset, validation_dataset)
+        simple_network.full_train(train_dataset)
 
         correct_percentage = simple_network.full_test(test_dataset)
 
@@ -141,4 +156,4 @@ if __name__ == '__main__':
     accuracy_file = open('../results/simple_network/accuracy.csv', 'w')
     accuracy_writer = csv.writer(accuracy_file)
 
-    accuracy_writer.write_row(test_results)
+    accuracy_writer.writerow(test_results)

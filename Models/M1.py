@@ -1,30 +1,29 @@
 import torch
+import os
+import csv
 from torch import nn
-from torch import functional as F
+from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from utils import Datasets, LoadData
-
+from utils import KFoldSplits, Datasets, LoadData, Arguments
 
 class Encoder(nn.Module):
     def __init__(self, input_size, latent_dim, hidden_dimensions, activation):
         super(Encoder, self).__init__()
 
-        self.fc_layers = []
-        self.fc_layers.append(
-            nn.Sequential(
-                nn.Linear(input_size, hidden_dimensions[0]),
-                activation,
-            )
-        )
+        layers = [nn.Sequential(
+            nn.Linear(input_size, hidden_dimensions[0]),
+            activation,
+        )]
 
         for i in range(1, len(hidden_dimensions)):
-            self.fc_layers.append(
+            layers.append(
                 nn.Sequential(
                     nn.Linear(hidden_dimensions[i-1], hidden_dimensions[i]),
                     activation,
                 )
             )
 
+        self.fc_layers = nn.ModuleList(layers)
         self.mu = nn.Linear(hidden_dimensions[-1], latent_dim)
         self.logvar = nn.Linear(hidden_dimensions[-1], latent_dim)
 
@@ -36,7 +35,7 @@ class Encoder(nn.Module):
 
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5*logvar)
-        eps = torch.randn()
+        eps = torch.randn_like(std)
         z = eps.mul(std).add(mu)
         return z
 
@@ -50,26 +49,23 @@ class VAE(nn.Module):
         super(VAE, self).__init__()
 
         self.encoder = Encoder(input_size, latent_dim, hidden_dimensions, activation)
-        self.fc_layers = []
-        self.fc_layers.append(
+        layers = [
             nn.Sequential(
                 nn.Linear(latent_dim, hidden_dimensions[-1]),
                 activation,
             )
-        )
+        ]
 
         for i in range(len(hidden_dimensions), 1, -1):
-            self.fc_layers.append(
+            layers.append(
                 nn.Sequential(
                     nn.Linear(hidden_dimensions[i], hidden_dimensions[i-1]),
                     activation,
                 )
             )
 
-        self.out = nn.Sequential(
-            nn.Linear(hidden_dimensions[0], input_size),
-            nn.Sigmoid(),
-        )
+        self.fc_layers = nn.ModuleList(layers)
+        self.out = nn.Linear(hidden_dimensions[0], input_size)
 
     def forward(self, x):
         z, mu, logvar = self.encoder(x)
@@ -101,20 +97,24 @@ class M1:
         self.Classifier = Classifier(latent_size, num_classes).to(device)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
-        self.Classifier_optim = torch.optim.Adam(self.Classifier.supervised_layer.parameters(), lr=1e-3)
+        self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.device = device
+        self.vae_state_path = 'state/m1_vae.pt'
+        self.clas_state_path = 'state/m1_classifier.pt'
+        torch.save(self.VAE.state_dict(), self.vae_state_path)
+        torch.save(self.Classifier.state_dict(), self.clas_state_path)
 
     def VAE_criterion(self, pred_x, x, mu, logvar):
-        # difference between two normal distributions (N(0, 1) and parameterized)
-        # TODO: is this still a tensor?
+        # KL divergence between two normal distributions (N(0, 1) and parameterized)
         KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1)
 
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
-        BCE = F.binary_cross_entropy(pred_x, x, reduction="sum")
+        # actually not necessarily 0-1 normalised
+        BCE = nn.MSELoss(reduction='sum')(pred_x, x)
 
         return KLD + BCE
 
-    def train_VAE_one_epoch(self, dataloader):
+    def train_VAE_one_epoch(self, epoch, dataloader):
         self.VAE.train()
         train_loss = 0
 
@@ -132,14 +132,16 @@ class M1:
             loss.backward()
             self.VAE_optim.step()
 
+        print('Epoch: {} VAE Loss: {}'.format(epoch, train_loss/len(dataloader.dataset)))
+
         return train_loss/len(dataloader.dataset)
 
     def pretrain_VAE(self, dataloader):
 
         for epoch in range(50):
-            self.train_VAE_one_epoch(dataloader)
+            self.train_VAE_one_epoch(epoch, dataloader)
 
-    def train_classifier_one_epoch(self, dataloader):
+    def train_classifier_one_epoch(self, epoch, dataloader):
         self.Classifier.train()
         train_loss = 0
 
@@ -158,6 +160,8 @@ class M1:
 
             loss.backward()
             self.Classifier_optim.step()
+
+        print('Epoch {} Loss {}:'.format(epoch, train_loss/len(dataloader.dataset)))
 
         return train_loss/len(dataloader.dataset)
 
@@ -195,31 +199,80 @@ class M1:
 
         return correct/len(dataloader.dataset)
 
-    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset):
+    def reset_model(self):
+        self.VAE.load_state_dict(torch.load(self.vae_state_path))
+        self.Classifier.load_state_dict(torch.load(self.clas_state_path))
 
-        combined_dataset = Datasets.UnsupervisedDataset(unsupervised_dataset.raw_data + train_dataset.raw_input)
+        self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
+        self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
+
+    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
+        self.reset_model()
+
+        combined_dataset = Datasets.UnsupervisedDataset(unsupervised_dataset.data + train_dataset.inputs)
 
         pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=200, shuffle=True)
 
         self.pretrain_VAE(pretraining_dataloader)
 
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=40, shuffle=True)
+
+        if validation_dataset:
+            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         # simple early stopping employed (can change later)
         validation_result = float("inf")
         for epoch in range(50):
 
-            self.train_classifier_one_epoch(supervised_dataloader)
-            val = self.supervised_validation(validation_dataloader)
+            self.train_classifier_one_epoch(epoch, supervised_dataloader)
 
-            if val > validation_result:
-                break
+            if validation_dataset:
+                val = self.supervised_validation(validation_dataloader)
 
-            validation_result = val
+                if val > validation_result:
+                    break
+
+                validation_result = val
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
         return self.supervised_test(test_dataloader)
+
+if __name__ == '__main__':
+
+    args = Arguments.parse_args()
+
+    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data(
+        args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    m1 = M1([200], 50, 500, 10, nn.ReLU(), device)
+
+    unsupervised_dataset = Datasets.UnsupervisedDataset(unsupervised_data)
+
+    test_results = []
+    for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
+        train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
+                                                                 [supervised_labels[i] for i in train_idx])
+        test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
+                                                                [supervised_labels[i] for i in test_idx])
+
+        m1.full_train(unsupervised_dataset, train_dataset)
+
+        correct_percentage = m1.full_test(test_dataset)
+
+        test_results.append(correct_percentage)
+
+    if not os.path.exists('../results'):
+        os.mkdir('../results')
+        os.mkdir('../results/m1')
+    elif not os.path.exists('../results/m1'):
+        os.mkdir('../results/m1')
+
+    accuracy_file = open('../results/m1/accuracy.csv', 'w')
+    accuracy_writer = csv.writer(accuracy_file)
+
+    accuracy_writer.writerow(test_results)
 

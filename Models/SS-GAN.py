@@ -9,13 +9,18 @@ from utils import Datasets, LoadData, Arguments, KFoldSplits
 class Classifier(nn.Module):
     def __init__(self, data_dim, hidden_dimensions, num_classes, activation):
         super(Classifier, self).__init__()
-        self.fc_layers = []
-        self.activation = activation
-        self.fc_layers.append(nn.Linear(data_dim, hidden_dimensions[0]))
+        layers = [nn.Sequential(
+            nn.Linear(data_dim, hidden_dimensions[0]),
+            activation,
+        )]
 
         for i in range(1, len(hidden_dimensions)):
-            self.layers.append(nn.Linear(hidden_dimensions[i - 1], hidden_dimensions[i]))
+            layers.append(nn.Sequential(
+                nn.Linear(hidden_dimensions[i - 1], hidden_dimensions[i]),
+                activation,
+            ))
 
+        self.fc_layers = nn.ModuleList(layers)
         self.classification_layer = nn.Linear(hidden_dimensions[-1], num_classes)
         self.discriminator_layer = nn.Sequential(
             nn.Linear(hidden_dimensions[-1], 1),
@@ -26,7 +31,7 @@ class Classifier(nn.Module):
     # maybe don't have the separation of validity? K+1 classes
     def forward(self, x):
         for layer in self.fc_layers:
-            x = self.activation(layer(x))
+            x = layer(x)
 
         return self.discriminator_layer(x), self.classification_layer(x)
 
@@ -34,24 +39,24 @@ class Classifier(nn.Module):
 class Generator(nn.Module):
     def __init__(self, latent_dim, hidden_dimensions, data_dim, activation):
         super(Generator, self).__init__()
-
-        self.fc_layers = []
-        self.activation = activation
-        self.fc_layers.append(nn.Linear(latent_dim, hidden_dimensions[0]))
+        layers = [nn.Sequential(
+            nn.Linear(latent_dim, hidden_dimensions[0]),
+            activation,
+        )]
 
         for i in range(1, len(hidden_dimensions)):
-            self.layers.append(nn.Linear(hidden_dimensions[i - 1], hidden_dimensions[i]))
+            layers.append(nn.Sequential(
+                nn.Linear(hidden_dimensions[i - 1], hidden_dimensions[i]),
+                activation,
+            ))
 
-        self.output_layer = nn.Sequential(
-            nn.Linear(hidden_dimensions[-1], data_dim),
-            nn.Sigmoid(),
-        )
+        self.fc_layers = nn.ModuleList(layers)
+        self.output_layer = nn.Linear(hidden_dimensions[-1], data_dim)
 
-        # sigmoid as assume other data has been normalized
 
     def forward(self, x):
         for layer in self.fc_layers:
-            x = self.activation(layer(x))
+            x = layer(x)
 
         return self.output_layer(x)
 
@@ -66,6 +71,10 @@ class SS_GAN:
         self.num_classes = num_classes
         self.device = device
         self.latent_dim = latent_size
+        self.gen_state_path = 'state/ss-gen.pt'
+        self.dis_state_path = 'state/ss-dis.pt'
+        torch.save(self.G.state_dict(), self.gen_state_path)
+        torch.save(self.D.state_dict(), self.dis_state_path)
 
     def classifier_loss(self, classification_logits, real_labels):
         # loss for (xi, yi) is -log(q(xi)(j)) where yi(j) == 1 (only one element in label vector)
@@ -99,7 +108,7 @@ class SS_GAN:
 
         return distance
 
-    def train_one_epoch(self, supervised_dataloader, unsupervised_dataloader):
+    def train_one_epoch(self, epoch, supervised_dataloader, unsupervised_dataloader):
         total_supervised_loss = 0
         total_unsupervised_loss = 0
         total_gen_loss = 0
@@ -117,12 +126,13 @@ class SS_GAN:
             # ----------------------
             # Discriminator training
             # ----------------------
-            labeled_data.to(self.device)
+            labeled_inputs, labeled_outputs = labeled_data
+
+            labeled_inputs.to(self.device)
+            labeled_outputs.to(self.device)
             unlabeled_data.to(self.device)
 
             self.D_optimizer.zero_grad()
-
-            labeled_inputs, labeled_outputs = labeled_data
 
             supervised_samples += len(labeled_inputs)
 
@@ -135,13 +145,13 @@ class SS_GAN:
 
             unsupervised_samples += len(unlabeled_data)
 
-            unsupervised_valid, _ = self.D(unlabeled_data)
+            unsupervised_valid, _ = self.D(unlabeled_data.float())
 
             discriminator_real_loss = self.discriminator_real_loss(unsupervised_valid)
             discriminator_real_loss.backward()
 
             # Half of the data is fake (same amount as supervised+unsupervised)
-            gen_input = torch.randn(len(unlabeled_data) + len(labeled_inputs), 50, device=self.device)
+            gen_input = torch.randn(len(unlabeled_data) + len(labeled_inputs), self.latent_dim, device=self.device)
 
             gen_samples += len(gen_input)
 
@@ -172,6 +182,10 @@ class SS_GAN:
             total_gen_loss += generator_loss.item()
 
             self.G_optimizer.step()
+
+        print('Epoch: {} Supervised Loss: {} Unsupervised Loss: {} Gen Loss: {}'.
+              format(epoch, total_supervised_loss/supervised_samples, total_unsupervised_loss/unsupervised_samples,
+                     total_gen_loss / gen_samples))
 
         return total_supervised_loss/supervised_samples, total_unsupervised_loss/unsupervised_samples, \
                total_gen_loss/gen_samples
@@ -210,25 +224,37 @@ class SS_GAN:
 
         return correct/len(dataloader.dataset)
 
-    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset):
+    def reset_model(self):
+        self.G.load_state_dict(torch.load(self.gen_state_path))
+        self.D.load_state_dict(torch.load(self.dis_state_path))
+
+        self.G_optimizer = torch.optim.Adam(self.G.parameters(), lr=1e-3)
+        self.D_optimizer = torch.optim.Adam(self.D.parameters(), lr=1e-3)
+
+    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
+        self.reset_model()
 
         # TODO: don't use arbitrary values for batch size
         unsupervised_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=180, shuffle=True)
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=20, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+
+        if validation_dataset:
+            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         # simple early stopping employed (can change later)
 
         validation_result = float("inf")
         for epoch in range(50):
 
-            self.train_one_epoch(supervised_dataloader, unsupervised_dataloader)
-            val = self.validation(validation_dataloader)
+            self.train_one_epoch(epoch, supervised_dataloader, unsupervised_dataloader)
 
-            if val > validation_result:
-                break
+            if validation_dataset:
+                val = self.validation(validation_dataloader)
 
-            validation_result = val
+                if val > validation_result:
+                    break
+
+                validation_result = val
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
@@ -251,16 +277,14 @@ if __name__ == '__main__':
 
     test_results = []
 
-    for test_idx, validation_idx, train_idx in KFoldSplits.k_fold_splits_with_validation(len(unsupervised_data), 10):
+    for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
 
-        train_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in train_idx],
-                                                   [supervised_labels[i] for i in train_idx])
-        validation_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in validation_idx],
-                                                        [supervised_labels[i] for i in validation_idx])
-        test_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in test_idx],
-                                                  [supervised_labels[i] for i in test_idx])
+        train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
+                                                                 [supervised_labels[i] for i in train_idx])
+        test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
+                                                                [supervised_labels[i] for i in test_idx])
 
-        ss_gan.full_train(unsupervised_data, train_dataset, validation_dataset)
+        ss_gan.full_train(unsupervised_data, train_dataset)
 
         correct_percentage = ss_gan.full_test(test_dataset)
 
@@ -275,4 +299,4 @@ if __name__ == '__main__':
     accuracy_file = open('../results/ss-gan/accuracy.csv', 'w')
     accuracy_writer = csv.writer(accuracy_file)
 
-    accuracy_writer.write_row(test_results)
+    accuracy_writer.writerow(test_results)

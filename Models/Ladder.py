@@ -1,6 +1,10 @@
 import torch
+import os
+import csv
 from torch import nn
-from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
+from torch.utils.data import DataLoader
+from torchvision import datasets
+from utils import Arguments, Datasets, KFoldSplits, LoadData
 
 
 class Encoder(nn.Module):
@@ -12,11 +16,13 @@ class Encoder(nn.Module):
         self.batch_norm_noisy = nn.BatchNorm1d(output_size, affine=False)
         self.batch_norm_clean = nn.BatchNorm1d(output_size, affine=False)
         self.beta = nn.Parameter(torch.zeros(1, output_size).to(device))
+        self.is_linear = is_linear
 
         if not is_linear:
             self.gamma = nn.Parameter(torch.ones(1, output_size).to(device))
 
         self.noise = noise_level
+        self.device = device
 
     def forward_clean(self, x):
         z_pre = self.W(x)
@@ -35,7 +41,8 @@ class Encoder(nn.Module):
         return h, z, z_pre
 
     def forward_noisy(self, x):
-        z_pre_tilde = self.W(x) + self.noise*torch.randn(x.size()).to(self.device)
+        temp = self.W(x)
+        z_pre_tilde = temp + self.noise*torch.randn_like(temp).to(self.device)
         z_tilde = self.batch_norm_noisy(z_pre_tilde)
         h_tilde = self.activation(z_tilde + self.beta.expand_as(z_tilde))
 
@@ -53,18 +60,19 @@ class Classifier(nn.Module):
         super(Classifier, self).__init__()
 
         dimensions = [input_size] + hidden_dimensions + [num_classes]
-
-        self.encoders = [Encoder(dimensions[i], dimensions[i+1], activations[i], noise_level, is_linear[i], device)
+        encoders = [Encoder(dimensions[i], dimensions[i+1], activations[i], noise_level, is_linear[i], device)
                          for i in list(range(len(dimensions)-1))]
+
+        self.encoders = nn.ModuleList(encoders)
 
         self.noise = noise_level
         self.device = device
 
     def forward_clean(self, x):
-        zs = []
-        z_pres = []
+        zs = [x]
 
         h = x
+        z_pres = [h]
         for encoder in self.encoders:
             h, z, z_pre = encoder.forward_clean(h)
 
@@ -79,11 +87,9 @@ class Classifier(nn.Module):
         return self.zs, self.z_pres
 
     def forward_noisy(self, x):
-        z_tildes = []
-
         # h_tilde(0) = z_tilde(0)
-        h_tilde = x + self.noise*torch.randn(x.size()).to(self.device)
-        z_tildes.append(h_tilde)
+        h_tilde = x + self.noise*torch.randn_like(x).to(self.device)
+        z_tildes = [h_tilde]
         for encoder in self.encoders:
             h_tilde, z_tilde = encoder.forward_noisy(h_tilde)
 
@@ -161,10 +167,11 @@ class StackedDecoders(nn.Module):
 
         dimensions = [num_classes] + hidden_dimensions + [input_size]
 
-        # TODO: change this so first layer accepts y_tilde as u_L not z_tilde_L+1
-        self.decoders = Decoder(num_classes, num_classes, True, device)
-        self.decoders = self.decoders + [Decoder(dimensions[i], dimensions[i+1], False, device)
-                                         for i in list(range(len(dimensions)-1))]
+        decoders = [Decoder(num_classes, num_classes, True, device)]
+        decoders.extend([Decoder(dimensions[i], dimensions[i+1], False, device)
+                         for i in list(range(len(dimensions)-1))])
+
+        self.decoders = nn.ModuleList(decoders)
 
         self.device = device
 
@@ -184,7 +191,7 @@ class StackedDecoders(nn.Module):
             sigma = z_pre_l.std(dim=0)
             ones = torch.ones(z_pre_l.size()[0], 1).to(self.device)
 
-            z_hats_BN.append(torch.div(z_hat_l - mu.expand_as(z_hat_l), ones.mm(sigma)))
+            z_hats_BN.append(torch.div(z_hat_l - mu.expand_as(z_hat_l), ones.mm(torch.unsqueeze(sigma, 0))))
 
         return z_hats, z_hats_BN
 
@@ -195,6 +202,7 @@ class Ladder(nn.Module):
 
         self.Classifier = Classifier(input_size, hidden_dimensions, num_classes, activations, is_linear, noise_level,
                                      device)
+
         self.StackedDecoders = StackedDecoders(num_classes, hidden_dimensions[::-1], input_size, device)
 
         self.device = device
@@ -226,7 +234,7 @@ class LadderNetwork:
                 activations.append(nn.ReLU())
                 is_linear.append(True)
             elif act == 'softmax':
-                activations.append(nn.Softmax())
+                activations.append(nn.LogSoftmax(dim=1))
                 is_linear.append(False)
             else:
                 raise ValueError("Not an available activation function")
@@ -237,8 +245,10 @@ class LadderNetwork:
         self.unsupervised_criterion = nn.MSELoss()
         self.supervised_criterion = nn.NLLLoss()
         self.optimizer = torch.optim.Adam(self.Ladder.parameters(), lr=1e-3)
+        self.state_path = 'state/ladder.pt'
+        torch.save(self.Ladder.state_dict(), self.state_path)
 
-    def train_one_epoch(self, supervised_dataloader, unsupervised_dataloader):
+    def train_one_epoch(self, epoch, supervised_dataloader, unsupervised_dataloader):
         total_supervised_loss = 0
         total_unsupervised_loss = 0
 
@@ -248,13 +258,14 @@ class LadderNetwork:
         self.Ladder.train()
 
         for i, (supervised, unlabeled_data) in enumerate(zip(supervised_dataloader, unsupervised_dataloader)):
-
-            supervised.to(self.device)
-            unlabeled_data.to(self.device)
-
             self.optimizer.zero_grad()
 
             labeled_data, labels = supervised
+            unlabeled_data = unlabeled_data.float()
+
+            labeled_data.to(self.device)
+            labels.to(self.device)
+            unlabeled_data.to(self.device)
 
             supervised_samples += len(labeled_data)
             unsupervised_samples += len(unlabeled_data)
@@ -267,17 +278,21 @@ class LadderNetwork:
 
             assert(len(z_tildes_un) == len(z_pres_un))
 
-            z_hats_un, z_hats_BN_un = self.Ladder.decoder_forward(y_tilde_un, z_tildes_un, z_pres_un)
-            z_hats_lab, z_hats_BN_lab = self.Ladder.decoder_forward(y_tilde_lab, z_tildes_lab, z_pres_lab)
+            # reverse lists because need to be in opposite order for decoders
+            z_hats_un, z_hats_BN_un = self.Ladder.decoder_forward(y_tilde_un, z_tildes_un[::-1], z_pres_un[::-1])
+            z_hats_lab, z_hats_BN_lab = self.Ladder.decoder_forward(y_tilde_lab, z_tildes_lab[::-1], z_pres_lab[::-1])
 
             supervised_cost = self.supervised_criterion(y_tilde_lab, labels)
             total_supervised_loss += supervised_cost.item()
 
             unsupervised_cost = 0
-            for z, z_hat_BN in zip(zs_un, z_hats_BN_un):
-                unsupervised_cost += self.unsupervised_criterion(z, z_hat_BN)
-            for z, z_hat_BN in zip(zs_lab, z_hats_BN_lab):
-                unsupervised_cost += self.unsupervised_criterion(z, z_hat_BN)
+            for multiplier, z, z_hat_BN in zip(self.unsupervised_loss_multipliers, zs_un, z_hats_BN_un[::-1]):
+                print(multiplier)
+                print(z)
+                print(z_hat_BN)
+                unsupervised_cost += multiplier*self.unsupervised_criterion(z, z_hat_BN)
+            for multiplier, z, z_hat_BN in zip(self.unsupervised_loss_multipliers, zs_lab, z_hats_BN_lab[::-1]):
+                unsupervised_cost += multiplier*self.unsupervised_criterion(z, z_hat_BN)
 
             total_unsupervised_loss += unsupervised_cost.item()
 
@@ -285,6 +300,9 @@ class LadderNetwork:
 
             cost.backward()
             self.optimizer.step()
+
+        print('Epoch: {} Supervised Loss: {} Unsupervised Loss {}'
+              .format(epoch, total_supervised_loss/supervised_samples, total_unsupervised_loss/unsupervised_samples))
 
         return total_supervised_loss/supervised_samples, total_unsupervised_loss/unsupervised_samples
 
@@ -318,28 +336,93 @@ class LadderNetwork:
 
         return correct/len(dataloader.dataset)
 
-    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset):
+    def reset_model(self):
+        self.Ladder.load_state_dict(torch.load(self.state_path))
+        self.optimizer = torch.optim.Adam(self.Ladder.parameters(), lr=1e-3)
+
+    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
+        self.reset_model()
 
         # TODO: don't use arbitrary values for batch size
-        unsupervised_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=180, shuffle=True)
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=20, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+        unsupervised_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=160, shuffle=True)
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=40, shuffle=True)
+
+        if validation_dataset:
+            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         # simple early stopping employed (can change later)
 
         validation_result = float("inf")
         for epoch in range(50):
 
-            self.train_one_epoch(supervised_dataloader, unsupervised_dataloader)
-            val = self.validation(validation_dataloader)
+            self.train_one_epoch(epoch, supervised_dataloader, unsupervised_dataloader)
 
-            if val > validation_result:
-                break
+            if validation_dataset:
+                val = self.validation(validation_dataloader)
 
-            validation_result = val
+                if val > validation_result:
+                    break
+
+                validation_result = val
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
         return self.test(test_dataloader)
 
+
+if __name__ == '__main__':
+
+    mnist_train = datasets.MNIST(root='../data/MNIST', train=True, download=True, transform=None)
+    mnist_test = datasets.MNIST(root='../data/MNIST', train=False, download=True, transform=None)
+
+    supervised_dataset = Datasets.SupervisedClassificationDataset(
+        [tens.view(784,) for tens in mnist_train.train_data[0:1000]], mnist_train.train_labels[0:1000])
+
+    unsupervised_dataset = Datasets.UnsupervisedDataset([tens.view(784,) for
+                                                         tens in mnist_train.train_data[1000:60000]])
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    ladder = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, ['relu', 'relu', 'relu', 'relu', 'relu', 'softmax'],
+                           0.2, [1000, 10, 0.1, 0.1, 0.1, 0.1, 0.1], device)
+
+    # args = Arguments.parse_args()
+    #
+    # unsupervised_data, supervised_data, supervised_labels = LoadData.load_data(
+    #     args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
+    #
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #
+    # ladder = LadderNetwork(500, [200], 10, ['relu', 'softmax'], 0.2, [], device)
+    #
+    # unsupervised_dataset = Datasets.UnsupervisedDataset(unsupervised_data)
+    # for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
+    #
+    #     train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
+    #                                                              [supervised_labels[i] for i in train_idx])
+    #     test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
+    #                                                             [supervised_labels[i] for i in test_idx])
+    #
+    #     ladder.full_train(unsupervised_dataset, train_dataset)
+    #
+    #     correct_percentage = ladder.full_test(test_dataset)
+    #
+    #     test_results.append(correct_percentage)
+
+    ladder.full_train(unsupervised_dataset, supervised_dataset)
+
+    percentage = ladder.full_test(mnist_test)
+
+    print(percentage)
+
+    # if not os.path.exists('../results'):
+    #     os.mkdir('../results')
+    #     os.mkdir('../results/ladder')
+    # elif not os.path.exists('../results/ladder'):
+    #     os.mkdir('../results/ladder')
+    #
+    # accuracy_file = open('../results/ladder/accuracy.csv', 'w')
+    # accuracy_writer = csv.writer(accuracy_file)
+    #
+    # accuracy_writer.writerow(test_results)

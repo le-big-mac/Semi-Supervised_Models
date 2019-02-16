@@ -10,26 +10,29 @@ class Encoder(nn.Module):
     def __init__(self, input_size, hidden_dimensions, num_classes, activation):
         super(Encoder, self).__init__()
 
-        self.fc_layers = []
-        self.fc_layers.append(
+        layers = [
             nn.Sequential(
                 nn.Linear(input_size, hidden_dimensions[0]),
                 activation,
             )
-        )
+        ]
 
         for i in range(1, len(hidden_dimensions)):
-            self.fc_layers.append(
+            layers.append(
                 nn.Sequential(
                     nn.Linear(hidden_dimensions[i-1], hidden_dimensions[i]),
                     activation,
                 )
             )
 
+        self.fc_layers = nn.ModuleList(layers)
         self.classification_layer = nn.Linear(hidden_dimensions[-1], num_classes)
 
     def forward(self, x):
-        return self.encoder(x)
+        for layer in self.fc_layers:
+            x = layer(x)
+
+        return self.classification_layer(x)
 
 
 class Autoencoder(nn.Module):
@@ -37,31 +40,32 @@ class Autoencoder(nn.Module):
         super(Autoencoder, self).__init__()
 
         self.encoder = Encoder(input_size, hidden_dimensions, num_classes, activation)
-        self.fc_layers = []
-        self.fc_layers.append(
+
+        layers = [
             nn.Sequential(
                 nn.Linear(num_classes, hidden_dimensions[-1]),
                 activation,
             )
-        )
+        ]
 
         for i in range(len(hidden_dimensions), 1, -1):
-            self.fc_layers.append(
+            layers.append(
                 nn.Sequential(
                     nn.Linear(hidden_dimensions[i], hidden_dimensions[i-1]),
                     activation,
                 )
             )
 
-        # sigmoid maybe not necessary (constraining input to 0-1)
-        self.output_layer = nn.Sequential(
-            nn.Linear(hidden_dimensions[0], input_size),
-            nn.Sigmoid(),
-        )
+        self.fc_layers = nn.ModuleList(layers)
+        self.output_layer = nn.Linear(hidden_dimensions[0], input_size)
 
     def forward(self, x):
-        encoded = self.encoder(x)
-        return self.decoder(encoded)
+        h = self.encoder(x)
+
+        for layer in self.fc_layers:
+            h = layer(h)
+
+        return self.output_layer(h)
 
 
 class DeepMetabolism:
@@ -73,6 +77,8 @@ class DeepMetabolism:
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
         self.device = device
+        self.state_path = 'state/deep_metabolism.pt'
+        torch.save(self.Autoencoder.state_dict(), self.state_path)
 
     def unsupervised_train_one_epoch(self, dataloader):
         self.Autoencoder.train()
@@ -98,7 +104,7 @@ class DeepMetabolism:
         for epoch in range(50):
             self.unsupervised_train_one_epoch(dataloader)
 
-    def train_classifier_one_epoch(self, dataloader):
+    def train_classifier_one_epoch(self, epoch, dataloader):
         self.Classifier.train()
         train_loss = 0
 
@@ -110,12 +116,14 @@ class DeepMetabolism:
 
             preds = self.Classifier(data)
 
-            loss = self.Classifier_criterion(preds, data)
+            loss = self.Classifier_criterion(preds, labels)
 
             train_loss += loss.item()
 
             loss.backward()
             self.Classifier_optim.step()
+
+        print('Epoch: {} Loss: {}'.format(epoch, train_loss/len(dataloader.dataset)))
 
         return train_loss/len(dataloader.dataset)
 
@@ -150,28 +158,40 @@ class DeepMetabolism:
 
         return correct/len(dataloader.dataset)
 
-    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset):
+    def reset_model(self):
+        self.Autoencoder.load_state_dict(torch.load(self.state_path))
+        self.Classifier = self.Autoencoder.encoder
 
-        combined_dataset = Datasets.UnsupervisedDataset(unsupervised_dataset.raw_data + train_dataset.raw_input)
+        self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
+        self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
+
+    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
+        self.reset_model()
+
+        combined_dataset = Datasets.UnsupervisedDataset(unsupervised_dataset.data + train_dataset.inputs)
 
         pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=200, shuffle=True)
 
         self.pretrain_classifier(pretraining_dataloader)
 
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+
+        if validation_dataset:
+            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         # simple early stopping employed (can change later)
         validation_result = float("inf")
         for epoch in range(50):
 
-            self.train_classifier_one_epoch(supervised_dataloader)
-            val = self.supervised_validation(validation_dataloader)
+            self.train_classifier_one_epoch(epoch, supervised_dataloader)
 
-            if val > validation_result:
-                break
+            if validation_dataset:
+                val = self.supervised_validation(validation_dataloader)
 
-            validation_result = val
+                if val > validation_result:
+                    break
+
+                validation_result = val
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
@@ -194,15 +214,13 @@ if __name__ == '__main__':
 
     test_results = []
 
-    for test_idx, validation_idx, train_idx in KFoldSplits.k_fold_splits_with_validation(len(unsupervised_data), 10):
-        train_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in train_idx],
-                                                   [supervised_labels[i] for i in train_idx])
-        validation_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in validation_idx],
-                                                        [supervised_labels[i] for i in validation_idx])
-        test_dataset = Datasets.SupervisedDataset([supervised_data[i] for i in test_idx],
-                                                  [supervised_labels[i] for i in test_idx])
+    for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
+        train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
+                                                                 [supervised_labels[i] for i in train_idx])
+        test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
+                                                                [supervised_labels[i] for i in test_idx])
 
-        deep_metabolism.full_train(unsupervised_data, train_dataset, validation_dataset)
+        deep_metabolism.full_train(unsupervised_dataset, train_dataset)
 
         correct_percentage = deep_metabolism.full_test(test_dataset)
 
@@ -217,5 +235,5 @@ if __name__ == '__main__':
     accuracy_file = open('../results/deep_metabolism/accuracy.csv', 'w')
     accuracy_writer = csv.writer(accuracy_file)
 
-    accuracy_writer.write_row(test_results)
+    accuracy_writer.writerow(test_results)
 
