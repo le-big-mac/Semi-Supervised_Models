@@ -251,7 +251,7 @@ class LadderNetwork:
         self.state_path = 'state/ladder.pt'
         torch.save(self.Ladder.state_dict(), self.state_path)
 
-    def train_one_epoch(self, epoch, supervised_dataloader, unsupervised_dataloader):
+    def train_one_epoch(self, epoch, supervised_dataloader, unsupervised_dataloader, validation_dataloader):
         total_supervised_loss = 0
         total_unsupervised_loss = 0
 
@@ -302,8 +302,11 @@ class LadderNetwork:
             cost.backward()
             self.optimizer.step()
 
-        print('Epoch: {} Supervised Loss: {} Unsupervised Loss {}'
-              .format(epoch, total_supervised_loss, total_unsupervised_loss))
+            if i % 10 == 0:
+                validation_acc = self.validation(epoch, validation_dataloader)
+                print('Epoch: {} Supervised Loss: {} Unsupervised Loss {} Validation Accuracy: {}'
+                      .format(epoch, total_supervised_loss, total_unsupervised_loss, validation_acc))
+
 
         return total_supervised_loss/supervised_samples, total_unsupervised_loss/unsupervised_samples
 
@@ -317,8 +320,6 @@ class LadderNetwork:
                 y, _, _ = self.Ladder(data)
                 _, predicted = torch.max(y.data, 1)
                 correct += (predicted == labels).sum().item()
-
-        print('Epoch: {} Validation Loss: {}'.format(epoch, correct/len(dataloader.dataset)))
 
         return correct / len(dataloader.dataset)
 
@@ -374,7 +375,8 @@ if __name__ == '__main__':
 
     test_dataset = mnist_test
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = 'cpu'
 
     ladder = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, ['relu', 'relu', 'relu', 'relu', 'relu', 'softmax'],
                            0.2, [1000, 10, 0.1, 0.1, 0.1, 0.1, 0.1], device)
