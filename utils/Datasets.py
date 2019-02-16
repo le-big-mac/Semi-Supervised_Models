@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 from torch.utils.data import Dataset
+from torchvision import transforms
+from PIL import Image
 
 
 class SupervisedClassificationDataset(Dataset):
@@ -30,3 +32,35 @@ class UnsupervisedDataset(Dataset):
 
     def __getitem__(self, index):
         return self.data[index]
+
+
+class MNISTSupervised(Dataset):
+    def __init__(self, data, labels):
+
+        self.data = data
+        self.labels = labels
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        img = self.data[index]
+        label = self.labels[index]
+
+        # Thanks Yann LeCun
+        img = transforms.ToTensor()(Image.fromarray(img.numpy(), mode='L')).view(784,)
+
+        return img, label
+
+
+class MNISTUnsupervised(Dataset):
+    def __init__(self, data):
+        self.data = data
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        img = self.data[index]
+        img = transforms.ToTensor()(Image.fromarray(img.numpy(), mode='L')).view(784,)
+        return img

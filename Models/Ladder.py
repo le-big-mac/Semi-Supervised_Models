@@ -2,8 +2,9 @@ import torch
 import os
 import csv
 from torch import nn
+from itertools import cycle
 from torch.utils.data import DataLoader
-from torchvision import datasets
+from torchvision import datasets, transforms
 from utils import Arguments, Datasets, KFoldSplits, LoadData
 
 
@@ -38,7 +39,8 @@ class Encoder(nn.Module):
             h = self.activation(torch.mul(gamma, z_beta))
 
         # z_pre used in reconstruction cost
-        return h, z, z_pre
+        # loss should be back-propagated through z_tilde not z and z_pre
+        return h, z.detach().clone(), z_pre.detach().clone()
 
     def forward_noisy(self, x):
         temp = self.W(x)
@@ -257,7 +259,8 @@ class LadderNetwork:
 
         self.Ladder.train()
 
-        for i, (supervised, unlabeled_data) in enumerate(zip(supervised_dataloader, unsupervised_dataloader)):
+        # Repeat the supervised dataloader (several full supervised trains for one unsupervised train)
+        for i, (supervised, unlabeled_data) in enumerate(zip(cycle(supervised_dataloader), unsupervised_dataloader)):
             self.optimizer.zero_grad()
 
             labeled_data, labels = supervised
@@ -286,12 +289,9 @@ class LadderNetwork:
             total_supervised_loss += supervised_cost.item()
 
             unsupervised_cost = 0
-            for multiplier, z, z_hat_BN in zip(self.unsupervised_loss_multipliers, zs_un, z_hats_BN_un[::-1]):
-                print(multiplier)
-                print(z)
-                print(z_hat_BN)
+            for multiplier, z, z_hat_BN in zip(self.unsupervised_loss_multipliers, zs_un[::-1], z_hats_BN_un):
                 unsupervised_cost += multiplier*self.unsupervised_criterion(z, z_hat_BN)
-            for multiplier, z, z_hat_BN in zip(self.unsupervised_loss_multipliers, zs_lab, z_hats_BN_lab[::-1]):
+            for multiplier, z, z_hat_BN in zip(self.unsupervised_loss_multipliers, zs_lab[::-1], z_hats_BN_lab):
                 unsupervised_cost += multiplier*self.unsupervised_criterion(z, z_hat_BN)
 
             total_unsupervised_loss += unsupervised_cost.item()
@@ -302,26 +302,24 @@ class LadderNetwork:
             self.optimizer.step()
 
         print('Epoch: {} Supervised Loss: {} Unsupervised Loss {}'
-              .format(epoch, total_supervised_loss/supervised_samples, total_unsupervised_loss/unsupervised_samples))
+              .format(epoch, total_supervised_loss, total_unsupervised_loss))
 
         return total_supervised_loss/supervised_samples, total_unsupervised_loss/unsupervised_samples
 
-    def validation(self, supervised_dataloader):
+    def validation(self, epoch, dataloader):
         self.Ladder.eval()
-        validation_loss = 0
+
+        correct = 0
 
         with torch.no_grad():
-            for batch_idx, (data, labels) in enumerate(supervised_dataloader):
-                data.to(self.device)
-                labels.to(self.device)
-
+            for batch_idx, (data, labels) in enumerate(dataloader):
                 y, _, _ = self.Ladder(data)
+                _, predicted = torch.max(y.data, 1)
+                correct += (predicted == labels).sum().item()
 
-                loss = self.supervised_criterion(y, labels)
+        print('Epoch: {} Validation Loss: {}'.format(epoch, correct/len(dataloader.dataset)))
 
-                validation_loss += loss.item()
-
-        return validation_loss/len(supervised_dataloader.dataset)
+        return correct / len(dataloader.dataset)
 
     def test(self, dataloader):
         self.Ladder.eval()
@@ -344,26 +342,14 @@ class LadderNetwork:
         self.reset_model()
 
         # TODO: don't use arbitrary values for batch size
-        unsupervised_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=160, shuffle=True)
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=40, shuffle=True)
+        unsupervised_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=100, shuffle=True)
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
+        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
-        if validation_dataset:
-            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
-
-        # simple early stopping employed (can change later)
-
-        validation_result = float("inf")
-        for epoch in range(50):
+        for epoch in range(20):
 
             self.train_one_epoch(epoch, supervised_dataloader, unsupervised_dataloader)
-
-            if validation_dataset:
-                val = self.validation(validation_dataloader)
-
-                if val > validation_result:
-                    break
-
-                validation_result = val
+            self.validation(epoch, validation_dataloader)
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
@@ -374,18 +360,25 @@ class LadderNetwork:
 if __name__ == '__main__':
 
     mnist_train = datasets.MNIST(root='../data/MNIST', train=True, download=True, transform=None)
-    mnist_test = datasets.MNIST(root='../data/MNIST', train=False, download=True, transform=None)
+    mnist_test = datasets.MNIST(root='../data/MNIST', train=False, download=True, transform=transforms.ToTensor())
 
-    supervised_dataset = Datasets.SupervisedClassificationDataset(
-        [tens.view(784,) for tens in mnist_train.train_data[0:1000]], mnist_train.train_labels[0:1000])
+    unsupervised_dataset = Datasets.MNISTUnsupervised(mnist_train.train_data[:49000])
 
-    unsupervised_dataset = Datasets.UnsupervisedDataset([tens.view(784,) for
-                                                         tens in mnist_train.train_data[1000:60000]])
+    supervised_dataset = Datasets.MNISTSupervised(mnist_train.train_data[49000:50000],
+                                                  mnist_train.train_labels[49000:50000])
+
+    validation_dataset = Datasets.MNISTSupervised(mnist_train.train_data[50000:], mnist_train.train_labels[50000:])
+
+    test_dataset = mnist_test
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     ladder = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, ['relu', 'relu', 'relu', 'relu', 'relu', 'softmax'],
                            0.2, [1000, 10, 0.1, 0.1, 0.1, 0.1, 0.1], device)
+
+    print(ladder.Ladder)
+
+    ladder.full_train(unsupervised_dataset, supervised_dataset, validation_dataset)
 
     # args = Arguments.parse_args()
     #
@@ -409,13 +402,7 @@ if __name__ == '__main__':
     #     correct_percentage = ladder.full_test(test_dataset)
     #
     #     test_results.append(correct_percentage)
-
-    ladder.full_train(unsupervised_dataset, supervised_dataset)
-
-    percentage = ladder.full_test(mnist_test)
-
-    print(percentage)
-
+    #
     # if not os.path.exists('../results'):
     #     os.mkdir('../results')
     #     os.mkdir('../results/ladder')
