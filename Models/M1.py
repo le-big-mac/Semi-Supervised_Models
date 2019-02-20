@@ -6,26 +6,29 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from utils import KFoldSplits, Datasets, LoadData, Arguments
 
+
 class Encoder(nn.Module):
     def __init__(self, input_size, latent_dim, hidden_dimensions, activation):
         super(Encoder, self).__init__()
 
-        layers = [nn.Sequential(
-            nn.Linear(input_size, hidden_dimensions[0]),
-            activation,
-        )]
+        dims = [input_size] + hidden_dimensions
 
-        for i in range(1, len(hidden_dimensions)):
-            layers.append(
-                nn.Sequential(
-                    nn.Linear(hidden_dimensions[i-1], hidden_dimensions[i]),
-                    activation,
-                )
+        layers = [
+            nn.Sequential(
+                nn.Linear(dims[i-1], dims[i]),
+                activation,
             )
+            for i in range(len(dims))
+        ]
 
         self.fc_layers = nn.ModuleList(layers)
         self.mu = nn.Linear(hidden_dimensions[-1], latent_dim)
-        self.logvar = nn.Linear(hidden_dimensions[-1], latent_dim)
+
+        # variance has to be greater than 0
+        self.logvar = nn.Sequential(
+            nn.Linear(hidden_dimensions[-1], latent_dim),
+            nn.ReLU(),
+        )
 
     def encode(self, x):
         for layer in self.fc_layers:
@@ -49,23 +52,21 @@ class VAE(nn.Module):
         super(VAE, self).__init__()
 
         self.encoder = Encoder(input_size, latent_dim, hidden_dimensions, activation)
+
+        dims = hidden_dimensions + [latent_dim]
+
         layers = [
             nn.Sequential(
-                nn.Linear(latent_dim, hidden_dimensions[-1]),
+                nn.Linear(dims[i], dims[i-1]),
                 activation,
-            )
+            ) for i in range(len(dims), 1, -1)
         ]
 
-        for i in range(len(hidden_dimensions), 1, -1):
-            layers.append(
-                nn.Sequential(
-                    nn.Linear(hidden_dimensions[i], hidden_dimensions[i-1]),
-                    activation,
-                )
-            )
-
         self.fc_layers = nn.ModuleList(layers)
-        self.out = nn.Linear(hidden_dimensions[0], input_size)
+        self.out = nn.Sequential(
+            nn.Linear(hidden_dimensions[0], input_size),
+            nn.Sigmoid(),
+        )
 
     def forward(self, x):
         z, mu, logvar = self.encoder(x)
@@ -75,6 +76,8 @@ class VAE(nn.Module):
             h = layer(h)
 
         out = self.out(h)
+
+        # maybe sigmoid the output - if we constrain the input we can use BCE loss
 
         return out, mu, logvar
 
@@ -109,8 +112,10 @@ class M1:
         KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1)
 
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
+        BCE = F.binary_cross_entropy(pred_x, x, reduction='sum')
+
         # actually not necessarily 0-1 normalised
-        BCE = nn.MSELoss(reduction='sum')(pred_x, x)
+        # BCE = nn.MSELoss(reduction='sum')(pred_x, x)
 
         return KLD + BCE
 
@@ -243,7 +248,7 @@ if __name__ == '__main__':
 
     args = Arguments.parse_args()
 
-    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data(
+    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data_from_file(
         args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

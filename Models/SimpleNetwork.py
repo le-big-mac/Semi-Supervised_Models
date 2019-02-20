@@ -3,7 +3,7 @@ import csv
 import os
 from torch import nn
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
-from utils import Datasets, Arguments, KFoldSplits, LoadData
+from utils import Datasets, Arguments, KFoldSplits, LoadData, Accuracy
 
 
 class Classifier(nn.Module):
@@ -12,10 +12,13 @@ class Classifier(nn.Module):
 
         dimensions = [input_size] + hidden_dimensions
 
-        layers = [nn.Sequential(
-            nn.Linear(dimensions[i], dimensions[i+1]),
-            activation,
-        ) for i in list(range(len(dimensions)-1))]
+        layers = [
+            nn.Sequential(
+                nn.Linear(dimensions[i-1], dimensions[i]),
+                activation,
+            )
+            for i in range(1, len(dimensions))
+        ]
 
         self.fc_layers = nn.ModuleList(layers)
 
@@ -59,75 +62,44 @@ class SimpleNetwork:
 
         return train_loss/len(dataloader.dataset)
 
-    def supervised_validation(self, dataloader):
-        self.Classifier.eval()
-        validation_loss = 0
-
-        with torch.no_grad():
-            for batch_idx, (data, labels) in enumerate(dataloader):
-                data.to(self.device)
-                labels.to(self.device)
-
-                predictions = self.Classifier(data)
-
-                loss = self.criterion(predictions, labels)
-
-                validation_loss += loss.item()
-
-        return validation_loss/len(dataloader.dataset)
-
-    def supervised_test(self, dataloader):
-        self.Classifier.eval()
-
-        correct = 0
-
-        with torch.no_grad():
-            for batch_idx, (data, labels) in enumerate(dataloader):
-                outputs = self.Classifier(data)
-
-                _, predicted = torch.max(outputs.data, 1)
-                correct += (predicted == labels).sum().item()
-
-        return correct/len(dataloader.dataset)
-
     def reset_model(self):
         self.Classifier.load_state_dict(torch.load(self.state_path))
 
         self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
 
-    def full_train(self, train_dataset, validation_dataset=None):
+    def full_train(self, train_dataset, validation_dataset):
         self.reset_model()
 
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=10, shuffle=True)
+        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
-        if validation_dataset:
-            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
-
-        # simple early stopping employed (can change later)
-        validation_result = float("inf")
         for epoch in range(50):
 
             self.train_classifier_one_epoch(epoch, supervised_dataloader)
-
-            if validation_dataset:
-                val = self.supervised_validation(epoch, validation_dataloader)
-
-                if val > validation_result:
-                    break
-
-                validation_result = val
+            print('Epoch: {} Validation Acc: {}'.format(epoch, Accuracy.accuracy(self.Classifier, validation_dataloader)))
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        return self.supervised_test(test_dataloader)
+        return Accuracy.accuracy(self.Classifier, test_dataloader)
 
 
-if __name__ == '__main__':
+def MNIST_train(device):
+
+    _, supervised_dataset, validation_dataset, test_dataset = LoadData.load_MNIST_data(100, 10000, 10000, 0)
+
+    network = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+
+    network.full_train(supervised_dataset, validation_dataset)
+
+    return network.full_test(test_dataset)
+
+
+def file_train(device):
 
     args = Arguments.parse_args()
 
-    _, supervised_data, supervised_labels = LoadData.load_data(
+    _, supervised_data, supervised_labels = LoadData.load_data_from_file(
         args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -157,3 +129,8 @@ if __name__ == '__main__':
     accuracy_writer = csv.writer(accuracy_file)
 
     accuracy_writer.writerow(test_results)
+
+
+if __name__ == '__main__':
+
+    MNIST_train('cpu')

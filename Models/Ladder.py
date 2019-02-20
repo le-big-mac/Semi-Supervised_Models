@@ -307,7 +307,6 @@ class LadderNetwork:
                 print('Epoch: {} Supervised Loss: {} Unsupervised Loss {} Validation Accuracy: {}'
                       .format(epoch, total_supervised_loss, total_unsupervised_loss, validation_acc))
 
-
         return total_supervised_loss/supervised_samples, total_unsupervised_loss/unsupervised_samples
 
     def validation(self, epoch, dataloader):
@@ -350,8 +349,8 @@ class LadderNetwork:
 
         for epoch in range(20):
 
-            self.train_one_epoch(epoch, supervised_dataloader, unsupervised_dataloader)
-            self.validation(epoch, validation_dataloader)
+            self.train_one_epoch(epoch, supervised_dataloader, unsupervised_dataloader, validation_dataloader)
+            # self.validation(epoch, validation_dataloader)
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
@@ -360,9 +359,6 @@ class LadderNetwork:
 
 
 if __name__ == '__main__':
-
-    sys.path.append('../utils')
-
     mnist_train = datasets.MNIST(root='../data/MNIST', train=True, download=True, transform=None)
     mnist_test = datasets.MNIST(root='../data/MNIST', train=False, download=True, transform=transforms.ToTensor())
 

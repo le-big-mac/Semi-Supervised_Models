@@ -10,14 +10,14 @@ class SupervisedClassificationDataset(Dataset):
     def __init__(self, inputs, outputs):
         super(SupervisedClassificationDataset, self).__init__()
 
-        self.inputs = [torch.from_numpy(np.atleast_1d(vec)).float() for vec in inputs]
-        self.outputs = [torch.squeeze(torch.from_numpy(np.atleast_1d(vec)).long()) for vec in outputs]
+        self.data = [torch.from_numpy(np.atleast_1d(vec)).float() for vec in inputs]
+        self.labels = [torch.squeeze(torch.from_numpy(np.atleast_1d(vec)).long()) for vec in outputs]
 
     def __len__(self):
-        return len(self.outputs)
+        return len(self.labels)
 
     def __getitem__(self, index):
-        return self.inputs[index], self.outputs[index]
+        return self.data[index], self.labels[index]
 
 
 class UnsupervisedDataset(Dataset):

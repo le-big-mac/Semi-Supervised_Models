@@ -9,16 +9,16 @@ from utils import Datasets, LoadData, Arguments, KFoldSplits
 class Classifier(nn.Module):
     def __init__(self, data_dim, hidden_dimensions, num_classes, activation):
         super(Classifier, self).__init__()
-        layers = [nn.Sequential(
-            nn.Linear(data_dim, hidden_dimensions[0]),
-            activation,
-        )]
 
-        for i in range(1, len(hidden_dimensions)):
-            layers.append(nn.Sequential(
-                nn.Linear(hidden_dimensions[i - 1], hidden_dimensions[i]),
+        dims = [data_dim] + hidden_dimensions
+
+        layers = [
+            nn.Sequential(
+                nn.Linear(dims[i-1], dims[i]),
                 activation,
-            ))
+            )
+            for i in range(1, len(dims))
+        ]
 
         self.fc_layers = nn.ModuleList(layers)
         self.classification_layer = nn.Linear(hidden_dimensions[-1], num_classes)
@@ -39,20 +39,19 @@ class Classifier(nn.Module):
 class Generator(nn.Module):
     def __init__(self, latent_dim, hidden_dimensions, data_dim, activation):
         super(Generator, self).__init__()
-        layers = [nn.Sequential(
-            nn.Linear(latent_dim, hidden_dimensions[0]),
-            activation,
-        )]
 
-        for i in range(1, len(hidden_dimensions)):
-            layers.append(nn.Sequential(
-                nn.Linear(hidden_dimensions[i - 1], hidden_dimensions[i]),
+        dims = [latent_dim] + hidden_dimensions
+
+        layers = [
+            nn.Sequential(
+                nn.Linear(dims[i-1], dims[i]),
                 activation,
-            ))
+            )
+            for i in range(1, len(dims))
+        ]
 
         self.fc_layers = nn.ModuleList(layers)
         self.output_layer = nn.Linear(hidden_dimensions[-1], data_dim)
-
 
     def forward(self, x):
         for layer in self.fc_layers:
@@ -266,7 +265,7 @@ if __name__ == '__main__':
 
     args = Arguments.parse_args()
 
-    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data(
+    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data_from_file(
         args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

@@ -3,27 +3,22 @@ import os
 import csv
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import Datasets, LoadData, Arguments, KFoldSplits
+from utils import Datasets, LoadData, Arguments, KFoldSplits, Accuracy
 
 
 class Encoder(nn.Module):
     def __init__(self, input_size, hidden_dimensions, num_classes, activation):
         super(Encoder, self).__init__()
 
+        dims = [input_size] + hidden_dimensions
+
         layers = [
             nn.Sequential(
-                nn.Linear(input_size, hidden_dimensions[0]),
+                nn.Linear(dims[i-1], dims[i]),
                 activation,
             )
+            for i in range(1, len(dims))
         ]
-
-        for i in range(1, len(hidden_dimensions)):
-            layers.append(
-                nn.Sequential(
-                    nn.Linear(hidden_dimensions[i-1], hidden_dimensions[i]),
-                    activation,
-                )
-            )
 
         self.fc_layers = nn.ModuleList(layers)
         self.classification_layer = nn.Linear(hidden_dimensions[-1], num_classes)
@@ -41,20 +36,15 @@ class Autoencoder(nn.Module):
 
         self.encoder = Encoder(input_size, hidden_dimensions, num_classes, activation)
 
+        dims = hidden_dimensions + [num_classes]
+
         layers = [
             nn.Sequential(
-                nn.Linear(num_classes, hidden_dimensions[-1]),
+                nn.Linear(dims[i], dims[i-1]),
                 activation,
             )
+            for i in range(len(dims)-1, 0, -1)
         ]
-
-        for i in range(len(hidden_dimensions), 1, -1):
-            layers.append(
-                nn.Sequential(
-                    nn.Linear(hidden_dimensions[i], hidden_dimensions[i-1]),
-                    activation,
-                )
-            )
 
         self.fc_layers = nn.ModuleList(layers)
         self.output_layer = nn.Linear(hidden_dimensions[0], input_size)
@@ -98,6 +88,8 @@ class DeepMetabolism:
             loss.backward()
             self.Autoencoder_optim.step()
 
+        print('Unsupervised Loss: {}'.format(train_loss/len(dataloader.dataset)))
+
         return train_loss/len(dataloader.dataset)
 
     def pretrain_classifier(self, dataloader):
@@ -127,37 +119,6 @@ class DeepMetabolism:
 
         return train_loss/len(dataloader.dataset)
 
-    def supervised_validation(self, dataloader):
-        self.Classifier.eval()
-        validation_loss = 0
-
-        with torch.no_grad():
-            for batch_idx, (data, labels) in enumerate(dataloader):
-                data.to(self.device)
-                labels.to(self.device)
-
-                predictions = self.Classifier(data)
-
-                loss = self.Classifier_criterion(predictions, labels)
-
-                validation_loss += loss.item()
-
-        return validation_loss/len(dataloader.dataset)
-
-    def supervised_test(self, dataloader):
-        self.Classifier.eval()
-
-        correct = 0
-
-        with torch.no_grad():
-            for batch_idx, (data, labels) in enumerate(dataloader):
-                outputs = self.Classifier(data)
-
-                _, predicted = torch.max(outputs.data, 1)
-                correct += (predicted == labels).sum().item()
-
-        return correct/len(dataloader.dataset)
-
     def reset_model(self):
         self.Autoencoder.load_state_dict(torch.load(self.state_path))
         self.Classifier = self.Autoencoder.encoder
@@ -165,62 +126,62 @@ class DeepMetabolism:
         self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
 
-    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
+    def full_train(self, combined_dataset, train_dataset, validation_dataset=None):
         self.reset_model()
 
-        combined_dataset = Datasets.UnsupervisedDataset(unsupervised_dataset.data + train_dataset.inputs)
-
-        pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=200, shuffle=True)
+        pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
 
         self.pretrain_classifier(pretraining_dataloader)
 
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=10, shuffle=True)
+        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
-        if validation_dataset:
-            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
-
-        # simple early stopping employed (can change later)
-        validation_result = float("inf")
         for epoch in range(50):
 
             self.train_classifier_one_epoch(epoch, supervised_dataloader)
-
-            if validation_dataset:
-                val = self.supervised_validation(validation_dataloader)
-
-                if val > validation_result:
-                    break
-
-                validation_result = val
+            print('Epoch: {} Validation Acc: {}'.format(epoch, Accuracy.accuracy(self.Classifier, validation_dataloader)))
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        return self.supervised_test(test_dataloader)
+        return Accuracy.accuracy(self.Classifier, test_dataloader)
 
 
-if __name__ == '__main__':
+def MNIST_train(device):
+
+    unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
+        LoadData.load_MNIST_data(100, 10000, 10000, 49000)
+
+    combined_dataset = Datasets.MNISTUnsupervised(torch.cat((unsupervised_dataset.data, supervised_dataset.data), 0))
+
+    deep_metabolism = DeepMetabolism(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+
+    print(deep_metabolism.Classifier)
+
+    deep_metabolism.full_train(combined_dataset, supervised_dataset, validation_dataset)
+
+    return deep_metabolism.full_test(test_dataset)
+
+
+def file_train(device):
 
     args = Arguments.parse_args()
 
-    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data(
+    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data_from_file(
         args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     deep_metabolism = DeepMetabolism(500, [200], 10, nn.ReLU(), device)
 
-    unsupervised_dataset = Datasets.UnsupervisedDataset(unsupervised_data)
-
     test_results = []
-
     for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
         train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
                                                                  [supervised_labels[i] for i in train_idx])
         test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
                                                                 [supervised_labels[i] for i in test_idx])
 
-        deep_metabolism.full_train(unsupervised_dataset, train_dataset)
+        deep_metabolism.full_train(train_dataset)
 
         correct_percentage = deep_metabolism.full_test(test_dataset)
 
@@ -237,3 +198,7 @@ if __name__ == '__main__':
 
     accuracy_writer.writerow(test_results)
 
+
+if __name__ == '__main__':
+
+    MNIST_train('cpu')

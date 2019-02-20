@@ -1,10 +1,9 @@
 import torch
 import os
 import csv
-import numpy as np
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import Datasets, LoadData, Arguments, KFoldSplits
+from utils import Datasets, Accuracy, LoadData, Arguments, KFoldSplits
 
 
 class Encoder(nn.Module):
@@ -52,24 +51,21 @@ class PretrainedSDAE(nn.Module):
 
 
 class SDAE:
-    def __init__(self, hidden_dimensions, input_size, num_classes, activation, device):
+    def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
         self.hidden_dimensions = hidden_dimensions
-        self.input_size = input_size
-        self.num_classes = num_classes
         self.hidden_layers = nn.ModuleList()
         self.device = device
-        self.SDAE = self.setup_model(hidden_dimensions, input_size, num_classes, activation)
-        self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
+        self.PretrainedSDAE = self.setup_model(hidden_dimensions, input_size, num_classes, activation)
+        self.optimizer = torch.optim.Adam(self.PretrainedSDAE.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss(reduction='sum')
         self.state_path = 'state/sdae.pt'
-        torch.save(self.SDAE.state_dict(), self.state_path)
+        torch.save(self.PretrainedSDAE.state_dict(), self.state_path)
 
     def setup_model(self, hidden_dimensions, input_size, num_classes, activation):
-        layers = [Encoder(input_size=input_size, layer_size=hidden_dimensions[0], activation=activation)]
+        dims = [input_size] + hidden_dimensions
 
-        for i in range(1, len(hidden_dimensions)):
-            layers.append(Encoder(input_size=hidden_dimensions[i-1], layer_size=hidden_dimensions[i],
-                                  activation=activation))
+        layers = [Encoder(input_size=dims[i-1], layer_size=dims[i], activation=activation)
+                  for i in range(1, len(dims))]
 
         self.hidden_layers = nn.ModuleList(layers)
         return PretrainedSDAE(self.hidden_layers, num_classes, activation).to(self.device)
@@ -77,16 +73,16 @@ class SDAE:
     def pretrain_hidden_layers(self, dataloader):
 
         for i in range(len(self.hidden_layers)):
-            decoder = DAE(self.hidden_layers[0]).to(self.device)
+            decoder = DAE(self.hidden_layers[i]).to(self.device)
             criterion = nn.MSELoss(reduction="sum")
             optimizer = torch.optim.Adam(decoder.parameters(), lr=1e-3)
 
-            previous_layers = None
-            if i > 0:
-                previous_layers = self.hidden_layers[0:i-1]
+            previous_layers = self.hidden_layers[0:i]
 
             for epoch in range(50):
-                self.train_DAE_one_epoch(previous_layers, decoder, dataloader, criterion, optimizer)
+                layer_loss = self.train_DAE_one_epoch(previous_layers, decoder, dataloader, criterion, optimizer)
+                if epoch % 10 == 0:
+                    print('Epoch: {} Layer loss: {}'.format(epoch, layer_loss))
 
     def train_DAE_one_epoch(self, previous_layers, dae, dataloader, criterion, optimizer):
         dae.train()
@@ -95,12 +91,11 @@ class SDAE:
         for batch_idx, data in enumerate(dataloader):
             data.to(self.device)
 
-            if previous_layers:
-                with torch.no_grad():
-                    for layer in previous_layers:
-                        data = layer(data)
+            with torch.no_grad():
+                for layer in previous_layers:
+                    data = layer(data)
 
-            noisy_data = data.add(0.2*torch.randn(data.size()).to(self.device))
+            noisy_data = data.add(0.2*torch.randn_like(data).to(self.device))
 
             optimizer.zero_grad()
 
@@ -116,9 +111,7 @@ class SDAE:
         return train_loss/len(dataloader.dataset)
 
     def supervised_train_one_epoch(self, epoch, dataloader):
-        model = self.SDAE
-
-        model.train()
+        self.PretrainedSDAE.train()
         train_loss = 0
 
         for batch_idx, (data, labels) in enumerate(dataloader):
@@ -127,7 +120,7 @@ class SDAE:
 
             self.optimizer.zero_grad()
 
-            predictions = model(data)
+            predictions = self.PretrainedSDAE(data)
 
             loss = self.criterion(predictions, labels)
 
@@ -141,102 +134,68 @@ class SDAE:
 
         return train_loss/len(dataloader.dataset)
 
-    def supervised_validation(self, dataloader, criterion):
-        model = self.SDAE
-
-        model.eval()
-        validation_loss = 0
-
-        with torch.no_grad():
-            for batch_idx, (data, labels) in enumerate(dataloader):
-                data.to(self.device)
-                labels.to(self.device)
-
-                predictions = model(data)
-
-                loss = criterion(predictions, labels)
-
-                validation_loss += loss.item()
-
-        return validation_loss/len(dataloader.dataset)
-
-    def supervised_test(self, dataloader):
-        model = self.SDAE
-
-        model.eval()
-
-        correct = 0
-
-        with torch.no_grad():
-            for batch_idx, (data, labels) in enumerate(dataloader):
-                outputs = model(data)
-                _, predicted = torch.max(outputs.data, 1)
-                correct += (predicted == labels).sum().item()
-
-        return correct/len(dataloader.dataset)
-
     def reset_model(self):
-        self.SDAE.load_state_dict(torch.load(self.state_path))
+        self.PretrainedSDAE.load_state_dict(torch.load(self.state_path))
 
-        self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.PretrainedSDAE.parameters(), lr=1e-3)
 
-    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
+    def full_train(self, combined_dataset, train_dataset, validation_dataset):
         self.reset_model()
-
-        combined_dataset = Datasets.UnsupervisedDataset(unsupervised_dataset.data + train_dataset.inputs)
-
-        pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=200, shuffle=True)
+        pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
 
         self.pretrain_hidden_layers(pretraining_dataloader)
 
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=40, shuffle=True)
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=10, shuffle=True)
 
-        if validation_dataset:
-            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
-        # simple early stopping employed (can change later)
-
-        validation_result = float("inf")
         for epoch in range(50):
 
             self.supervised_train_one_epoch(epoch, supervised_dataloader)
-
-            if validation_dataset:
-                val = self.supervised_validation(validation_dataloader)
-
-                if val > validation_result:
-                    break
-
-                validation_result = val
+            print('Epoch: {} Validation Acc: {}'.format(epoch, Accuracy.accuracy(self.PretrainedSDAE,
+                                                                                 validation_dataloader)))
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        return self.supervised_test(test_dataloader)
+        return Accuracy.accuracy(self.PretrainedSDAE, test_dataloader)
 
 
-if __name__ == '__main__':
+def MNIST_train(device):
+
+    unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
+        LoadData.load_MNIST_data(100, 10000, 10000, 49000)
+
+    combined_dataset = Datasets.MNISTUnsupervised(torch.cat((unsupervised_dataset.data, supervised_dataset.data), 0))
+
+    sdae = SDAE(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+
+    print(sdae.PretrainedSDAE)
+
+    sdae.full_train(combined_dataset, supervised_dataset, validation_dataset)
+
+    return sdae.full_test(test_dataset)
+
+
+def file_train(device):
 
     args = Arguments.parse_args()
 
-    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data(
+    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data_from_file(
         args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    sdae = SDAE([200], 500, 10, nn.ReLU(), device)
-
-    unsupervised_dataset = Datasets.UnsupervisedDataset(unsupervised_data)
+    sdae = SDAE(500, [200], 10, nn.ReLU(), device)
 
     test_results = []
-
     for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
-        train_dataset = Datasets.SupervisedClassificationDataset(np.asarray([supervised_data[i] for i in train_idx]),
-                                                                 np.asarray([supervised_labels[i] for i in train_idx]))
-        test_dataset = Datasets.SupervisedClassificationDataset(np.asarray([supervised_data[i] for i in test_idx]),
-                                                                np.asarray([supervised_labels[i] for i in test_idx]))
+        train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
+                                                                 [supervised_labels[i] for i in train_idx])
+        test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
+                                                                [supervised_labels[i] for i in test_idx])
 
-        sdae.full_train(unsupervised_dataset, train_dataset)
+        sdae.full_train(train_dataset)
 
         correct_percentage = sdae.full_test(test_dataset)
 
@@ -252,4 +211,9 @@ if __name__ == '__main__':
     accuracy_writer = csv.writer(accuracy_file)
 
     accuracy_writer.writerow(test_results)
+
+
+if __name__ == '__main__':
+
+    MNIST_train('cpu')
 
