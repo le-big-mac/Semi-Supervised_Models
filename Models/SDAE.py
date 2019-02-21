@@ -1,10 +1,9 @@
 import torch
 import os
 import csv
-import sys
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import Datasets, Accuracy, LoadData, Arguments, KFoldSplits
+from Models.utils import Accuracy, Arguments, KFoldSplits, Datasets, LoadData
 
 
 class Encoder(nn.Module):
@@ -35,20 +34,17 @@ class DAE(nn.Module):
 
 
 class PretrainedSDAE(nn.Module):
-    def __init__(self, layers, num_classes, activation):
+    def __init__(self, layers, num_classes):
         super(PretrainedSDAE, self).__init__()
 
-        self.activation = activation
         self.pretrained_hidden_fc_layers = layers
         self.classification_layer = nn.Linear(layers[-1].layer.out_features, num_classes)
 
     def forward(self, x):
-        cur = x
-
         for layer in self.pretrained_hidden_fc_layers:
-            cur = self.activation(layer(cur))
+            x = layer(x)
 
-        return self.classification_layer(cur)
+        return self.classification_layer(x)
 
 
 class SDAE:
@@ -70,7 +66,7 @@ class SDAE:
                   for i in range(1, len(dims))]
 
         self.hidden_layers = nn.ModuleList(layers)
-        return PretrainedSDAE(self.hidden_layers, num_classes, activation).to(self.device)
+        return PretrainedSDAE(self.hidden_layers, num_classes).to(self.device)
 
     def pretrain_hidden_layers(self, dataloader):
 
@@ -216,7 +212,6 @@ def file_train(device):
 
 
 if __name__ == '__main__':
-    sys.path.append('../utils')
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     MNIST_train(device)

@@ -3,7 +3,7 @@ import os
 import csv
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import Datasets, LoadData, Arguments, KFoldSplits
+from Models.utils import Arguments, KFoldSplits, Datasets, LoadData
 
 
 class Classifier(nn.Module):

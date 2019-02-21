@@ -4,7 +4,7 @@ import csv
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from utils import KFoldSplits, Datasets, LoadData, Arguments
+from Models.utils import Arguments, KFoldSplits, Datasets, LoadData
 
 
 class Encoder(nn.Module):

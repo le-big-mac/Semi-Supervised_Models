@@ -1,12 +1,9 @@
 import torch
-import os
-import csv
-import sys
 from torch import nn
 from itertools import cycle
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from utils import Arguments, Datasets, KFoldSplits, LoadData
+from Models.utils import Datasets
 
 
 class Encoder(nn.Module):

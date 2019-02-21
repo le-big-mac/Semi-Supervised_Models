@@ -1,10 +1,9 @@
 import torch
 import csv
 import os
-import sys
 from torch import nn
-from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
-from utils import Datasets, Arguments, KFoldSplits, LoadData, Accuracy
+from torch.utils.data import DataLoader
+from Models.utils import Accuracy, Arguments, KFoldSplits, Datasets, LoadData
 
 
 class Classifier(nn.Module):
