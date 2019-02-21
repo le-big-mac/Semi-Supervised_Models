@@ -1,6 +1,7 @@
 import torch
 import csv
 import os
+import sys
 from torch import nn
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 from utils import Datasets, Arguments, KFoldSplits, LoadData, Accuracy
@@ -131,7 +132,7 @@ def file_train(device):
 
 
 if __name__ == '__main__':
-
+    sys.path.append('../utils')
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     MNIST_train(device)
