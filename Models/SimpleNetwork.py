@@ -37,6 +37,7 @@ class SimpleNetwork:
         self.criterion = nn.CrossEntropyLoss(reduction='sum')
         self.state_path = 'state/simple_mlp.pt'
         self.device = device
+        os.remove(self.state_path)
         torch.save(self.Classifier.state_dict(), self.state_path)
 
     def train_classifier_one_epoch(self, epoch, dataloader):
@@ -102,8 +103,6 @@ def file_train(device):
     _, supervised_data, supervised_labels = LoadData.load_data_from_file(
         args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     simple_network = SimpleNetwork(500, [200], 10, nn.ReLU(), device)
 
     test_results = []
@@ -133,4 +132,6 @@ def file_train(device):
 
 if __name__ == '__main__':
 
-    MNIST_train('cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    MNIST_train(device)

@@ -59,6 +59,7 @@ class SDAE:
         self.optimizer = torch.optim.Adam(self.PretrainedSDAE.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss(reduction='sum')
         self.state_path = 'state/sdae.pt'
+        os.remove(self.state_path)
         torch.save(self.PretrainedSDAE.state_dict(), self.state_path)
 
     def setup_model(self, hidden_dimensions, input_size, num_classes, activation):
@@ -79,7 +80,7 @@ class SDAE:
 
             previous_layers = self.hidden_layers[0:i]
 
-            for epoch in range(50):
+            for epoch in range(20):
                 layer_loss = self.train_DAE_one_epoch(previous_layers, decoder, dataloader, criterion, optimizer)
                 if epoch % 10 == 0:
                     print('Epoch: {} Layer loss: {}'.format(epoch, layer_loss))
@@ -214,6 +215,7 @@ def file_train(device):
 
 
 if __name__ == '__main__':
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    MNIST_train('cpu')
+    MNIST_train(device)
 
