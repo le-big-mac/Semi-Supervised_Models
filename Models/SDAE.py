@@ -3,7 +3,7 @@ import os
 import csv
 from torch import nn
 from torch.utils.data import DataLoader
-from Models.utils import Accuracy, Arguments, KFoldSplits, Datasets, LoadData
+from utils import Accuracy, Arguments, KFoldSplits, Datasets, LoadData
 
 
 class Encoder(nn.Module):
@@ -55,7 +55,7 @@ class SDAE:
         self.PretrainedSDAE = self.setup_model(hidden_dimensions, input_size, num_classes, activation)
         self.optimizer = torch.optim.Adam(self.PretrainedSDAE.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss(reduction='sum')
-        self.state_path = 'state/sdae.pt'
+        self.state_path = './state/sdae.pt'
         os.remove(self.state_path)
         torch.save(self.PretrainedSDAE.state_dict(), self.state_path)
 
@@ -87,13 +87,13 @@ class SDAE:
         train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
-            data.to(self.device)
+            data = data.to(self.device)
 
             with torch.no_grad():
                 for layer in previous_layers:
                     data = layer(data)
 
-            noisy_data = data.add(0.2*torch.randn_like(data).to(self.device))
+            noisy_data = data.add(0.2*torch.randn_like(data).to(device))
 
             optimizer.zero_grad()
 
@@ -113,8 +113,8 @@ class SDAE:
         train_loss = 0
 
         for batch_idx, (data, labels) in enumerate(dataloader):
-            data.to(self.device)
-            labels.to(self.device)
+            data = data.to(self.device)
+            labels = labels.to(self.device)
 
             self.optimizer.zero_grad()
 
@@ -151,12 +151,13 @@ class SDAE:
 
             self.supervised_train_one_epoch(epoch, supervised_dataloader)
             print('Epoch: {} Validation Acc: {}'.format(epoch, Accuracy.accuracy(self.PretrainedSDAE,
-                                                                                 validation_dataloader)))
+                                                                                 validation_dataloader,
+										 self.device)))
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        return Accuracy.accuracy(self.PretrainedSDAE, test_dataloader)
+        return Accuracy.accuracy(self.PretrainedSDAE, test_dataloader, self.device)
 
 
 def MNIST_train(device):

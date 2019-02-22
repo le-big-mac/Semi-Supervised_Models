@@ -1,6 +1,6 @@
 import numpy as np
 from torchvision import datasets
-from Models.utils import Datasets
+from utils import Datasets
 
 
 def load_data_from_file(unsupervised_file_path, supervised_data_file_path, supervised_labels_file_path):
