@@ -3,7 +3,7 @@ import os
 import csv
 from torch import nn
 from torch.utils.data import DataLoader
-from Models.utils import Accuracy, Arguments, KFoldSplits, Datasets, LoadData
+from utils import Accuracy, Arguments, KFoldSplits, Datasets, LoadData
 
 
 class Encoder(nn.Module):
@@ -75,7 +75,7 @@ class DeepMetabolism:
         train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
-            data.to(self.device)
+            data = data.to(self.device)
 
             self.Autoencoder_optim.zero_grad()
 
@@ -101,8 +101,8 @@ class DeepMetabolism:
         train_loss = 0
 
         for batch_idx, (data, labels) in enumerate(dataloader):
-            data.to(self.device)
-            labels.to(self.device)
+            data = data.to(self.device)
+            labels = labels.to(self.device)
 
             self.Classifier_optim.zero_grad()
 

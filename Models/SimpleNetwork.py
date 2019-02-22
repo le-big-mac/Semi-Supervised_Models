@@ -3,7 +3,7 @@ import csv
 import os
 from torch import nn
 from torch.utils.data import DataLoader
-from Models.utils import Accuracy, Arguments, KFoldSplits, Datasets, LoadData
+from utils import Accuracy, Arguments, KFoldSplits, Datasets, LoadData
 
 
 class Classifier(nn.Module):
@@ -45,8 +45,8 @@ class SimpleNetwork:
         train_loss = 0
 
         for batch_idx, (data, labels) in enumerate(dataloader):
-            data.to(self.device)
-            labels.to(self.device)
+            data = data.to(self.device)
+            labels = labels.to(self.device)
 
             self.optimizer.zero_grad()
 
