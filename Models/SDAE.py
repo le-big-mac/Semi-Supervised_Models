@@ -1,9 +1,7 @@
 import torch
-import os
-import csv
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import Accuracy, Arguments, KFoldSplits, Datasets, LoadData
+from utils import Accuracy
 
 
 class Encoder(nn.Module):
@@ -55,8 +53,7 @@ class SDAE:
         self.PretrainedSDAE = self.setup_model(hidden_dimensions, input_size, num_classes, activation)
         self.optimizer = torch.optim.Adam(self.PretrainedSDAE.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss(reduction='sum')
-        self.state_path = './state/sdae.pt'
-        os.remove(self.state_path)
+        self.state_path = 'Models/state/sdae.pt'
         torch.save(self.PretrainedSDAE.state_dict(), self.state_path)
 
     def setup_model(self, hidden_dimensions, input_size, num_classes, activation):
@@ -77,7 +74,7 @@ class SDAE:
 
             previous_layers = self.hidden_layers[0:i]
 
-            for epoch in range(20):
+            for epoch in range(50):
                 layer_loss = self.train_DAE_one_epoch(previous_layers, decoder, dataloader, criterion, optimizer)
                 if epoch % 10 == 0:
                     print('Epoch: {} Layer loss: {}'.format(epoch, layer_loss))
@@ -93,7 +90,7 @@ class SDAE:
                 for layer in previous_layers:
                     data = layer(data)
 
-            noisy_data = data.add(0.2*torch.randn_like(data).to(device))
+            noisy_data = data.add(0.2*torch.randn_like(data).to(self.device))
 
             optimizer.zero_grad()
 
@@ -151,69 +148,9 @@ class SDAE:
 
             self.supervised_train_one_epoch(epoch, supervised_dataloader)
             print('Epoch: {} Validation Acc: {}'.format(epoch, Accuracy.accuracy(self.PretrainedSDAE,
-                                                                                 validation_dataloader,
-										 self.device)))
+                                                                                 validation_dataloader, self.device)))
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
         return Accuracy.accuracy(self.PretrainedSDAE, test_dataloader, self.device)
-
-
-def MNIST_train(device):
-
-    unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
-        LoadData.load_MNIST_data(100, 10000, 10000, 49000)
-
-    combined_dataset = Datasets.MNISTUnsupervised(torch.cat((unsupervised_dataset.data, supervised_dataset.data), 0))
-
-    sdae = SDAE(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
-
-    print(sdae.PretrainedSDAE)
-
-    sdae.full_train(combined_dataset, supervised_dataset, validation_dataset)
-
-    return sdae.full_test(test_dataset)
-
-
-def file_train(device):
-
-    args = Arguments.parse_args()
-
-    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data_from_file(
-        args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    sdae = SDAE(500, [200], 10, nn.ReLU(), device)
-
-    test_results = []
-    for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
-        train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
-                                                                 [supervised_labels[i] for i in train_idx])
-        test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
-                                                                [supervised_labels[i] for i in test_idx])
-
-        sdae.full_train(train_dataset)
-
-        correct_percentage = sdae.full_test(test_dataset)
-
-        test_results.append(correct_percentage)
-
-    if not os.path.exists('../results'):
-        os.mkdir('../results')
-        os.mkdir('../results/sdae')
-    elif not os.path.exists('../results/sdae'):
-        os.mkdir('../results/sdae')
-
-    accuracy_file = open('../results/sdae/accuracy.csv', 'w')
-    accuracy_writer = csv.writer(accuracy_file)
-
-    accuracy_writer.writerow(test_results)
-
-
-if __name__ == '__main__':
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    MNIST_train(device)
-

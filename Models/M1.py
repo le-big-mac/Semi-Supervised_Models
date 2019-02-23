@@ -4,7 +4,7 @@ import csv
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from Models.utils import Arguments, KFoldSplits, Datasets, LoadData
+from utils import Arguments, KFoldSplits, Datasets, LoadData
 
 
 class Encoder(nn.Module):
@@ -63,6 +63,8 @@ class VAE(nn.Module):
         ]
 
         self.fc_layers = nn.ModuleList(layers)
+
+        # have option not to use sigmoid on output
         self.out = nn.Sequential(
             nn.Linear(hidden_dimensions[0], input_size),
             nn.Sigmoid(),
@@ -76,8 +78,6 @@ class VAE(nn.Module):
             h = layer(h)
 
         out = self.out(h)
-
-        # maybe sigmoid the output - if we constrain the input we can use BCE loss
 
         return out, mu, logvar
 
@@ -243,41 +243,4 @@ class M1:
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
         return self.supervised_test(test_dataloader)
-
-if __name__ == '__main__':
-
-    args = Arguments.parse_args()
-
-    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data_from_file(
-        args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    m1 = M1([200], 50, 500, 10, nn.ReLU(), device)
-
-    unsupervised_dataset = Datasets.UnsupervisedDataset(unsupervised_data)
-
-    test_results = []
-    for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
-        train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
-                                                                 [supervised_labels[i] for i in train_idx])
-        test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
-                                                                [supervised_labels[i] for i in test_idx])
-
-        m1.full_train(unsupervised_dataset, train_dataset)
-
-        correct_percentage = m1.full_test(test_dataset)
-
-        test_results.append(correct_percentage)
-
-    if not os.path.exists('../results'):
-        os.mkdir('../results')
-        os.mkdir('../results/m1')
-    elif not os.path.exists('../results/m1'):
-        os.mkdir('../results/m1')
-
-    accuracy_file = open('../results/m1/accuracy.csv', 'w')
-    accuracy_writer = csv.writer(accuracy_file)
-
-    accuracy_writer.writerow(test_results)
 

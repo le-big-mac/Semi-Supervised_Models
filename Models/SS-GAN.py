@@ -1,9 +1,7 @@
 import torch
-import os
-import csv
 from torch import nn
 from torch.utils.data import DataLoader
-from Models.utils import Arguments, KFoldSplits, Datasets, LoadData
+from utils import Accuracy
 
 
 class Classifier(nn.Module):
@@ -189,40 +187,6 @@ class SS_GAN:
         return total_supervised_loss/supervised_samples, total_unsupervised_loss/unsupervised_samples, \
                total_gen_loss/gen_samples
 
-    def validation(self, supervised_dataloader):
-        model = self.D
-
-        model.eval()
-        validation_loss = 0
-
-        with torch.no_grad():
-            for batch_idx, (data, labels) in enumerate(supervised_dataloader):
-                data.to(self.device)
-                labels.to(self.device)
-
-                _, predictions = model(data)
-
-                loss = self.classifier_loss(predictions, labels)
-
-                validation_loss += loss.item()
-
-        return validation_loss/len(supervised_dataloader.dataset)
-
-    def test(self, dataloader):
-        model = self.D
-
-        model.eval()
-
-        correct = 0
-
-        with torch.no_grad():
-            for batch_idx, (data, labels) in enumerate(dataloader):
-                _, outputs = model(data)
-                _, predicted = torch.max(outputs.data, 1)
-                correct += (predicted == labels).sum().item()
-
-        return correct/len(dataloader.dataset)
-
     def reset_model(self):
         self.G.load_state_dict(torch.load(self.gen_state_path))
         self.D.load_state_dict(torch.load(self.dis_state_path))
@@ -230,72 +194,23 @@ class SS_GAN:
         self.G_optimizer = torch.optim.Adam(self.G.parameters(), lr=1e-3)
         self.D_optimizer = torch.optim.Adam(self.D.parameters(), lr=1e-3)
 
-    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
+    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset):
         self.reset_model()
 
         # TODO: don't use arbitrary values for batch size
         unsupervised_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=180, shuffle=True)
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=20, shuffle=True)
 
-        if validation_dataset:
-            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
-        # simple early stopping employed (can change later)
-
-        validation_result = float("inf")
         for epoch in range(50):
 
             self.train_one_epoch(epoch, supervised_dataloader, unsupervised_dataloader)
-
-            if validation_dataset:
-                val = self.validation(validation_dataloader)
-
-                if val > validation_result:
-                    break
-
-                validation_result = val
+            print('Epoch: {} Validation Acc: {}'.format(epoch, Accuracy.accuracy(self.D, validation_dataloader,
+                                                                                 self.device)))
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        return self.test(test_dataloader)
+        return Accuracy.accuracy(self.D, test_dataloader, self.device)
 
-
-if __name__ == '__main__':
-
-    args = Arguments.parse_args()
-
-    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data_from_file(
-        args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    ss_gan = SS_GAN([200], [200], 500, 25, 10, nn.ReLU(), device)
-
-    unsupervised_dataset = Datasets.UnsupervisedDataset(unsupervised_data)
-
-    test_results = []
-
-    for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
-
-        train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
-                                                                 [supervised_labels[i] for i in train_idx])
-        test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
-                                                                [supervised_labels[i] for i in test_idx])
-
-        ss_gan.full_train(unsupervised_data, train_dataset)
-
-        correct_percentage = ss_gan.full_test(test_dataset)
-
-        test_results.append(correct_percentage)
-
-    if not os.path.exists('../results'):
-        os.mkdir('../results')
-        os.mkdir('../results/ss-gan')
-    elif not os.path.exists('../results/ss-gan'):
-        os.mkdir('../results/ss-gan')
-
-    accuracy_file = open('../results/ss-gan/accuracy.csv', 'w')
-    accuracy_writer = csv.writer(accuracy_file)
-
-    accuracy_writer.writerow(test_results)
