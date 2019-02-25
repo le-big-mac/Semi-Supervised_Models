@@ -105,7 +105,7 @@ class M1:
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
                  num_classes, activation, device):
         self.VAE = VAE(input_size, latent_size, hidden_dimensions_encoder, activation).to(device)
-        self.Encoder = self.VAE.encoder
+        self.Encoder = self.VAE.encoder.to(device)
         self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
