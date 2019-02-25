@@ -100,8 +100,8 @@ class M1:
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.device = device
-        self.vae_state_path = 'state/m1_vae.pt'
-        self.clas_state_path = 'state/m1_classifier.pt'
+        self.vae_state_path = 'Models/state/m1_vae.pt'
+        self.clas_state_path = 'Models/state/m1_classifier.pt'
         torch.save(self.VAE.state_dict(), self.vae_state_path)
         torch.save(self.Classifier.state_dict(), self.clas_state_path)
 
