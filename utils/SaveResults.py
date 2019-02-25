@@ -12,5 +12,6 @@ def save_results(results_list, model_directory, filename):
     accuracy_file = open('results/{}/{}.csv'.format(model_directory, filename), 'w')
     accuracy_writer = csv.writer(accuracy_file)
 
-    for results in results_list:
-        accuracy_writer.writerow(results)
+    accuracy_writer.writerow(results_list)
+
+    accuracy_file.close()
