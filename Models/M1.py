@@ -188,12 +188,12 @@ class M1:
     def full_train(self, combined_dataset, train_dataset, validation_dataset=None):
         self.reset_model()
 
-        pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=200, shuffle=True)
+        pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
 
         for epoch in range(50):
             self.train_VAE_one_epoch(epoch, pretraining_dataloader)
 
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=40, shuffle=True)
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         for epoch in range(50):

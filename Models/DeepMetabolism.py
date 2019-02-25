@@ -128,7 +128,7 @@ class DeepMetabolism:
         for epoch in range(50):
             self.unsupervised_train_one_epoch(pretraining_dataloader)
 
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=10, shuffle=True)
+        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         for epoch in range(50):
