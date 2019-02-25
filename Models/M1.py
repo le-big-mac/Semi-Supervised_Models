@@ -122,7 +122,7 @@ class M1:
         train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
-            data.to(self.device)
+            data = data.to(self.device)
 
             self.VAE_optim.zero_grad()
 
@@ -144,8 +144,8 @@ class M1:
         train_loss = 0
 
         for batch_idx, (data, labels) in enumerate(dataloader):
-            data.to(self.device)
-            labels.to(self.device)
+            data = data.to(self.device)
+            labels = labels.to(self.device)
 
             with torch.no_grad():
                 z, _, _ = self.Encoder(data)
