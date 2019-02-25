@@ -1,6 +1,5 @@
 import torch
-from torch import nn
-from Models.SDAE import SDAE
+from Models.Ladder import LadderNetwork
 from utils import LoadData, Datasets, Arguments, KFoldSplits, SaveResults
 
 
@@ -13,15 +12,16 @@ def MNIST_train(device):
 
     results = []
     for i in range(5):
-        sdae = SDAE(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+        ladder = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, ['relu', 'relu', 'relu', 'relu', 'relu', 'softmax'],
+                               0.2, [1000, 10, 0.1, 0.1, 0.1, 0.1, 0.1], device)
 
-        print(sdae.PretrainedSDAE)
+        print(ladder.Ladder)
 
-        sdae.full_train(combined_dataset, supervised_dataset, validation_dataset)
+        ladder.full_train(combined_dataset, supervised_dataset, validation_dataset)
 
-        results.append(sdae.full_test(test_dataset))
+        results.append(ladder.full_test(test_dataset))
 
-    SaveResults.save_results(results, 'sdae', 'MNIST_accuracy')
+    SaveResults.save_results(results, 'ladder', 'MNIST_accuracy')
 
 
 def file_train(device):
@@ -33,7 +33,8 @@ def file_train(device):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    sdae = SDAE(500, [200], 10, nn.ReLU(), device)
+    ladder = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, ['relu', 'relu', 'relu', 'relu', 'relu', 'softmax'],
+                               0.2, [1000, 10, 0.1, 0.1, 0.1, 0.1, 0.1], device)
 
     test_results = []
     for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
@@ -42,13 +43,13 @@ def file_train(device):
         test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
                                                                 [supervised_labels[i] for i in test_idx])
 
-        sdae.full_train(train_dataset)
+        ladder.full_train(train_dataset)
 
-        correct_percentage = sdae.full_test(test_dataset)
+        correct_percentage = ladder.full_test(test_dataset)
 
         test_results.append(correct_percentage)
 
-    SaveResults.save_results([test_results], 'sdae', 'accuracy')
+    SaveResults.save_results([test_results], 'ladder', 'accuracy')
 
 
 if __name__ == '__main__':

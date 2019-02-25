@@ -1,9 +1,7 @@
 import torch
-import os
-import csv
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import Accuracy, Arguments, KFoldSplits, Datasets, LoadData
+from utils import Accuracy
 
 
 class Encoder(nn.Module):
@@ -92,10 +90,6 @@ class DeepMetabolism:
 
         return train_loss/len(dataloader.dataset)
 
-    def pretrain_classifier(self, dataloader):
-        for epoch in range(50):
-            self.unsupervised_train_one_epoch(dataloader)
-
     def train_classifier_one_epoch(self, epoch, dataloader):
         self.Classifier.train()
         train_loss = 0
@@ -131,7 +125,8 @@ class DeepMetabolism:
 
         pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
 
-        self.pretrain_classifier(pretraining_dataloader)
+        for epoch in range(50):
+            self.unsupervised_train_one_epoch(pretraining_dataloader)
 
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=10, shuffle=True)
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())

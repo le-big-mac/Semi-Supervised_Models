@@ -3,13 +3,13 @@ import csv
 
 
 # at some point probably pickle the results and replace list with dictionary (number of labels)
-def save_results(results_list, model_file):
+def save_results(results_list, model_directory, filename):
     if not os.path.exists('results'):
         os.mkdir('results')
-    if not os.path.exists('../results/{}'.format(model_file)):
-        os.mkdir('results/{}'.format(model_file))
+    if not os.path.exists('../results/{}'.format(model_directory)):
+        os.mkdir('results/{}'.format(model_directory))
 
-    accuracy_file = open('results/{}/accuracy.csv'.format(model_file), 'w')
+    accuracy_file = open('results/{}/{}.csv'.format(model_directory, filename), 'w')
     accuracy_writer = csv.writer(accuracy_file)
 
     for results in results_list:

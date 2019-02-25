@@ -1,10 +1,7 @@
 import torch
-import os
-import csv
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from utils import Arguments, KFoldSplits, Datasets, LoadData
 
 
 class Encoder(nn.Module):
@@ -94,8 +91,9 @@ class Classifier(nn.Module):
 
 
 class M1:
-    def __init__(self, hidden_dimensions, latent_size, input_size, num_classes, activation, device):
-        self.VAE = VAE(input_size, latent_size, hidden_dimensions, activation).to(device)
+    def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
+                 num_classes, activation, device):
+        self.VAE = VAE(input_size, latent_size, hidden_dimensions_encoder, activation).to(device)
         self.Encoder = self.VAE.encoder
         self.Classifier = Classifier(latent_size, num_classes).to(device)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
@@ -114,7 +112,7 @@ class M1:
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
         BCE = F.binary_cross_entropy(pred_x, x, reduction='sum')
 
-        # actually not necessarily 0-1 normalised
+        # if not necessarily 0-1 normalised
         # BCE = nn.MSELoss(reduction='sum')(pred_x, x)
 
         return KLD + BCE
@@ -141,11 +139,6 @@ class M1:
 
         return train_loss/len(dataloader.dataset)
 
-    def pretrain_VAE(self, dataloader):
-
-        for epoch in range(50):
-            self.train_VAE_one_epoch(epoch, dataloader)
-
     def train_classifier_one_epoch(self, epoch, dataloader):
         self.Classifier.train()
         train_loss = 0
@@ -170,25 +163,6 @@ class M1:
 
         return train_loss/len(dataloader.dataset)
 
-    def supervised_validation(self, dataloader):
-        self.Encoder.eval()
-        self.Classifier.eval()
-        validation_loss = 0
-
-        with torch.no_grad():
-            for batch_idx, (data, labels) in enumerate(dataloader):
-                data.to(self.device)
-                labels.to(self.device)
-
-                z, _, _ = self.Encoder(data)
-                predictions = self.Classifier(z)
-
-                loss = self.Classifier_criterion(predictions, labels)
-
-                validation_loss += loss.item()
-
-        return validation_loss/len(dataloader.dataset)
-
     def supervised_test(self, dataloader):
         self.Encoder.eval()
         self.Classifier.eval()
@@ -202,7 +176,7 @@ class M1:
                 _, predicted = torch.max(outputs.data, 1)
                 correct += (predicted == labels).sum().item()
 
-        return correct/len(dataloader.dataset)
+        return correct / len(dataloader.dataset)
 
     def reset_model(self):
         self.VAE.load_state_dict(torch.load(self.vae_state_path))
@@ -211,36 +185,22 @@ class M1:
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
 
-    def full_train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
+    def full_train(self, combined_dataset, train_dataset, validation_dataset=None):
         self.reset_model()
-
-        combined_dataset = Datasets.UnsupervisedDataset(unsupervised_dataset.data + train_dataset.inputs)
 
         pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=200, shuffle=True)
 
-        self.pretrain_VAE(pretraining_dataloader)
+        for epoch in range(50):
+            self.train_VAE_one_epoch(epoch, pretraining_dataloader)
 
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=40, shuffle=True)
+        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
-        if validation_dataset:
-            validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
-
-        # simple early stopping employed (can change later)
-        validation_result = float("inf")
         for epoch in range(50):
-
             self.train_classifier_one_epoch(epoch, supervised_dataloader)
-
-            if validation_dataset:
-                val = self.supervised_validation(validation_dataloader)
-
-                if val > validation_result:
-                    break
-
-                validation_result = val
+            print('Epoch: {} Validation Acc: {}'.format(epoch, self.supervised_test(validation_dataloader)))
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
         return self.supervised_test(test_dataloader)
-

@@ -5,19 +5,22 @@ from utils import LoadData, Datasets, Arguments, KFoldSplits, SaveResults
 
 
 def MNIST_train(device):
-
     unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
         LoadData.load_MNIST_data(100, 10000, 10000, 49900)
 
     combined_dataset = Datasets.MNISTUnsupervised(torch.cat((unsupervised_dataset.data, supervised_dataset.data), 0))
 
-    deep_metabolism = DeepMetabolism(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+    results = []
+    for i in range(5):
+        deep_metabolism = DeepMetabolism(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
 
-    print(deep_metabolism.Classifier)
+        print(deep_metabolism.Classifier)
 
-    deep_metabolism.full_train(combined_dataset, supervised_dataset, validation_dataset)
+        deep_metabolism.full_train(combined_dataset, supervised_dataset, validation_dataset)
 
-    return deep_metabolism.full_test(test_dataset)
+        results.append(deep_metabolism.full_test(test_dataset))
+
+    SaveResults.save_results(results, 'deep_metabolism')
 
 
 def file_train(device):
@@ -26,8 +29,6 @@ def file_train(device):
 
     unsupervised_data, supervised_data, supervised_labels = LoadData.load_data_from_file(
         args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     deep_metabolism = DeepMetabolism(500, [200], 10, nn.ReLU(), device)
 

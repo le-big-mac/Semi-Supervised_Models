@@ -5,16 +5,20 @@ from utils import LoadData, Datasets, Arguments, KFoldSplits, SaveResults
 
 
 def MNIST_train(device):
-
     _, supervised_dataset, validation_dataset, test_dataset = LoadData.load_MNIST_data(100, 10000, 10000, 0)
 
-    network = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+    # run 5 times to get average accuracy
+    results = []
+    for i in range(5):
+        network = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
 
-    print(network.Classifier)
+        print(network.Classifier)
 
-    network.full_train(supervised_dataset, validation_dataset)
+        network.full_train(supervised_dataset, validation_dataset)
 
-    return network.full_test(test_dataset)
+        results.append(network.full_test(test_dataset))
+
+    SaveResults.save_results(results, 'simple_network', 'MNIST_accuracy')
 
 
 def file_train(device):
@@ -39,7 +43,7 @@ def file_train(device):
 
         test_results.append(correct_percentage)
 
-    SaveResults.save_results([test_results], 'simple_network')
+    SaveResults.save_results([test_results], 'simple_network', 'accuracy')
 
 
 if __name__ == '__main__':
