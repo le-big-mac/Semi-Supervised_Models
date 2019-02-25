@@ -6,7 +6,7 @@ import csv
 def save_results(results_list, model_directory, filename):
     if not os.path.exists('results'):
         os.mkdir('results')
-    if not os.path.exists('../results/{}'.format(model_directory)):
+    if not os.path.exists('results/{}'.format(model_directory)):
         os.mkdir('results/{}'.format(model_directory))
 
     accuracy_file = open('results/{}/{}.csv'.format(model_directory, filename), 'w')

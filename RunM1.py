@@ -15,7 +15,7 @@ def MNIST_train(device):
     for i in range(5):
         m1 = M1(784, [1000, 500, 250], 250, [250], 10, nn.ReLU(), device)
 
-        print(m1.Encoder)
+        print(m1.VAE)
         print(m1.Classifier)
 
         m1.full_train(combined_dataset, supervised_dataset, validation_dataset)

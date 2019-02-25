@@ -15,7 +15,7 @@ class Encoder(nn.Module):
                 nn.Linear(dims[i-1], dims[i]),
                 activation,
             )
-            for i in range(len(dims))
+            for i in range(1, len(dims))
         ]
 
         self.fc_layers = nn.ModuleList(layers)
@@ -52,11 +52,12 @@ class VAE(nn.Module):
 
         dims = hidden_dimensions + [latent_dim]
 
+        # TODO: bug in here
         layers = [
             nn.Sequential(
                 nn.Linear(dims[i], dims[i-1]),
                 activation,
-            ) for i in range(len(dims)-1, 1, -1)
+            ) for i in range(len(dims)-1, 0, -1)
         ]
 
         self.fc_layers = nn.ModuleList(layers)
@@ -80,14 +81,24 @@ class VAE(nn.Module):
 
 
 class Classifier(nn.Module):
-    def __init__(self, latent_dim, num_classes):
+    def __init__(self, latent_dim, hidden_dimensions_classifier, num_classes):
         super(Classifier, self).__init__()
 
-        # could change this to more layers
-        self.supervised_layer = nn.Linear(latent_dim, num_classes)
+        dims = [latent_dim] + hidden_dimensions_classifier
+
+        layers = [nn.Sequential(
+            nn.Linear(dims[i-1], dims[i]),
+            nn.ReLU(),
+        ) for i in range(1, len(dims))]
+
+        self.layers = nn.ModuleList(layers)
+        self.classification = nn.Linear(dims[-1], num_classes)
 
     def forward(self, z):
-        return self.supervised_layer(z)
+        for layer in self.layers:
+            z = layer(z)
+
+        return self.classification(z)
 
 
 class M1:
@@ -95,7 +106,7 @@ class M1:
                  num_classes, activation, device):
         self.VAE = VAE(input_size, latent_size, hidden_dimensions_encoder, activation).to(device)
         self.Encoder = self.VAE.encoder
-        self.Classifier = Classifier(latent_size, num_classes).to(device)
+        self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
