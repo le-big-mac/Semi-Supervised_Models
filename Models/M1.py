@@ -106,7 +106,8 @@ class M1:
                  num_classes, activation, device):
         self.VAE = VAE(input_size, latent_size, hidden_dimensions_encoder, activation).to(device)
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
-        self.Encoder = self.VAE.encoder
+        # self.Encoder = self.VAE.encoder
+        self.Encoder = Encoder(input_size, latent_size, hidden_dimensions_encoder, activation).to(device)
 
         self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
@@ -158,7 +159,7 @@ class M1:
         train_loss = 0
 
         for batch_idx, (data, labels) in enumerate(dataloader):
-            # data = data.to(self.device)
+            data = data.to(self.device)
             labels = labels.to(self.device)
 
             self.Classifier_optim.zero_grad()
