@@ -104,13 +104,16 @@ class Classifier(nn.Module):
 class M1:
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
                  num_classes, activation, device):
-        self.VAE = VAE(input_size, latent_size, hidden_dimensions_encoder, activation).to(device)
-        self.Encoder = self.VAE.encoder.to(device)
-        self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
-        self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
+        self.VAE = VAE(input_size, latent_size, hidden_dimensions_encoder, activation).cuda()
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
+        self.Encoder = self.VAE.encoder.cuda()
+
+        self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).cuda()
+        self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
+
         self.device = device
+
         self.vae_state_path = 'Models/state/m1_vae.pt'
         self.clas_state_path = 'Models/state/m1_classifier.pt'
         torch.save(self.VAE.state_dict(), self.vae_state_path)
@@ -133,7 +136,7 @@ class M1:
         train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
-            data = data.to(self.device)
+            data = data.cuda()
 
             self.VAE_optim.zero_grad()
 
@@ -155,8 +158,10 @@ class M1:
         train_loss = 0
 
         for batch_idx, (data, labels) in enumerate(dataloader):
-            data = data.to(self.device)
-            labels = labels.to(self.device)
+            data = data.cuda()
+            labels = labels.cuda()
+
+            self.Classifier_optim.zero_grad()
 
             with torch.no_grad():
                 z, _, _ = self.Encoder(data)
