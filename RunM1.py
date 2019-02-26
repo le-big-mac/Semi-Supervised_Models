@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models.M1 import M1
+from Models.DimensionalityReduction.M1 import M1
 from utils import Arguments, LoadData, Datasets, KFoldSplits, SaveResults
 
 

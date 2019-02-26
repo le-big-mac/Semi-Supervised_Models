@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models.DeepMetabolism import DeepMetabolism
+from Models.Pretraining.DeepMetabolism import DeepMetabolism
 from utils import LoadData, Datasets, Arguments, KFoldSplits, SaveResults
 
 

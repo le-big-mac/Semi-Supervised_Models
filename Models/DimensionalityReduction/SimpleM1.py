@@ -1,83 +1,11 @@
 import torch
 from torch import nn
-from torch.nn import functional as F
 from torch.utils.data import DataLoader
+from Models.SimpleAutoencoder.MultilayerAutoencoder import Autoencoder
 
-
-class Encoder(nn.Module):
-    def __init__(self, input_size, latent_dim, hidden_dimensions, activation):
-        super(Encoder, self).__init__()
-
-        dims = [input_size] + hidden_dimensions
-
-        layers = [
-            nn.Sequential(
-                nn.Linear(dims[i-1], dims[i]),
-                activation,
-            )
-            for i in range(1, len(dims))
-        ]
-
-        self.fc_layers = nn.ModuleList(layers)
-        self.mu = nn.Linear(hidden_dimensions[-1], latent_dim)
-
-        # variance has to be greater than 0
-        self.logvar = nn.Sequential(
-            nn.Linear(hidden_dimensions[-1], latent_dim),
-            nn.ReLU(),
-        )
-
-    def encode(self, x):
-        for layer in self.fc_layers:
-            x = layer(x)
-
-        return self.mu(x), self.logvar(x)
-
-    def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5*logvar)
-        eps = torch.randn_like(std)
-        z = eps.mul(std).add(mu)
-        return z
-
-    def forward(self, x):
-        mu, logvar = self.encode(x)
-        return self.reparameterize(mu, logvar), mu, logvar
-
-
-class VAE(nn.Module):
-    def __init__(self, input_size, latent_dim, hidden_dimensions, activation):
-        super(VAE, self).__init__()
-
-        self.encoder = Encoder(input_size, latent_dim, hidden_dimensions, activation)
-
-        dims = hidden_dimensions + [latent_dim]
-
-        # TODO: bug in here
-        layers = [
-            nn.Sequential(
-                nn.Linear(dims[i], dims[i-1]),
-                activation,
-            ) for i in range(len(dims)-1, 0, -1)
-        ]
-
-        self.fc_layers = nn.ModuleList(layers)
-
-        # have option not to use sigmoid on output
-        self.out = nn.Sequential(
-            nn.Linear(hidden_dimensions[0], input_size),
-            nn.Sigmoid(),
-        )
-
-    def forward(self, x):
-        z, mu, logvar = self.encoder(x)
-
-        h = z
-        for layer in self.fc_layers:
-            h = layer(h)
-
-        out = self.out(h)
-
-        return out, mu, logvar
+# --------------------------------------------------------------------------------------
+# Kingma M1 model using simple autoencoder for dimensionality reduction (for comparison)
+# --------------------------------------------------------------------------------------
 
 
 class Classifier(nn.Module):
@@ -104,9 +32,10 @@ class Classifier(nn.Module):
 class M1:
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
                  num_classes, activation, device):
-        self.VAE = VAE(input_size, latent_size, hidden_dimensions_encoder, activation).to(device)
-        self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
-        self.Encoder = self.VAE.encoder
+        self.Autoencoder = Autoencoder(input_size, hidden_dimensions_encoder, latent_size, activation).to(device)
+        self.Autoencoder_criterion = nn.BCELoss(reduction='sum')
+        self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
+        self.Encoder = self.Autoencoder.encoder
 
         self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
@@ -114,25 +43,13 @@ class M1:
 
         self.device = device
 
-        self.vae_state_path = 'Models/state/m1_vae.pt'
-        self.clas_state_path = 'Models/state/m1_classifier.pt'
-        torch.save(self.VAE.state_dict(), self.vae_state_path)
+        self.autoencoder_state_path = 'Models/state/simple_m1_ae.pt'
+        self.clas_state_path = 'Models/state/simple_m1_classifier.pt'
+        torch.save(self.Autoencoder.state_dict(), self.autoencoder_state_path)
         torch.save(self.Classifier.state_dict(), self.clas_state_path)
 
-    def VAE_criterion(self, pred_x, x, mu, logvar):
-        # KL divergence between two normal distributions (N(0, 1) and parameterized)
-        KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1)
-
-        # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
-        BCE = F.binary_cross_entropy(pred_x, x, reduction='sum')
-
-        # if not necessarily 0-1 normalised
-        # BCE = nn.MSELoss(reduction='sum')(pred_x, x)
-
-        return KLD + BCE
-
-    def train_VAE_one_epoch(self, epoch, dataloader):
-        self.VAE.train()
+    def train_autoencoder_one_epoch(self, epoch, dataloader):
+        self.Autoencoder.train()
         train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
@@ -140,14 +57,14 @@ class M1:
 
             self.VAE_optim.zero_grad()
 
-            recons, mu, logvar = self.VAE(data)
+            recons = self.Autoencoder(data)
 
-            loss = self.VAE_criterion(recons, data, mu, logvar)
+            loss = self.Autoencoder_criterion(recons, data)
 
             train_loss += loss.item()
 
             loss.backward()
-            self.VAE_optim.step()
+            self.Autoencoder_optim.step()
 
         print('Epoch: {} VAE Loss: {}'.format(epoch, train_loss/len(dataloader.dataset)))
 
@@ -190,7 +107,7 @@ class M1:
                 data = data.to(self.device)
                 labels = labels.to(self.device)
 
-                z, _, _ = self.Encoder(data)
+                z = self.Encoder(data)
                 outputs = self.Classifier(z)
                 _, predicted = torch.max(outputs.data, 1)
                 correct += (predicted == labels).sum().item()
@@ -198,10 +115,10 @@ class M1:
         return correct / len(dataloader.dataset)
 
     def reset_model(self):
-        self.VAE.load_state_dict(torch.load(self.vae_state_path))
+        self.Autoencoder.load_state_dict(torch.load(self.autoencoder_state_path))
         self.Classifier.load_state_dict(torch.load(self.clas_state_path))
 
-        self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
+        self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
 
     def full_train(self, combined_dataset, train_dataset, validation_dataset=None):
@@ -210,7 +127,7 @@ class M1:
         pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
 
         for epoch in range(50):
-            self.train_VAE_one_epoch(epoch, pretraining_dataloader)
+            self.train_autoencoder_one_epoch(epoch, pretraining_dataloader)
 
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())

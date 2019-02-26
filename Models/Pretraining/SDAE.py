@@ -2,44 +2,23 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from utils import Accuracy
-
-
-class Encoder(nn.Module):
-    def __init__(self, input_size, layer_size, activation):
-        super(Encoder, self).__init__()
-
-        self.layer = nn.Linear(input_size, layer_size)
-        self.activation = activation
-
-    def forward(self, x):
-        h = self.layer(x)
-        if self.activation:
-            h = self.activation(h)
-
-        return h
-
-
-class DAE(nn.Module):
-    def __init__(self, encoder):
-        super(DAE, self).__init__()
-
-        self.encoder = encoder
-        self.decoder = nn.Linear(encoder.layer.out_features, encoder.layer.in_features)
-
-    def forward(self, x):
-        h = self.encoder(x)
-        return self.decoder(h)
+from Models.SimpleAutoencoder.SingleLayerAutoencoder import Encoder, Autoencoder
 
 
 class PretrainedSDAE(nn.Module):
-    def __init__(self, layers, num_classes):
+    def __init__(self, input_size, hidden_dimensions, num_classes, activation):
         super(PretrainedSDAE, self).__init__()
 
-        self.pretrained_hidden_fc_layers = layers
+        dims = [input_size] + hidden_dimensions
+
+        layers = [Encoder(input_size=dims[i - 1], layer_size=dims[i], activation=activation)
+                  for i in range(1, len(dims))]
+
+        self.hidden_layers = nn.ModuleList(layers)
         self.classification_layer = nn.Linear(layers[-1].layer.out_features, num_classes)
 
     def forward(self, x):
-        for layer in self.pretrained_hidden_fc_layers:
+        for layer in self.hidden_layers:
             x = layer(x)
 
         return self.classification_layer(x)
@@ -47,32 +26,23 @@ class PretrainedSDAE(nn.Module):
 
 class SDAE:
     def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
-        self.hidden_dimensions = hidden_dimensions
-        self.hidden_layers = nn.ModuleList()
-        self.device = device
-        self.PretrainedSDAE = self.setup_model(hidden_dimensions, input_size, num_classes, activation)
+        self.PretrainedSDAE = self.PretrainedSDAE(input_size, hidden_dimensions, num_classes, activation).to(device)
         self.optimizer = torch.optim.Adam(self.PretrainedSDAE.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss(reduction='sum')
+
         self.state_path = 'Models/state/sdae.pt'
         torch.save(self.PretrainedSDAE.state_dict(), self.state_path)
 
-    def setup_model(self, hidden_dimensions, input_size, num_classes, activation):
-        dims = [input_size] + hidden_dimensions
-
-        layers = [Encoder(input_size=dims[i-1], layer_size=dims[i], activation=activation)
-                  for i in range(1, len(dims))]
-
-        self.hidden_layers = nn.ModuleList(layers)
-        return PretrainedSDAE(self.hidden_layers, num_classes).to(self.device)
+        self.device = device
 
     def pretrain_hidden_layers(self, dataloader):
 
-        for i in range(len(self.hidden_layers)):
-            decoder = DAE(self.hidden_layers[i]).to(self.device)
+        for i in range(len(self.PretrainedSDAE.hidden_layers)):
+            decoder = Autoencoder(self.PretrainedSDAE.hidden_layers[i]).to(self.device)
             criterion = nn.MSELoss(reduction="sum")
             optimizer = torch.optim.Adam(decoder.parameters(), lr=1e-3)
 
-            previous_layers = self.hidden_layers[0:i]
+            previous_layers = self.PretrainedSDAE.hidden_layers[0:i]
 
             for epoch in range(50):
                 layer_loss = self.train_DAE_one_epoch(previous_layers, decoder, dataloader, criterion, optimizer)

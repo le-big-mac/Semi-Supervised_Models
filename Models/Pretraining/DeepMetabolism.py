@@ -2,58 +2,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from utils import Accuracy
-
-
-class Encoder(nn.Module):
-    def __init__(self, input_size, hidden_dimensions, num_classes, activation):
-        super(Encoder, self).__init__()
-
-        dims = [input_size] + hidden_dimensions
-
-        layers = [
-            nn.Sequential(
-                nn.Linear(dims[i-1], dims[i]),
-                activation,
-            )
-            for i in range(1, len(dims))
-        ]
-
-        self.fc_layers = nn.ModuleList(layers)
-        self.classification_layer = nn.Linear(hidden_dimensions[-1], num_classes)
-
-    def forward(self, x):
-        for layer in self.fc_layers:
-            x = layer(x)
-
-        return self.classification_layer(x)
-
-
-class Autoencoder(nn.Module):
-    def __init__(self, input_size, hidden_dimensions, num_classes, activation):
-        super(Autoencoder, self).__init__()
-
-        self.encoder = Encoder(input_size, hidden_dimensions, num_classes, activation)
-
-        dims = hidden_dimensions + [num_classes]
-
-        layers = [
-            nn.Sequential(
-                nn.Linear(dims[i], dims[i-1]),
-                activation,
-            )
-            for i in range(len(dims)-1, 0, -1)
-        ]
-
-        self.fc_layers = nn.ModuleList(layers)
-        self.output_layer = nn.Linear(hidden_dimensions[0], input_size)
-
-    def forward(self, x):
-        h = self.encoder(x)
-
-        for layer in self.fc_layers:
-            h = layer(h)
-
-        return self.output_layer(h)
+from Models.SimpleAutoencoder.MultilayerAutoencoder import Encoder, Autoencoder
 
 
 class DeepMetabolism:
@@ -61,12 +10,15 @@ class DeepMetabolism:
         self.Autoencoder = Autoencoder(input_size, hidden_dimensions, num_classes, activation).to(device)
         self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
         self.Autoencoder_criterion = nn.MSELoss(reduction='sum')
+
         self.Classifier = self.Autoencoder.encoder
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
-        self.device = device
+
         self.state_path = 'Models/state/deep_metabolism.pt'
         torch.save(self.Autoencoder.state_dict(), self.state_path)
+
+        self.device = device
 
     def unsupervised_train_one_epoch(self, dataloader):
         self.Autoencoder.train()

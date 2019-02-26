@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models.SDAE import SDAE
+from Models.Pretraining.SDAE import SDAE
 from utils import LoadData, Datasets, Arguments, KFoldSplits, SaveResults
 
 
