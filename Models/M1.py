@@ -104,11 +104,11 @@ class Classifier(nn.Module):
 class M1:
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
                  num_classes, activation, device):
-        self.VAE = VAE(input_size, latent_size, hidden_dimensions_encoder, activation).cuda()
+        self.VAE = VAE(input_size, latent_size, hidden_dimensions_encoder, activation).to(device)
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
-        self.Encoder = self.VAE.encoder.cuda()
+        self.Encoder = self.VAE.encoder
 
-        self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).cuda()
+        self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
 
@@ -136,7 +136,7 @@ class M1:
         train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
-            data = data.cuda()
+            data = data.to(self.device)
 
             self.VAE_optim.zero_grad()
 
@@ -158,8 +158,8 @@ class M1:
         train_loss = 0
 
         for batch_idx, (data, labels) in enumerate(dataloader):
-            data = data.cuda()
-            labels = labels.cuda()
+            data = data.to(self.device)
+            labels = labels.to(self.device)
 
             self.Classifier_optim.zero_grad()
 
@@ -206,8 +206,8 @@ class M1:
 
         pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
 
-        for epoch in range(50):
-            self.train_VAE_one_epoch(epoch, pretraining_dataloader)
+        # for epoch in range(50):
+        #     self.train_VAE_one_epoch(epoch, pretraining_dataloader)
 
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())

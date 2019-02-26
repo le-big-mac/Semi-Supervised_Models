@@ -20,11 +20,12 @@ def MNIST_train(device):
 
         results.append(deep_metabolism.full_test(test_dataset))
 
-    SaveResults.save_results(results, 'deep_metabolism')
+    SaveResults.save_results(results, 'deep_metabolism', 'MNIST_accuracy')
 
 
 def file_train(device):
 
+    # TODO: this is all wrong
     args = Arguments.parse_args()
 
     unsupervised_data, supervised_data, supervised_labels = LoadData.load_data_from_file(
@@ -45,7 +46,7 @@ def file_train(device):
 
         test_results.append(correct_percentage)
 
-    SaveResults.save_results([test_results], 'deep_metabolism')
+    SaveResults.save_results([test_results], 'deep_metabolism', 'blah')
 
 
 if __name__ == '__main__':
