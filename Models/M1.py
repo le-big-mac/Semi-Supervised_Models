@@ -209,8 +209,8 @@ class M1:
 
         pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
 
-        # for epoch in range(50):
-        #     self.train_VAE_one_epoch(epoch, pretraining_dataloader)
+        for epoch in range(50):
+            self.train_VAE_one_epoch(epoch, pretraining_dataloader)
 
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
