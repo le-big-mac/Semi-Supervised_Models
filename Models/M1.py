@@ -106,8 +106,7 @@ class M1:
                  num_classes, activation, device):
         self.VAE = VAE(input_size, latent_size, hidden_dimensions_encoder, activation).to(device)
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
-        # self.Encoder = self.VAE.encoder
-        self.Encoder = Encoder(input_size, latent_size, hidden_dimensions_encoder, activation).to(device)
+        self.Encoder = self.VAE.encoder
 
         self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
@@ -167,7 +166,6 @@ class M1:
             with torch.no_grad():
                 z, _, _ = self.Encoder(data)
 
-            print('Error after encoder now')
             pred = self.Classifier(z)
 
             loss = self.Classifier_criterion(pred, labels)
@@ -189,6 +187,9 @@ class M1:
 
         with torch.no_grad():
             for batch_idx, (data, labels) in enumerate(dataloader):
+                data = data.to(self.device)
+                labels = labels.to(self.device)
+
                 z, _, _ = self.Encoder(data)
                 outputs = self.Classifier(z)
                 _, predicted = torch.max(outputs.data, 1)
