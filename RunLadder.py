@@ -1,25 +1,23 @@
 import torch
-from Models.Ladder import LadderNetwork
+from Models.Ladder.Ladder import LadderNetwork
 from utils import LoadData, Datasets, Arguments, KFoldSplits, SaveResults
 
 
 def MNIST_train(device):
 
     unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
-        LoadData.load_MNIST_data(100, 10000, 10000, 49000)
-
-    combined_dataset = Datasets.MNISTUnsupervised(torch.cat((unsupervised_dataset.data, supervised_dataset.data), 0))
+        LoadData.load_MNIST_data(100, num_unlabelled=49900, validation=True, test=True)
 
     results = []
     for i in range(5):
         ladder = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, ['relu', 'relu', 'relu', 'relu', 'relu', 'softmax'],
-                               0.2, [1000, 10, 0.1, 0.1, 0.1, 0.1, 0.1], device)
+                               0.2, [0.1, 0.1, 0.1, 0.1, 0.1, 10, 1000], device)
 
         print(ladder.Ladder)
 
-        ladder.full_train(combined_dataset, supervised_dataset, validation_dataset)
+        ladder.full_train(unsupervised_dataset, supervised_dataset, validation_dataset)
 
-        results.append(ladder.full_test(test_dataset))
+        results.append(ladder.test(test_dataset))
 
     SaveResults.save_results(results, 'ladder', 'MNIST_accuracy')
 

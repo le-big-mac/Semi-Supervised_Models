@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from torchvision import datasets
 from utils import Datasets
+from collections import defaultdict
 
 
 def load_data_from_file(unsupervised_file_path, supervised_data_file_path, supervised_labels_file_path):
@@ -13,61 +14,56 @@ def load_data_from_file(unsupervised_file_path, supervised_data_file_path, super
     return unsupervised_data, supervised_data, supervised_labels
 
 
-def load_MNIST_data(num_labelled, num_validation, num_test, num_unlabelled=0):
+def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     mnist_train = datasets.MNIST(root='data/MNIST', train=True, download=True, transform=None)
     mnist_test = datasets.MNIST(root='data/MNIST', train=False, download=True, transform=None)
 
-    elements_of_each = num_labelled//10
+    train_data = mnist_train.train_data
+    train_labels = mnist_train.train_labels
 
-    label_nums = [elements_of_each] * 10
+    test_data = mnist_test.test_data
+    test_labels = mnist_test.test_labels
 
-    np_labels = []
-    np_labelled_data = []
-    np_unlabelled_data = []
+    train_data = train_data.view(-1, 784)
+    train_data = 1./255. * train_data.double()
+    test_data = test_data.view(-1, 784)
+    test_data = 1./255. * test_data.double()
 
-    num_labelled = labels = elements_of_each*10
-    i = 0
-    while labels > 0:
-        data = mnist_train.train_data[i]
-        label = mnist_train.train_labels[i]
+    labelled_per_class = num_labelled//10
+    unlabelled_per_class = num_unlabelled//10
 
-        if label_nums[label.item()] > 0:
-            np_labelled_data.append(data)
-            np_labels.append(label)
+    buckets_train_data = defaultdict(list)
 
-            label_nums[label.item()] -= 1
-            labels -= 1
+    for image, label in zip(train_data, train_labels):
+        buckets_train_data[label.item()].append((image, label))
 
-        elif num_unlabelled > len(np_unlabelled_data):
-            np_unlabelled_data.append(data)
+    labelled_data = []
+    unlabelled_data = []
+    validation_data = []
 
-        i += 1
+    for label, data in buckets_train_data.items():
+        labelled_data.extend(data[:labelled_per_class])
+        unlabelled_data.extend(data[labelled_per_class:labelled_per_class + unlabelled_per_class])
+        if validation:
+            validation_data.extend(data[labelled_per_class + unlabelled_per_class:])
 
-    final_idx = i
+    np.random.shuffle(labelled_data)
+    np.random.shuffle(unlabelled_data)
+    np.random.shuffle(validation_data)
 
-    supervised_dataset = Datasets.MNISTSupervised(torch.stack(np_labelled_data), torch.stack(np_labels))
+    labelled_data = list(zip(*labelled_data))
+    unlabelled_data = list(zip(*unlabelled_data))
+    validation_data = list(zip(*validation_data))
 
-    unlabelled_tensor = torch.stack(np_unlabelled_data) if num_unlabelled > 0 else None
-    if num_unlabelled > len(np_unlabelled_data):
-        unlabelled_end_idx = num_unlabelled + num_labelled
+    supervised_dataset = Datasets.MNISTSupervised(torch.stack(labelled_data[0]), torch.stack(labelled_data[1]))
+    unsupervised_dataset = Datasets.MNISTUnsupervised(torch.stack(unlabelled_data[0]))
 
-        unsupervised_dataset = Datasets.MNISTUnsupervised(
-            torch.cat((unlabelled_tensor, mnist_train.train_data[final_idx:unlabelled_end_idx])))
+    validation_dataset = None
+    if validation:
+        validation_dataset = Datasets.MNISTSupervised(torch.stack(validation_data[0]), torch.stack(validation_data[1]))
 
-    else:
-        unlabelled_end_idx = final_idx
-        unsupervised_dataset = Datasets.MNISTUnsupervised(unlabelled_tensor)
-
-    validation_end_index = unlabelled_end_idx + num_validation \
-        if unlabelled_end_idx + num_validation < len(mnist_train.train_data) else len(mnist_train.train_data)
-
-    validation_dataset = Datasets.MNISTSupervised(mnist_train.train_data[unlabelled_end_idx:validation_end_index],
-                                                  mnist_train.train_labels[unlabelled_end_idx:validation_end_index])
-
-    test_dataset = Datasets.MNISTSupervised(mnist_test.test_data[:num_test], mnist_test.test_labels[:num_test])
+    test_dataset = None
+    if test:
+        test_dataset = Datasets.MNISTSupervised(test_data, test_labels)
 
     return unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset
-
-
-if __name__ == '__main__':
-    load_MNIST_data(100, 10000, 10000, 49900)

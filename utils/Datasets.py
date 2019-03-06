@@ -47,9 +47,6 @@ class MNISTSupervised(Dataset):
         img = self.data[index]
         label = self.labels[index]
 
-        # Thanks Yann LeCun
-        img = transforms.ToTensor()(Image.fromarray(img.numpy(), mode='L')).view(784,)
-
         return img, label
 
 
@@ -61,6 +58,4 @@ class MNISTUnsupervised(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        img = self.data[index]
-        img = transforms.ToTensor()(Image.fromarray(img.numpy(), mode='L')).view(784,)
-        return img
+        return self.data[index]
