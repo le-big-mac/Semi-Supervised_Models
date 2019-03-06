@@ -32,7 +32,8 @@ class LadderNetwork:
     def __init__(self, input_size, hidden_dimensions, num_classes, activation_strings, noise_level,
                  unsupervised_loss_multipliers, device):
 
-        self.Ladder = Ladder(input_size, hidden_dimensions, num_classes, activation_strings, noise_level, device)
+        self.Ladder = Ladder(input_size, hidden_dimensions, num_classes,
+                             activation_strings, noise_level, device).to(device)
         self.optimizer = torch.optim.Adam(self.Ladder.parameters(), lr=0.02)
 
         self.loss_unsupervised = nn.MSELoss()
