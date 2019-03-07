@@ -18,11 +18,11 @@ def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     mnist_train = datasets.MNIST(root='data/MNIST', train=True, download=True, transform=None)
     mnist_test = datasets.MNIST(root='data/MNIST', train=False, download=True, transform=None)
 
-    train_data = mnist_train.train_data
-    train_labels = mnist_train.train_labels
+    train_data = mnist_train.data
+    train_labels = mnist_train.targets
 
-    test_data = mnist_test.test_data
-    test_labels = mnist_test.test_labels
+    test_data = mnist_test.data
+    test_labels = mnist_test.targets
 
     train_data = train_data.view(-1, 784)
     train_data = 1./255. * train_data.double()

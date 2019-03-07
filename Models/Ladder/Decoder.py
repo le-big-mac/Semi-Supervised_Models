@@ -93,7 +93,8 @@ class StackedDecoders(nn.Module):
             #
             # z_hats_BN.append(hat_z_normalized)
 
-            if decoder == self.decoders[-1]:
+            # if decoder == self.decoders[-1]:
+            if True:
                 hat_z_normalized = z_hat_l
             else:
                 mean = z_pre_l.mean(dim=0)

@@ -92,6 +92,9 @@ class LadderNetwork:
             assert len(z_layers_unlabelled) == len(bn_hat_z_layers_unlabelled)
             for cost_lambda, z, bn_hat_z in zip(self.unsupervised_multipliers, z_layers_unlabelled,
                                                 bn_hat_z_layers_unlabelled):
+                # print(bn_hat_z[0])
+                # print(z[0])
+                # print(self.loss_unsupervised.forward(bn_hat_z[0], z[0]))
                 c = cost_lambda * self.loss_unsupervised.forward(bn_hat_z, z)
                 cost_unsupervised += c
 
@@ -121,7 +124,7 @@ class LadderNetwork:
 
                 outputs, _, _ = self.Ladder.forward_encoders_clean(data)
 
-                _, predicted = torch.max(outputs.data, 1)
+                _, predicted = torch.max(F.softmax(outputs).data, 1)
                 correct += (predicted == labels).sum().item()
 
         return correct / len(dataloader.dataset)
