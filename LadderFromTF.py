@@ -22,6 +22,7 @@ decay_after = 15  # epoch after which to begin learning rate decay
 batch_size = 100
 num_iter = (num_examples/batch_size) * num_epochs  # number of loop iterations
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def bi(inits, size):
     return Parameter(inits * torch.ones(size))
@@ -45,7 +46,7 @@ split_lu = lambda x: (labeled(x), unlabeled(x))
 
 
 class encoders(Module):
-    def __init__(self):
+    def __init__(self, device):
         super(encoders, self).__init__()
         self.W = nn.ParameterList([wi(s) for s in shapes])
         self.beta = nn.ParameterList([bi(0.0, s[1]) for s in shapes])
@@ -54,8 +55,10 @@ class encoders(Module):
         self.batch_norm_clean_unlabelled = nn.ModuleList([nn.BatchNorm1d(s[1], affine=False) for s in shapes])
         self.batch_norm_noisy = nn.ModuleList([nn.BatchNorm1d(s[1], affine=False) for s in shapes])
 
+        self.device = device
+
     def forward(self, inputs, noise_std, training):
-        h = inputs + torch.randn_like(inputs) * noise_std  # add noise to input
+        h = inputs + noise_std * torch.randn_like(inputs).to(device)  # add noise to input
         d = {}  # to store the pre-activation, activation, mean and variance for each layer
         # The data for labeled and unlabeled examples are stored separately
         d['labeled'] = {'z': {}, 'm': {}, 'v': {}, 'h': {}}
@@ -78,7 +81,7 @@ class encoders(Module):
                     # Corrupted encoder
                     # batch normalization + noise
                     z = join(self.batch_norm_noisy[l-1](z_pre_l), self.batch_norm_noisy[l-1](z_pre_u))
-                    z += (torch.randn_like(z) * noise_std)
+                    z += noise_std * torch.randn_like(z).to(device)
                 else:
                     # Clean encoder
                     # batch normalization + update the average mean and variance using batch mean and variance of labeled examples
@@ -103,7 +106,7 @@ class encoders(Module):
 
 
 class decoders(Module):
-    def __init__(self):
+    def __init__(self, device):
         super(decoders, self).__init__()
 
         self.V = nn.ParameterList([wi(s[::-1]) for s in shapes])
@@ -154,19 +157,17 @@ class decoders(Module):
 
 
 class Ladder(Module):
-    def __init__(self):
+    def __init__(self, device):
         super(Ladder, self).__init__()
 
-        self.encoders = encoders()
-        self.decoders = decoders()
+        self.encoders = encoders(device)
+        self.decoders = decoders(device)
 
     def forward_encoders(self, inputs, noise_std, train):
         return self.encoders.forward(inputs, noise_std, train)
 
     def forward_decoders(self, y_c, corr, clean):
         return self.decoders.forward(y_c, corr, clean)
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 print('=====Loading Data=====')
 
@@ -176,7 +177,7 @@ labelled_loader = DataLoader(supervised_dataset, batch_size=100, shuffle=True)
 unlabelled_loader = DataLoader(unsupervised_dataset, batch_size=100, shuffle=True)
 validation_loader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())
 
-ladder = Ladder()
+ladder = Ladder(device).to(device)
 
 print('=====Encoders=====')
 print(ladder.encoders)
@@ -188,6 +189,7 @@ optimizer = torch.optim.Adam(ladder.parameters(), lr=0.02)
 supervised_cost_function = nn.CrossEntropyLoss()
 unsupervised_cost_function = nn.MSELoss(reduction="mean")
 
+
 def evaluate(dataloader):
     ladder.eval()
 
@@ -195,8 +197,8 @@ def evaluate(dataloader):
 
     with torch.no_grad():
         for batch_idx, (data, labels) in enumerate(dataloader):
-            data = data.float()
-            labels = labels
+            data = data.float().to(device)
+            labels = labels.to(device)
 
             outputs, _ = ladder.forward_encoders(data, 0.0, False)
 
@@ -215,9 +217,10 @@ for epoch in range(150):
         optimizer.zero_grad()
 
         labelled_images, labels = labelled_data
-        labelled_images = labelled_images.float()
+        labelled_images = labelled_images.float().to(device)
+        labels = labels.to(device)
 
-        unlabelled_images = unlabelled_data.float()
+        unlabelled_images = unlabelled_data.float().to(device)
 
         inputs = torch.cat((labelled_images, unlabelled_images), 0)
 
