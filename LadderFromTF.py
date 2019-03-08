@@ -185,7 +185,7 @@ print(ladder.encoders)
 print('=====Decoders=====')
 print(ladder.decoders)
 
-optimizer = torch.optim.Adam(ladder.parameters(), lr=0.02)
+optimizer = torch.optim.Adam(ladder.parameters(), lr=1e-3)
 supervised_cost_function = nn.CrossEntropyLoss()
 unsupervised_cost_function = nn.MSELoss(reduction="mean")
 
@@ -210,7 +210,7 @@ def evaluate(dataloader):
 
 print('=====Starting Training=====')
 
-for epoch in range(150):
+for epoch in range(50):
     for batch_idx, (labelled_data, unlabelled_data) in enumerate(zip(cycle(labelled_loader), unlabelled_loader)):
         ladder.train()
 
