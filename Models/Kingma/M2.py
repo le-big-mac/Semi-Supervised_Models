@@ -166,8 +166,10 @@ class M2_runner:
             loss.backward()
             self.optimizer.step()
 
-            print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
-                  .format(epoch, labelled_loss.item(), U.item(), L.item(), self.evaluate(validation_loader)))
+            # print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
+            #       .format(epoch, labelled_loss.item(), U.item(), L.item(), self.evaluate(validation_loader)))
+
+        print('Epoch: {} Validation Accuracy: {}'.format(epoch, self.evaluate(validation_loader)))
 
     def evaluate(self, dataloader):
         self.M2.eval()
