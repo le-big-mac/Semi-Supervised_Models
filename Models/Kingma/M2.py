@@ -100,7 +100,7 @@ class M2_runner:
     def make_labels(self, batch_size):
         labels = []
         for i in range(self.num_classes):
-            labels.append(i * torch.ones(batch_size).long())
+            labels.append(i * torch.ones(batch_size).long().to(self.device))
 
         labels = torch.cat(labels)
 
