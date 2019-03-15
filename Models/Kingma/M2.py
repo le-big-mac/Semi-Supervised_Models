@@ -157,16 +157,17 @@ class M2_runner:
             labelled_loss = F.cross_entropy(labelled_predictions, labels)
 
             # labelled images ELBO
-            L = -self.elbo(labelled_images, y=labels)
+            L = self.elbo(labelled_images, y=labels)
 
-            U = -self.elbo(unlabelled_images)
+            U = self.elbo(unlabelled_images)
 
             loss = L + U + alpha*labelled_loss
 
             loss.backward()
             self.optimizer.step()
 
-        print('Epoch: {} Validation Accuracy: {}'.format(epoch, self.evaluate(validation_loader)))
+            print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
+                  .format(epoch, labelled_loss.item(), U.item(), L.item(), self.evaluate(validation_loader)))
 
     def evaluate(self, dataloader):
         self.M2.eval()
