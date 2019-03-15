@@ -74,7 +74,7 @@ class M2_runner:
     def onehot(self, labels):
         labels = labels.unsqueeze(1)
 
-        y = torch.zeros(labels.size(0), self.num_classes)
+        y = torch.zeros(labels.size(0), self.num_classes).to(self.device)
         y = y.scatter(1, labels, 1)
 
         return y
