@@ -131,7 +131,7 @@ class M2_runner:
         return -torch.sum(logits * torch.log(logits + 1e-8), dim=1)
 
     def elbo(self, x, y=None):
-        if y:
+        if y is not None:
             recons, mu, logvar = self.M2(x, self.onehot(y))
 
             return -self.minus_L(x, recons, mu, logvar, y).mean()
