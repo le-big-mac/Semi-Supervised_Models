@@ -53,7 +53,7 @@ class Decoder(nn.Module):
             nn.Sequential(
                 nn.Linear(dims[i], dims[i - 1]),
                 activation,
-            ) for i in range(len(dims), 1, -1)
+            ) for i in range(len(dims)-1, 0, -1)
         ]
 
         self.fc_layers = nn.ModuleList(layers)
@@ -83,3 +83,4 @@ class VAE(nn.Module):
         out = self.decoder(z)
 
         return out, mu, logvar
+

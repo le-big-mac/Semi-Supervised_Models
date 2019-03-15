@@ -1,7 +1,6 @@
 import math
 import torch
 from torch import nn
-from torch.nn import Parameter, Module
 import torch.nn.functional as F
 from itertools import cycle
 from utils.LoadData import load_MNIST_data
@@ -25,11 +24,11 @@ num_iter = (num_examples/batch_size) * num_epochs  # number of loop iterations
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def bi(inits, size):
-    return Parameter(inits * torch.ones(size))
+    return nn.Parameter(inits * torch.ones(size))
 
 
 def wi(shape):
-    return Parameter(torch.randn(shape) / math.sqrt(shape[0]))
+    return nn.Parameter(torch.randn(shape) / math.sqrt(shape[0]))
 
 
 shapes = list(zip(layer_sizes[:-1], layer_sizes[1:])) # shapes of linear layers
@@ -45,7 +44,7 @@ unlabeled = lambda x: x[batch_size:] if x is not None else x
 split_lu = lambda x: (labeled(x), unlabeled(x))
 
 
-class encoders(Module):
+class encoders(nn.Module):
     def __init__(self, device):
         super(encoders, self).__init__()
         self.W = nn.ParameterList([wi(s) for s in shapes])
@@ -105,7 +104,7 @@ class encoders(Module):
         return h, d
 
 
-class decoders(Module):
+class decoders(nn.Module):
     def __init__(self, device):
         super(decoders, self).__init__()
 
@@ -156,7 +155,7 @@ class decoders(Module):
         return z_est_bn
 
 
-class Ladder(Module):
+class Ladder(nn.Module):
     def __init__(self, device):
         super(Ladder, self).__init__()
 
