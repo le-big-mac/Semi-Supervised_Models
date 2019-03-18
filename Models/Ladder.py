@@ -187,8 +187,8 @@ class LadderNetwork:
 
             inputs = torch.cat((labelled_images, unlabelled_images), 0)
 
-            y_c, corr = self.ladder.forward_encoders(inputs, self.noise_std, True)
-            y, clean = self.ladder.forward_encoders(inputs, 0.0, True)
+            y_c, corr = self.ladder.forward_encoders(inputs, self.noise_std, labelled_images.size(0), True)
+            y, clean = self.ladder.forward_encoders(inputs, 0.0, labelled_images.size(0), True)
 
             z_est_bn = self.ladder.forward_decoders(F.softmax(y_c), corr, clean)
 
