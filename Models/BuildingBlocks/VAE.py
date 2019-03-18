@@ -3,30 +3,31 @@ from torch import nn
 
 
 class Encoder(nn.Module):
-    def __init__(self, input_size, latent_dim, hidden_dimensions, activation):
+    def __init__(self, input_size, hidden_dimensions, latent_dim):
         super(Encoder, self).__init__()
 
         dims = [input_size] + hidden_dimensions
 
-        layers = [
+        hidden_layers = [
             nn.Sequential(
                 nn.Linear(dims[i-1], dims[i]),
-                activation,
+                nn.ReLU(),
             )
             for i in range(1, len(dims))
         ]
 
-        self.fc_layers = nn.ModuleList(layers)
-        self.mu = nn.Linear(hidden_dimensions[-1], latent_dim)
+        self.layers = nn.ModuleList(hidden_layers)
 
-        # variance has to be greater than 0
+        self.mu = nn.Linear(hidden_dimensions[-1], latent_dim)
+        # ReLU as variance has to be greater than 0
+        # TODO: this is not true, check results without
         self.logvar = nn.Sequential(
             nn.Linear(hidden_dimensions[-1], latent_dim),
             nn.ReLU(),
         )
 
     def encode(self, x):
-        for layer in self.fc_layers:
+        for layer in self.layers:
             x = layer(x)
 
         return self.mu(x), self.logvar(x)
@@ -43,39 +44,39 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, input_size, latent_dim, hidden_dimensions, activation):
+    def __init__(self, input_size, hidden_dimensions, latent_dim, output_activation):
         super(Decoder, self).__init__()
 
-        # the generative model takes in the latent_dim and the class (one-hot)
         dims = hidden_dimensions + [latent_dim]
+        dims = dims[::-1]
 
-        layers = [
+        hidden_layers = [
             nn.Sequential(
-                nn.Linear(dims[i], dims[i - 1]),
-                activation,
-            ) for i in range(len(dims)-1, 0, -1)
+                nn.Linear(dims[i], dims[i + 1]),
+                nn.ReLU(),
+            ) for i in range(0, len(dims)-1)
         ]
 
-        self.fc_layers = nn.ModuleList(layers)
-        self.out = nn.Sequential(
-            nn.Linear(hidden_dimensions[0], input_size),
-            nn.Sigmoid(),
+        out = nn.Sequential(
+            nn.Linear(hidden_dimensions[-1], input_size),
+            output_activation,
         )
 
+        self.layers = nn.ModuleList(hidden_layers + [out])
+
     def forward(self, z):
-        for layer in self.fc_layers:
+        for layer in self.layers:
             z = layer(z)
 
-        return self.out(z)
+        return z
 
 
 class VAE(nn.Module):
-    def __init__(self, input_size, latent_dim_encoder, latent_dim_decoder, hidden_dimensions, activation):
+    def __init__(self, input_size, hidden_dimensions, latent_dim, output_activation):
         super(VAE, self).__init__()
 
-        # encoder and decoder may have different latent dim e.g. M2
-        self.encoder = Encoder(input_size, latent_dim_encoder, hidden_dimensions, activation)
-        self.decoder = Decoder(input_size, latent_dim_decoder, hidden_dimensions, activation)
+        self.encoder = Encoder(input_size, hidden_dimensions, latent_dim)
+        self.decoder = Decoder(input_size, hidden_dimensions, latent_dim, output_activation)
 
     def forward(self, x):
         z, mu, logvar = self.encoder(x)
@@ -83,4 +84,3 @@ class VAE(nn.Module):
         out = self.decoder(z)
 
         return out, mu, logvar
-
