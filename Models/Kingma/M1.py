@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from Models.Autoencoders.VAE import VAE
+from Models.BuildingBlocks.VAE import VAE
 
 
 class Classifier(nn.Module):

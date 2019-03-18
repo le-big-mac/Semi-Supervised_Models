@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from utils import accuracy
-from Models.Autoencoders.MultilayerAutoencoder import Encoder, Autoencoder
+from Models.BuildingBlocks.Autoencoder import Encoder, Autoencoder
 
 
 class DeepMetabolism:

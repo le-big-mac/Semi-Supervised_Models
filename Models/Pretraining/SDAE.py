@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from utils import accuracy
-from Models.Autoencoders.SingleLayerAutoencoder import Encoder, Autoencoder
+from Models.BuildingBlocks.SingleLayerAutoencoder import Encoder, Autoencoder
 
 
 class PretrainedSDAE(nn.Module):

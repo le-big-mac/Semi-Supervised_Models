@@ -3,7 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from itertools import cycle
 from torch.utils.data import DataLoader
-from Models.Autoencoders.VAE import Encoder, Decoder
+from Models.BuildingBlocks.VAE import VariationalEncoder, Decoder
 
 # -----------------------------------------------------------------------
 # Implementation of Kingma M2 semi-supervised variational autoencoder
@@ -35,11 +35,11 @@ class Classifier(nn.Module):
 
 class VAE_M2(nn.Module):
     def __init__(self, input_size, latent_dim, hidden_dimensions_encoder, hidden_dimensions_decoder, num_classes,
-                 activation):
+                 output_activation):
         super(VAE_M2, self).__init__()
 
-        self.encoder = Encoder(input_size + num_classes, latent_dim, hidden_dimensions_encoder, activation)
-        self.decoder = Decoder(input_size, latent_dim + num_classes, hidden_dimensions_decoder, activation)
+        self.encoder = VariationalEncoder(input_size + num_classes, latent_dim, hidden_dimensions_encoder)
+        self.decoder = Decoder(input_size, latent_dim + num_classes, hidden_dimensions_decoder, output_activation)
 
     def forward(self, x, y):
         z, mu, logvar = self.encoder(torch.cat((x, y), dim=1))
