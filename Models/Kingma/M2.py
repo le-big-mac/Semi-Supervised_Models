@@ -5,6 +5,9 @@ from itertools import cycle
 from torch.utils.data import DataLoader
 from Models.Autoencoders.VAE import Encoder, Decoder
 
+# -----------------------------------------------------------------------
+# Implementation of Kingma M2 semi-supervised variational autoencoder
+# -----------------------------------------------------------------------
 
 class Classifier(nn.Module):
     def __init__(self, input_size, hidden_dimensions, num_classes, activation):
@@ -194,6 +197,7 @@ class M2_runner:
         unlabelled_loader = DataLoader(unsupervised_dataset, batch_size=100, shuffle=True)
         validation_loader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())
 
+        print('Prior Accuracy: {}'.format(self.evaluate(validation_loader)))
         for epoch in range(100):
             self.train_one_epoch(epoch, labelled_loader, unlabelled_loader, validation_loader, alpha)
 

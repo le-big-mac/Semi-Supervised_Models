@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import Accuracy
+from utils import accuracy
 from Models.Autoencoders.MultilayerAutoencoder import Encoder, Autoencoder
 
 
@@ -86,10 +86,10 @@ class DeepMetabolism:
         for epoch in range(50):
 
             self.train_classifier_one_epoch(epoch, supervised_dataloader)
-            print('Epoch: {} Validation Acc: {}'.format(epoch, Accuracy.accuracy(self.Classifier, validation_dataloader,
+            print('Epoch: {} Validation Acc: {}'.format(epoch, accuracy.accuracy(self.Classifier, validation_dataloader,
                                                                                  self.device)))
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        return Accuracy.accuracy(self.Classifier, test_dataloader, self.device)
+        return accuracy.accuracy(self.Classifier, test_dataloader, self.device)

@@ -22,15 +22,14 @@ random.shuffle(sup)
 unsupervised_data = [data[i] for i in unsupervised_indices]
 random.shuffle(unsupervised_data)
 
-if not os.path.exists('../data'):
-    os.mkdir('../data')
-    os.mkdir('../data/toy')
-elif not os.path.exists('../data/toy'):
-    os.mkdir('../data/toy')
+if not os.path.exists('./data'):
+    os.mkdir('./data')
+if not os.path.exists('./data/toy'):
+    os.mkdir('./data/toy')
 
-unsupervised_data_file = open('../data/toy/toy_unsupervised_data.csv', 'w')
-supervised_data_file = open('../data/toy/toy_supervised_data.csv', 'w')
-supervised_labels_file = open('../data/toy/toy_supervised_labels.csv', 'w')
+unsupervised_data_file = open('./data/toy/toy_unsupervised_data.csv', 'w')
+supervised_data_file = open('./data/toy/toy_supervised_data.csv', 'w')
+supervised_labels_file = open('./data/toy/toy_supervised_labels.csv', 'w')
 
 unsupervised_data_writer = csv.writer(unsupervised_data_file)
 supervised_data_writer = csv.writer(supervised_data_file)

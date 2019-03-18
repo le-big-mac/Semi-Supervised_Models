@@ -1,12 +1,12 @@
 import torch
 from Models.Ladder.Ladder import LadderNetwork
-from utils import LoadData, Datasets, Arguments, KFoldSplits, SaveResults
+from utils import datautils, datautils, arguments, datautils, datautils
 
 
 def MNIST_train(device):
 
     unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
-        LoadData.load_MNIST_data(100, num_unlabelled=49900, validation=True, test=True)
+        datautils.load_MNIST_data(100, num_unlabelled=49900, validation=True, test=True)
 
     results = []
     for i in range(5):
@@ -19,14 +19,14 @@ def MNIST_train(device):
 
         results.append(ladder.test(test_dataset))
 
-    SaveResults.save_results(results, 'ladder', 'MNIST_accuracy')
+    datautils.save_results(results, 'ladder', 'MNIST_accuracy')
 
 
 def file_train(device):
 
-    args = Arguments.parse_args()
+    args = arguments.parse_args()
 
-    unsupervised_data, supervised_data, supervised_labels = LoadData.load_data_from_file(
+    unsupervised_data, supervised_data, supervised_labels = datautils.load_data_from_file(
         args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -35,11 +35,11 @@ def file_train(device):
                                0.2, [1000, 10, 0.1, 0.1, 0.1, 0.1, 0.1], device)
 
     test_results = []
-    for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
-        train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
-                                                                 [supervised_labels[i] for i in train_idx])
-        test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
-                                                                [supervised_labels[i] for i in test_idx])
+    for test_idx, train_idx in datautils.k_fold_splits(len(supervised_data), 10):
+        train_dataset = datautils.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
+                                                                  [supervised_labels[i] for i in train_idx])
+        test_dataset = datautils.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
+                                                                 [supervised_labels[i] for i in test_idx])
 
         ladder.full_train(train_dataset)
 
@@ -47,7 +47,7 @@ def file_train(device):
 
         test_results.append(correct_percentage)
 
-    SaveResults.save_results([test_results], 'ladder', 'accuracy')
+    datautils.save_results([test_results], 'ladder', 'accuracy')
 
 
 if __name__ == '__main__':

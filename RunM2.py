@@ -1,13 +1,13 @@
 import torch
 from torch import nn
 from Models.Kingma.M2 import M2_runner
-from utils import LoadData, Datasets, Arguments, KFoldSplits, SaveResults
+from utils import datautils, datautils, arguments, datautils, datautils
 
 
 def MNIST_train(device):
 
     unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
-        LoadData.load_MNIST_data(100, num_unlabelled=49900, validation=True, test=True)
+        datautils.load_MNIST_data(100, num_unlabelled=49900, validation=True, test=True)
 
     alpha = 0.1 * 49900/100
 
@@ -21,7 +21,7 @@ def MNIST_train(device):
 
         results.append(m2.test(test_dataset))
 
-    SaveResults.save_results(results, 'ladder', 'MNIST_accuracy')
+    datautils.save_results(results, 'm2', 'MNIST_accuracy')
 
 
 if __name__ == '__main__':

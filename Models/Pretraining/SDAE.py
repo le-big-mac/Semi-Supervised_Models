@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import Accuracy
+from utils import accuracy
 from Models.Autoencoders.SingleLayerAutoencoder import Encoder, Autoencoder
 
 
@@ -117,10 +117,10 @@ class SDAE:
         for epoch in range(50):
 
             self.supervised_train_one_epoch(epoch, supervised_dataloader)
-            print('Epoch: {} Validation Acc: {}'.format(epoch, Accuracy.accuracy(self.PretrainedSDAE,
+            print('Epoch: {} Validation Acc: {}'.format(epoch, accuracy.accuracy(self.PretrainedSDAE,
                                                                                  validation_dataloader, self.device)))
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        return Accuracy.accuracy(self.PretrainedSDAE, test_dataloader, self.device)
+        return accuracy.accuracy(self.PretrainedSDAE, test_dataloader, self.device)

@@ -1,11 +1,11 @@
 import torch
 from torch import nn
 from Models.SimpleNetwork import SimpleNetwork
-from utils import LoadData, Datasets, Arguments, KFoldSplits, SaveResults
+from utils import datautils, datautils, arguments, datautils, datautils
 
 
 def MNIST_train(device):
-    _, supervised_dataset, validation_dataset, test_dataset = LoadData.load_MNIST_data(100, 10000, 10000, 0)
+    _, supervised_dataset, validation_dataset, test_dataset = datautils.load_MNIST_data(100, 10000, 10000, 0)
 
     # run 5 times to get average accuracy
     results = []
@@ -18,24 +18,24 @@ def MNIST_train(device):
 
         results.append(network.full_test(test_dataset))
 
-    SaveResults.save_results(results, 'simple_network', 'MNIST_accuracy')
+    datautils.save_results(results, 'simple_network', 'MNIST_accuracy')
 
 
 def file_train(device):
 
-    args = Arguments.parse_args()
+    args = arguments.parse_args()
 
-    _, supervised_data, supervised_labels = LoadData.load_data_from_file(
+    _, supervised_data, supervised_labels = datautils.load_data_from_file(
         args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
 
     simple_network = SimpleNetwork(500, [200], 10, nn.ReLU(), device)
 
     test_results = []
-    for test_idx, train_idx in KFoldSplits.k_fold_splits(len(supervised_data), 10):
-        train_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
-                                                                 [supervised_labels[i] for i in train_idx])
-        test_dataset = Datasets.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
-                                                                [supervised_labels[i] for i in test_idx])
+    for test_idx, train_idx in datautils.k_fold_splits(len(supervised_data), 10):
+        train_dataset = datautils.SupervisedClassificationDataset([supervised_data[i] for i in train_idx],
+                                                                  [supervised_labels[i] for i in train_idx])
+        test_dataset = datautils.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
+                                                                 [supervised_labels[i] for i in test_idx])
 
         simple_network.full_train(train_dataset)
 
@@ -43,7 +43,7 @@ def file_train(device):
 
         test_results.append(correct_percentage)
 
-    SaveResults.save_results([test_results], 'simple_network', 'accuracy')
+    datautils.save_results([test_results], 'simple_network', 'accuracy')
 
 
 if __name__ == '__main__':
