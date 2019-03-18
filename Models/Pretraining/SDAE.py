@@ -1,18 +1,18 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import accuracy
-from Models.BuildingBlocks.SingleLayerAutoencoder import Encoder, Autoencoder
+from utils.accuracy import accuracy
+from Models.BuildingBlocks.Autoencoder import Encoder, AutoencoderSDAE
 
 
-class PretrainedSDAE(nn.Module):
+class SDAE(nn.Module):
     def __init__(self, input_size, hidden_dimensions, num_classes, activation):
-        super(PretrainedSDAE, self).__init__()
+        super(SDAE, self).__init__()
 
         dims = [input_size] + hidden_dimensions
 
-        layers = [Encoder(input_size=dims[i - 1], layer_size=dims[i], activation=activation)
-                  for i in range(1, len(dims))]
+        layers = [Encoder(dims[i], [], dims[i+1], activation)
+                  for i in range(0, len(dims)-1)]
 
         self.hidden_layers = nn.ModuleList(layers)
         self.classification_layer = nn.Linear(layers[-1].layer.out_features, num_classes)
@@ -24,34 +24,28 @@ class PretrainedSDAE(nn.Module):
         return self.classification_layer(x)
 
 
-class SDAE:
+class SDAENetwork:
     def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
-        self.PretrainedSDAE = self.PretrainedSDAE(input_size, hidden_dimensions, num_classes, activation).to(device)
-        self.optimizer = torch.optim.Adam(self.PretrainedSDAE.parameters(), lr=1e-3)
-        self.criterion = nn.CrossEntropyLoss(reduction='sum')
-
-        self.state_path = 'Models/state/sdae.pt'
-        torch.save(self.PretrainedSDAE.state_dict(), self.state_path)
+        self.SDAE = self.SDAE(input_size, hidden_dimensions, num_classes, activation).to(device)
+        self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
+        self.criterion = nn.CrossEntropyLoss()
 
         self.device = device
 
     def pretrain_hidden_layers(self, dataloader):
 
-        for i in range(len(self.PretrainedSDAE.hidden_layers)):
-            decoder = Autoencoder(self.PretrainedSDAE.hidden_layers[i]).to(self.device)
-            criterion = nn.MSELoss(reduction="sum")
-            optimizer = torch.optim.Adam(decoder.parameters(), lr=1e-3)
+        for i in range(len(self.SDAE.hidden_layers)):
+            dae = AutoencoderSDAE(self.SDAE.hidden_layers[i]).to(self.device)
+            criterion = nn.MSELoss()
+            optimizer = torch.optim.Adam(dae.parameters(), lr=1e-3)
 
-            previous_layers = self.PretrainedSDAE.hidden_layers[0:i]
+            previous_layers = self.SDAE.hidden_layers[0:i]
 
             for epoch in range(50):
-                layer_loss = self.train_DAE_one_epoch(previous_layers, decoder, dataloader, criterion, optimizer)
-                if epoch % 10 == 0:
-                    print('Epoch: {} Layer loss: {}'.format(epoch, layer_loss))
+                self.train_DAE_one_epoch(previous_layers, dae, dataloader, criterion, optimizer)
 
     def train_DAE_one_epoch(self, previous_layers, dae, dataloader, criterion, optimizer):
         dae.train()
-        train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
             data = data.to(self.device)
@@ -68,16 +62,13 @@ class SDAE:
 
             loss = criterion(predictions, data)
 
-            train_loss += loss.item()
-
             loss.backward()
             optimizer.step()
 
-        return train_loss/len(dataloader.dataset)
+            print(loss.item())
 
-    def supervised_train_one_epoch(self, epoch, dataloader):
-        self.PretrainedSDAE.train()
-        train_loss = 0
+    def train_one_epoch(self, epoch, dataloader, validation_dataloader):
+        self.SDAE.train()
 
         for batch_idx, (data, labels) in enumerate(dataloader):
             data = data.to(self.device)
@@ -85,42 +76,28 @@ class SDAE:
 
             self.optimizer.zero_grad()
 
-            predictions = self.PretrainedSDAE(data)
+            predictions = self.SDAE(data)
 
             loss = self.criterion(predictions, labels)
-
-            train_loss += loss.item()
 
             loss.backward()
             self.optimizer.step()
 
-        if epoch % 10 == 0:
-            print("Epoch: {} Supervised Loss: {}".format(epoch, train_loss/len(dataloader.dataset)))
+            print('Epoch: {} Loss: {} Validation accuracy: {}'
+                  .format(epoch, loss.item(), accuracy(self.SDAE, validation_dataloader, self.device)))
 
-        return train_loss/len(dataloader.dataset)
-
-    def reset_model(self):
-        self.PretrainedSDAE.load_state_dict(torch.load(self.state_path))
-
-        self.optimizer = torch.optim.Adam(self.PretrainedSDAE.parameters(), lr=1e-3)
-
-    def full_train(self, combined_dataset, train_dataset, validation_dataset):
-        self.reset_model()
-        pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
+    def train(self, unsupervised_dataset, train_dataset, validation_dataset):
+        pretraining_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=1000, shuffle=True)
 
         self.pretrain_hidden_layers(pretraining_dataloader)
 
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
-
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         for epoch in range(50):
+            self.train_one_epoch(epoch, supervised_dataloader, validation_dataloader)
 
-            self.supervised_train_one_epoch(epoch, supervised_dataloader)
-            print('Epoch: {} Validation Acc: {}'.format(epoch, accuracy.accuracy(self.PretrainedSDAE,
-                                                                                 validation_dataloader, self.device)))
-
-    def full_test(self, test_dataset):
+    def test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        return accuracy.accuracy(self.PretrainedSDAE, test_dataloader, self.device)
+        return accuracy(self.SDAE, test_dataloader, self.device)
