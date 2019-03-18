@@ -1,19 +1,20 @@
 import torch
 from torch import nn
+from Models.BuildingBlocks.Autoencoder import Decoder
 
 
-class Encoder(nn.Module):
+class VariationalEncoder(nn.Module):
     def __init__(self, input_size, hidden_dimensions, latent_dim):
-        super(Encoder, self).__init__()
+        super(VariationalEncoder, self).__init__()
 
         dims = [input_size] + hidden_dimensions
 
         hidden_layers = [
             nn.Sequential(
-                nn.Linear(dims[i-1], dims[i]),
+                nn.Linear(dims[i], dims[i+1]),
                 nn.ReLU(),
             )
-            for i in range(1, len(dims))
+            for i in range(0, len(dims)-1)
         ]
 
         self.layers = nn.ModuleList(hidden_layers)
@@ -43,39 +44,11 @@ class Encoder(nn.Module):
         return self.reparameterize(mu, logvar), mu, logvar
 
 
-class Decoder(nn.Module):
-    def __init__(self, input_size, hidden_dimensions, latent_dim, output_activation):
-        super(Decoder, self).__init__()
-
-        dims = hidden_dimensions + [latent_dim]
-        dims = dims[::-1]
-
-        hidden_layers = [
-            nn.Sequential(
-                nn.Linear(dims[i], dims[i + 1]),
-                nn.ReLU(),
-            ) for i in range(0, len(dims)-1)
-        ]
-
-        out = nn.Sequential(
-            nn.Linear(hidden_dimensions[-1], input_size),
-            output_activation,
-        )
-
-        self.layers = nn.ModuleList(hidden_layers + [out])
-
-    def forward(self, z):
-        for layer in self.layers:
-            z = layer(z)
-
-        return z
-
-
 class VAE(nn.Module):
     def __init__(self, input_size, hidden_dimensions, latent_dim, output_activation):
         super(VAE, self).__init__()
 
-        self.encoder = Encoder(input_size, hidden_dimensions, latent_dim)
+        self.encoder = VariationalEncoder(input_size, hidden_dimensions, latent_dim)
         self.decoder = Decoder(input_size, hidden_dimensions, latent_dim, output_activation)
 
     def forward(self, x):
