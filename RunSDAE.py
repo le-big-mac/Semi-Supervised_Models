@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from Models.Pretraining.SDAE import SDAENetwork
-from utils import datautils, datautils, arguments, datautils, datautils
+from Models.SDAE import SDAENetwork
+from utils import arguments, datautils
 
 
 def MNIST_train(device):
