@@ -67,7 +67,7 @@ class SDAENetwork:
 
             print(loss.item())
 
-    def train_one_epoch(self, epoch, dataloader, validation_dataloader):
+    def train_classifier_one_epoch(self, epoch, dataloader, validation_dataloader):
         self.SDAE.train()
 
         for batch_idx, (data, labels) in enumerate(dataloader):
@@ -95,7 +95,7 @@ class SDAENetwork:
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         for epoch in range(50):
-            self.train_one_epoch(epoch, supervised_dataloader, validation_dataloader)
+            self.train_classifier_one_epoch(epoch, supervised_dataloader, validation_dataloader)
 
     def test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())

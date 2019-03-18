@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from Models.Pretraining.DeepMetabolism import DeepMetabolism
-from utils import datautils, datautils, arguments, datautils, datautils
+from Models.PretrainingNetwork import DeepMetabolism
+from utils import arguments, datautils
 
 
 def MNIST_train(device):
@@ -16,9 +16,9 @@ def MNIST_train(device):
 
         print(deep_metabolism.Classifier)
 
-        deep_metabolism.full_train(combined_dataset, supervised_dataset, validation_dataset)
+        deep_metabolism.train(combined_dataset, supervised_dataset, validation_dataset)
 
-        results.append(deep_metabolism.full_test(test_dataset))
+        results.append(deep_metabolism.test(test_dataset))
 
     datautils.save_results(results, 'deep_metabolism', 'MNIST_accuracy')
 
@@ -40,9 +40,9 @@ def file_train(device):
         test_dataset = datautils.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
                                                                  [supervised_labels[i] for i in test_idx])
 
-        deep_metabolism.full_train(train_dataset)
+        deep_metabolism.train(train_dataset)
 
-        correct_percentage = deep_metabolism.full_test(test_dataset)
+        correct_percentage = deep_metabolism.test(test_dataset)
 
         test_results.append(correct_percentage)
 

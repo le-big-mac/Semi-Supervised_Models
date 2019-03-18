@@ -15,7 +15,7 @@ def MNIST_train(device):
 
         print(ladder.Ladder)
 
-        ladder.full_train(unsupervised_dataset, supervised_dataset, validation_dataset)
+        ladder.train(unsupervised_dataset, supervised_dataset, validation_dataset)
 
         results.append(ladder.test(test_dataset))
 
@@ -41,9 +41,9 @@ def file_train(device):
         test_dataset = datautils.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
                                                                  [supervised_labels[i] for i in test_idx])
 
-        ladder.full_train(train_dataset)
+        ladder.train(train_dataset)
 
-        correct_percentage = ladder.full_test(test_dataset)
+        correct_percentage = ladder.test(test_dataset)
 
         test_results.append(correct_percentage)
 
