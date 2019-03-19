@@ -163,13 +163,13 @@ class LadderNetwork(Model):
         super(LadderNetwork, self).__init__(device)
 
         layer_sizes = [input_size] + hidden_dimensions + [num_classes]
-        self.L = len(layer_sizes) - 1 # number of layers
         shapes = list(zip(layer_sizes[:-1], layer_sizes[1:])) # shapes of linear layers
+        self.L = len(layer_sizes) - 1  # number of layers
 
         self.denoising_cost = denoising_cost
         self.noise_std = noise_std
 
-        self.ladder = Ladder(layer_sizes, L, shapes, device).to(device)
+        self.ladder = Ladder(layer_sizes, self.L, shapes, device).to(device)
         self.optimizer = torch.optim.Adam(self.ladder.parameters(), lr=1e-3)
         self.supervised_cost_function = nn.CrossEntropyLoss()
         self.unsupervised_cost_function = nn.MSELoss(reduction="mean")
