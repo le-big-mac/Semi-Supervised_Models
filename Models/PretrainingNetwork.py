@@ -57,8 +57,8 @@ class DeepMetabolism:
             print('Epoch: {} Loss: {} Validation accuracy: {}'
                   .format(epoch, loss.item(), accuracy(self.Classifier, validation_dataloader, self.device)))
 
-    def train(self, combined_dataset, train_dataset, validation_dataset=None):
-        pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
+    def train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
+        pretraining_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=1000, shuffle=True)
 
         for epoch in range(50):
             self.train_autoencoder_one_epoch(pretraining_dataloader)
