@@ -10,10 +10,9 @@ def MNIST_train(device):
 
     results = []
     for i in range(5):
-        ladder = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, ['relu', 'relu', 'relu', 'relu', 'relu', 'softmax'],
-                               0.2, [0.1, 0.1, 0.1, 0.1, 0.1, 10, 1000], device)
+        ladder = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, [0.1, 0.1, 0.1, 0.1, 0.1, 10, 1000], device, 0.3)
 
-        print(ladder.Ladder)
+        print(ladder.ladder)
 
         ladder.train(unsupervised_dataset, supervised_dataset, validation_dataset)
 

@@ -33,7 +33,9 @@ class SDAENetwork(Model):
         self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss()
 
-    def pretrain_hidden_layers(self, dataloader):
+    def pretrain_hidden_layers(self, unsupervised_dataset):
+        current_dataset = unsupervised_dataset
+        dataloader = DataLoader
 
         for i in range(len(self.SDAE.hidden_layers)):
             dae = AutoencoderSDAE(self.SDAE.hidden_layers[i]).to(self.device)
