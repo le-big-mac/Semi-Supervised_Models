@@ -170,7 +170,7 @@ class LadderNetwork(Model):
         self.noise_std = noise_std
 
         self.ladder = Ladder(layer_sizes, L, shapes, device)
-        self.optimizer = torch.optim.Adam(self.Ladder.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.ladder.parameters(), lr=1e-3)
         self.supervised_cost_function = nn.CrossEntropyLoss()
         self.unsupervised_cost_function = nn.MSELoss(reduction="mean")
 
