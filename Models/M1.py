@@ -3,10 +3,15 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from Models.BuildingBlocks import VAE, Classifier
+from Models import Model
 
-class M1:
+
+# TODO: make consistent with all other models
+class M1(Model):
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
                  num_classes, activation, device):
+        super(M1, self).__init__(device)
+
         self.VAE = VAE(input_size, latent_size, latent_size, hidden_dimensions_encoder, activation).to(device)
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
         self.Encoder = self.VAE.encoder
@@ -14,13 +19,6 @@ class M1:
         self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
-
-        self.device = device
-
-        self.vae_state_path = 'Models/state/m1_vae.pt'
-        self.clas_state_path = 'Models/state/m1_classifier.pt'
-        torch.save(self.VAE.state_dict(), self.vae_state_path)
-        torch.save(self.Classifier.state_dict(), self.clas_state_path)
 
     def VAE_criterion(self, pred_x, x, mu, logvar):
         # KL divergence between two normal distributions (N(0, 1) and parameterized)
@@ -82,7 +80,7 @@ class M1:
 
         return train_loss/len(dataloader.dataset)
 
-    def supervised_test(self, dataloader):
+    def evaluate(self, dataloader):
         self.Encoder.eval()
         self.Classifier.eval()
 
@@ -100,16 +98,7 @@ class M1:
 
         return correct / len(dataloader.dataset)
 
-    def reset_model(self):
-        self.VAE.load_state_dict(torch.load(self.vae_state_path))
-        self.Classifier.load_state_dict(torch.load(self.clas_state_path))
-
-        self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
-        self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
-
-    def full_train(self, combined_dataset, train_dataset, validation_dataset=None):
-        self.reset_model()
-
+    def train(self, combined_dataset, train_dataset, validation_dataset=None):
         pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
 
         for epoch in range(50):
@@ -120,9 +109,9 @@ class M1:
 
         for epoch in range(50):
             self.train_classifier_one_epoch(epoch, supervised_dataloader)
-            print('Epoch: {} Validation Acc: {}'.format(epoch, self.supervised_test(validation_dataloader)))
+            print('Epoch: {} Validation Acc: {}'.format(epoch, self.evaluate(validation_dataloader)))
 
-    def full_test(self, test_dataset):
+    def test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        return self.supervised_test(test_dataloader)
+        return self.evaluate(test_dataloader)

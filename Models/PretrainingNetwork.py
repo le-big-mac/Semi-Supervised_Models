@@ -3,10 +3,13 @@ from torch import nn
 from torch.utils.data import DataLoader
 from utils.accuracy import accuracy
 from Models.BuildingBlocks import Autoencoder
+from Models import Model
 
 
-class PretrainingNetwork:
+class PretrainingNetwork(Model):
     def __init__(self, input_size, hidden_dimensions, num_classes, latent_activation, output_activation, device):
+        super(PretrainingNetwork, self).__init__(device)
+
         self.Autoencoder = Autoencoder(input_size, hidden_dimensions, num_classes, latent_activation,
                                        output_activation).to(device)
         self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
@@ -15,8 +18,6 @@ class PretrainingNetwork:
         self.Classifier = self.Autoencoder.encoder
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.Classifier_criterion = nn.CrossEntropyLoss()
-
-        self.device = device
 
     def train_autoencoder_one_epoch(self, dataloader):
         self.Autoencoder.train()

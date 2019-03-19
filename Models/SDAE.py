@@ -3,6 +3,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from utils.accuracy import accuracy
 from Models.BuildingBlocks import Encoder, AutoencoderSDAE
+from Models import Model
 
 
 class SDAE(nn.Module):
@@ -24,13 +25,13 @@ class SDAE(nn.Module):
         return self.classification_layer(x)
 
 
-class SDAENetwork:
+class SDAENetwork(Model):
     def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
+        super(SDAENetwork, self).__init__(device)
+
         self.SDAE = self.SDAE(input_size, hidden_dimensions, num_classes, activation).to(device)
         self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss()
-
-        self.device = device
 
     def pretrain_hidden_layers(self, dataloader):
 

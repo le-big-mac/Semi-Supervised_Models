@@ -2,16 +2,17 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from Models.BuildingBlocks import Classifier
+from Models import Model
 from utils.accuracy import accuracy
 
 
-class SimpleNetwork:
+class SimpleNetwork(Model):
     def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
+        super(SimpleNetwork, self).__init__(device)
+
         self.Classifier = Classifier(input_size, hidden_dimensions, num_classes, activation).to(device)
         self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss()
-
-        self.device = device
 
     def train_one_epoch(self, epoch, train_dataloader, validation_dataloader):
         self.Classifier.train()

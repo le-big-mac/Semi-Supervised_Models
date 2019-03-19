@@ -4,6 +4,7 @@ from torch.nn import functional as F
 from itertools import cycle
 from torch.utils.data import DataLoader
 from Models.BuildingBlocks import VariationalEncoder, Decoder, Classifier
+from Models import Model
 
 # -----------------------------------------------------------------------
 # Implementation of Kingma M2 semi-supervised variational autoencoder
@@ -40,16 +41,16 @@ class M2(nn.Module):
         return self.VAE(x, y)
 
 
-class M2Runner:
+class M2Runner(Model):
     def __init__(self, input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim, num_classes, activation,
                device):
+        super(M2Runner, self).__init__(device)
 
         self.M2 = M2(input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim,
                      num_classes, activation).to(device)
         # change this to something more applicable with softmax
         self.optimizer = torch.optim.Adam(self.M2.parameters(), lr=1e-3)
         self.num_classes = num_classes
-        self.device = device
 
     def onehot(self, labels):
         labels = labels.unsqueeze(1)
