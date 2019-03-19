@@ -1,5 +1,5 @@
 import torch
-from Models import LadderNetwork
+from Models.Ladder import LadderNetwork
 from utils import arguments, datautils
 
 
