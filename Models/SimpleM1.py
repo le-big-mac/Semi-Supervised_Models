@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from Models.BuildingBlocks import Autoencoder
+from Models import Model
 
 # --------------------------------------------------------------------------------------
 # Kingma M1 model using simple autoencoder for dimensionality reduction (for comparison)
@@ -29,9 +30,11 @@ class Classifier(nn.Module):
         return self.classification(z)
 
 
-class M1:
+class SimpleM1(Model):
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
                  num_classes, activation, device):
+        super(SimpleM1, self).__init__(device)
+
         self.Autoencoder = Autoencoder(input_size, hidden_dimensions_encoder, latent_size, activation).to(device)
         self.Autoencoder_criterion = nn.BCELoss(reduction='sum')
         self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
@@ -40,13 +43,6 @@ class M1:
         self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
-
-        self.device = device
-
-        self.autoencoder_state_path = 'Models/state/simple_m1_ae.pt'
-        self.clas_state_path = 'Models/state/simple_m1_classifier.pt'
-        torch.save(self.Autoencoder.state_dict(), self.autoencoder_state_path)
-        torch.save(self.Classifier.state_dict(), self.clas_state_path)
 
     def train_autoencoder_one_epoch(self, epoch, dataloader):
         self.Autoencoder.train()
@@ -114,16 +110,7 @@ class M1:
 
         return correct / len(dataloader.dataset)
 
-    def reset_model(self):
-        self.Autoencoder.load_state_dict(torch.load(self.autoencoder_state_path))
-        self.Classifier.load_state_dict(torch.load(self.clas_state_path))
-
-        self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
-        self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
-
-    def full_train(self, combined_dataset, train_dataset, validation_dataset=None):
-        self.reset_model()
-
+    def train(self, combined_dataset, train_dataset, validation_dataset=None):
         pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
 
         for epoch in range(50):
@@ -136,7 +123,7 @@ class M1:
             self.train_classifier_one_epoch(epoch, supervised_dataloader)
             print('Epoch: {} Validation Acc: {}'.format(epoch, self.supervised_test(validation_dataloader)))
 
-    def full_test(self, test_dataset):
+    def test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
         return self.supervised_test(test_dataloader)

@@ -4,6 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 from itertools import cycle
 from torch.utils.data import DataLoader
+from Models import Model
 
 
 def bi(inits, size):
@@ -157,8 +158,10 @@ class Ladder(nn.Module):
         return self.decoders.forward(y_c, corr, clean)
 
 
-class LadderNetwork:
-    def __init__(self, input_size, hidden_dimensions, num_classes, denoising_cost, noise_std=0.3, device='cpu'):
+class LadderNetwork(Model):
+    def __init__(self, input_size, hidden_dimensions, num_classes, denoising_cost, device, noise_std=0.3):
+        super(LadderNetwork, self).__init__(device)
+
         layer_sizes = [input_size] + hidden_dimensions + [num_classes]
         L = len(layer_sizes) - 1 # number of layers
         shapes = list(zip(layer_sizes[:-1], layer_sizes[1:])) # shapes of linear layers
@@ -170,8 +173,6 @@ class LadderNetwork:
         self.optimizer = torch.optim.Adam(self.Ladder.parameters(), lr=1e-3)
         self.supervised_cost_function = nn.CrossEntropyLoss()
         self.unsupervised_cost_function = nn.MSELoss(reduction="mean")
-
-        self.device = device
 
     def train_one_epoch(self, epoch, labelled_loader, unlabelled_loader, validation_loader):
         for batch_idx, (labelled_data, unlabelled_data) in enumerate(zip(cycle(labelled_loader), unlabelled_loader)):
