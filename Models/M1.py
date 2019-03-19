@@ -2,29 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from Models.BuildingBlocks.VAE import VAE
-
-
-class Classifier(nn.Module):
-    def __init__(self, latent_dim, hidden_dimensions_classifier, num_classes):
-        super(Classifier, self).__init__()
-
-        dims = [latent_dim] + hidden_dimensions_classifier
-
-        layers = [nn.Sequential(
-            nn.Linear(dims[i-1], dims[i]),
-            nn.ReLU(),
-        ) for i in range(1, len(dims))]
-
-        self.layers = nn.ModuleList(layers)
-        self.classification = nn.Linear(dims[-1], num_classes)
-
-    def forward(self, z):
-        for layer in self.layers:
-            z = layer(z)
-
-        return self.classification(z)
-
+from Models.BuildingBlocks import VAE, Classifier
 
 class M1:
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,

@@ -2,10 +2,10 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from utils.accuracy import accuracy
-from Models.BuildingBlocks.Autoencoder import Autoencoder
+from Models.BuildingBlocks import Autoencoder
 
 
-class DeepMetabolism:
+class PretrainingNetwork:
     def __init__(self, input_size, hidden_dimensions, num_classes, latent_activation, output_activation, device):
         self.Autoencoder = Autoencoder(input_size, hidden_dimensions, num_classes, latent_activation,
                                        output_activation).to(device)

@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from Models.BuildingBlocks.Autoencoder import Autoencoder
+from Models.BuildingBlocks import Autoencoder
 
 # --------------------------------------------------------------------------------------
 # Kingma M1 model using simple autoencoder for dimensionality reduction (for comparison)

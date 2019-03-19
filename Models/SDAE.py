@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from utils.accuracy import accuracy
-from Models.BuildingBlocks.Autoencoder import Encoder, AutoencoderSDAE
+from Models.BuildingBlocks import Encoder, AutoencoderSDAE
 
 
 class SDAE(nn.Module):

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models.PretrainingNetwork import DeepMetabolism
+from Models.PretrainingNetwork import PretrainingNetwork
 from utils import arguments, datautils
 
 
@@ -12,7 +12,7 @@ def MNIST_train(device):
 
     results = []
     for i in range(5):
-        deep_metabolism = DeepMetabolism(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+        deep_metabolism = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
 
         print(deep_metabolism.Classifier)
 
@@ -31,7 +31,7 @@ def file_train(device):
     unsupervised_data, supervised_data, supervised_labels = datautils.load_data_from_file(
         args.unsupervised_file, args.supervised_data_file, args.supervised_labels_file)
 
-    deep_metabolism = DeepMetabolism(500, [200], 10, nn.ReLU(), device)
+    deep_metabolism = PretrainingNetwork(500, [200], 10, nn.ReLU(), device)
 
     test_results = []
     for test_idx, train_idx in datautils.k_fold_splits(len(supervised_data), 10):

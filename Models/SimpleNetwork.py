@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from Models.BuildingBlocks.Classifier import Classifier
+from Models.BuildingBlocks import Classifier
 from utils.accuracy import accuracy
 
 

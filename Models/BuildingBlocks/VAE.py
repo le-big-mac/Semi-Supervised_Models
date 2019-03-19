@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models.BuildingBlocks.Autoencoder import Decoder
+from .Autoencoder import Decoder
 
 
 class VariationalEncoder(nn.Module):

@@ -3,34 +3,11 @@ from torch import nn
 from torch.nn import functional as F
 from itertools import cycle
 from torch.utils.data import DataLoader
-from Models.BuildingBlocks.VAE import VariationalEncoder, Decoder
+from Models.BuildingBlocks import VariationalEncoder, Decoder, Classifier
 
 # -----------------------------------------------------------------------
 # Implementation of Kingma M2 semi-supervised variational autoencoder
 # -----------------------------------------------------------------------
-
-class Classifier(nn.Module):
-    def __init__(self, input_size, hidden_dimensions, num_classes, activation):
-        super(Classifier, self).__init__()
-
-        dimensions = [input_size] + hidden_dimensions
-
-        layers = [
-            nn.Sequential(
-                nn.Linear(dimensions[i - 1], dimensions[i]),
-                activation,
-            )
-            for i in range(1, len(dimensions))
-        ]
-
-        self.fc_layers = nn.ModuleList(layers)
-        self.output_layer = nn.Linear(dimensions[-1], num_classes)
-
-    def forward(self, x):
-        for layer in self.fc_layers:
-            x = layer(x)
-
-        return self.output_layer(x)
 
 
 class VAE_M2(nn.Module):
@@ -63,7 +40,7 @@ class M2(nn.Module):
         return self.VAE(x, y)
 
 
-class M2_runner:
+class M2Runner:
     def __init__(self, input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim, num_classes, activation,
                device):
 

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models.M2 import M2_runner
+from Models.M2 import M2Runner
 from utils import datautils
 
 
@@ -13,7 +13,7 @@ def MNIST_train(device):
 
     results = []
     for i in range(5):
-        m2 = M2_runner(784, [256, 128], [256], 32, 10, nn.ReLU(), device)
+        m2 = M2Runner(784, [256, 128], [256], 32, 10, nn.ReLU(), device)
 
         print(m2.M2)
 
