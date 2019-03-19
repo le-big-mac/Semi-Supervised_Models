@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models.SDAE import SDAENetwork
+from Models import SDAENetwork
 from utils import arguments, datautils
 
 

@@ -1,6 +1,6 @@
 import torch
-from Models.Ladder.Ladder import LadderNetwork
-from utils import datautils, datautils, arguments, datautils, datautils
+from Models import LadderNetwork
+from utils import arguments, datautils
 
 
 def MNIST_train(device):

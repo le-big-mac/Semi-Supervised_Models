@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models.M2 import M2Runner
+from Models import M2Runner
 from utils import datautils
 
 
