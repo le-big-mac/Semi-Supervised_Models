@@ -9,7 +9,7 @@ class VariationalEncoder(nn.Module):
 
         dims = [input_size] + hidden_dimensions
 
-        hidden_layers = [
+        layers = [
             nn.Sequential(
                 nn.Linear(dims[i], dims[i+1]),
                 nn.ReLU(),
@@ -17,7 +17,7 @@ class VariationalEncoder(nn.Module):
             for i in range(0, len(dims)-1)
         ]
 
-        self.layers = nn.ModuleList(hidden_layers)
+        self.hidden_layers = nn.ModuleList(layers)
 
         self.mu = nn.Linear(hidden_dimensions[-1], latent_dim)
         # ReLU as variance has to be greater than 0
@@ -28,7 +28,7 @@ class VariationalEncoder(nn.Module):
         )
 
     def encode(self, x):
-        for layer in self.layers:
+        for layer in self.hidden_layers:
             x = layer(x)
 
         return self.mu(x), self.logvar(x)
