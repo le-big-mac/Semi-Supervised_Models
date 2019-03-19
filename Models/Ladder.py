@@ -225,7 +225,8 @@ class LadderNetwork(Model):
                 data = data.float().to(self.device)
                 labels = labels.to(self.device)
 
-                outputs, _ = self.ladder.forward_encoders(data, 0.0, False)
+                # batch size argument doesn't matter for testing (only affects d which we ignore)
+                outputs, _ = self.ladder.forward_encoders(data, 0.0, 1, False)
 
                 _, predicted = torch.max(F.softmax(outputs).data, 1)
                 correct += (predicted == labels).sum().item()
