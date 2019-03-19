@@ -72,7 +72,7 @@ class SimpleM1(Model):
         train_loss = 0
 
         for batch_idx, (data, labels) in enumerate(dataloader):
-            data = data.to(self.device)
+            data = data.float().to(self.device)
             labels = labels.to(self.device)
 
             self.Classifier_optim.zero_grad()
@@ -101,7 +101,7 @@ class SimpleM1(Model):
 
         with torch.no_grad():
             for batch_idx, (data, labels) in enumerate(dataloader):
-                data = data.to(self.device)
+                data = data.float().to(self.device)
                 labels = labels.to(self.device)
 
                 z = self.Encoder(data)
