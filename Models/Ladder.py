@@ -122,13 +122,13 @@ class Decoders(nn.Module):
         return z_est
 
     # Decoder
-    def forward(self, y_c, corr, clean):
+    def forward(self, y_c, corr, clean, batch_size):
         z_est = {}
         z_est_bn = {}
         for l in range(self.L, -1, -1):
             z_c = corr['unlabeled']['z'][l]
             if l == self.L:
-                u = unlabeled(y_c)
+                u = unlabeled(y_c, batch_size)
             else:
                 u = torch.mm(z_est[l+1], self.V[l])
             u = self.batch_norm[l](u)
@@ -154,8 +154,8 @@ class Ladder(nn.Module):
     def forward_encoders(self, inputs, noise_std, batch_size, train):
         return self.encoders.forward(inputs, noise_std, batch_size, train)
 
-    def forward_decoders(self, y_c, corr, clean):
-        return self.decoders.forward(y_c, corr, clean)
+    def forward_decoders(self, y_c, corr, clean, batch_size):
+        return self.decoders.forward(y_c, corr, clean, batch_size)
 
 
 class LadderNetwork(Model):
@@ -186,14 +186,16 @@ class LadderNetwork(Model):
 
             unlabelled_images = unlabelled_data.float().to(self.device)
 
+            batch_size = labelled_images.size(0)
+
             inputs = torch.cat((labelled_images, unlabelled_images), 0)
 
-            y_c, corr = self.ladder.forward_encoders(inputs, self.noise_std, labelled_images.size(0), True)
-            y, clean = self.ladder.forward_encoders(inputs, 0.0, labelled_images.size(0), True)
+            y_c, corr = self.ladder.forward_encoders(inputs, self.noise_std, batch_size, True)
+            y, clean = self.ladder.forward_encoders(inputs, 0.0, batch_size, True)
 
-            z_est_bn = self.ladder.forward_decoders(F.softmax(y_c), corr, clean)
+            z_est_bn = self.ladder.forward_decoders(F.softmax(y_c), corr, clean, batch_size)
 
-            cost = self.supervised_cost_function.forward(labeled(y_c), labels)
+            cost = self.supervised_cost_function.forward(labeled(y_c, batch_size), labels)
 
             zs = clean['unlabeled']['z']
 
