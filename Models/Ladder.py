@@ -54,11 +54,11 @@ class Encoders(nn.Module):
         for l in range(1, self.L+1):
             # print("Layer ", l, ": ", layer_sizes[l-1], " -> ", layer_sizes[l])
 
-            d['labeled']['h'][l-1], d['unlabeled']['h'][l-1] = split_lu(h)
+            d['labeled']['h'][l-1], d['unlabeled']['h'][l-1] = split_lu(h, batch_size)
             z_pre = torch.mm(h, self.W[l-1])  # pre-activation
 
             if training:
-                z_pre_l, z_pre_u = split_lu(z_pre)  # split labeled and unlabeled examples
+                z_pre_l, z_pre_u = split_lu(z_pre, batch_size)  # split labeled and unlabeled examples
                 m = z_pre_u.mean(dim=0)
                 v = z_pre_u.var(dim=0)
                 d['unlabeled']['m'][l], d['unlabeled']['v'][l] = m, v  # save mean and variance of unlabeled examples for decoding
