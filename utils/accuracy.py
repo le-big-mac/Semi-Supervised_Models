@@ -8,7 +8,7 @@ def accuracy(model, dataloader, device):
 
     with torch.no_grad():
         for batch_idx, (data, labels) in enumerate(dataloader):
-            outputs = model(data.to(device))
+            outputs = model(data.float().to(device))
             labels = labels.to(device)
  
             _, predicted = torch.max(outputs.data, 1)

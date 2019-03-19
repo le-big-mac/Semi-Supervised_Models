@@ -24,7 +24,7 @@ class PretrainingNetwork(Model):
         train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
-            data = data.to(self.device)
+            data = data.float().to(self.device)
 
             self.Autoencoder_optim.zero_grad()
 
@@ -43,7 +43,7 @@ class PretrainingNetwork(Model):
         self.Classifier.train()
 
         for batch_idx, (data, labels) in enumerate(dataloader):
-            data = data.to(self.device)
+            data = data.float().to(self.device)
             labels = labels.to(self.device)
 
             self.Classifier_optim.zero_grad()
