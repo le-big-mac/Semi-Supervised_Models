@@ -12,7 +12,7 @@ class M1(Model):
                  num_classes, activation, device):
         super(M1, self).__init__(device)
 
-        self.VAE = VAE(input_size, latent_size, latent_size, hidden_dimensions_encoder, activation).to(device)
+        self.VAE = VAE(input_size, hidden_dimensions_encoder, latent_size, activation).to(device)
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
         self.Encoder = self.VAE.encoder
 

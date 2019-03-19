@@ -17,16 +17,14 @@ class Encoder(nn.Module):
 
         self.hidden_layers = nn.ModuleList(layers)
 
-        self.latent = nn.Sequential(
-            nn.Linear(hidden_dimensions[-1], num_classes),
-            latent_activation,
-        )
+        self.latent = nn.Linear(hidden_dimensions[-1], num_classes)
+        self.latent_activation = latent_activation
 
     def forward(self, x):
         for layer in self.hidden_layers:
             x = layer(x)
 
-        return self.latent(x)
+        return self.latent_activation(self.latent(x))
 
 
 class Decoder(nn.Module):
@@ -44,16 +42,14 @@ class Decoder(nn.Module):
 
         self.hidden_layers = nn.ModuleList(layers)
 
-        self.out = nn.Sequential(
-            nn.Linear(hidden_dimensions[-1], input_size),
-            output_activation,
-        )
+        self.out = nn.Linear(hidden_dimensions[-1], input_size)
+        self.output_activation = output_activation
 
     def forward(self, z):
         for layer in self.hidden_layers:
             z = layer(z)
 
-        return self.out(z)
+        return self.output_activation(self.out(z))
 
 
 class Autoencoder(nn.Module):

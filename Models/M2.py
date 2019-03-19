@@ -32,7 +32,7 @@ class M2(nn.Module):
         super(M2, self).__init__()
 
         self.VAE = VAE_M2(input_size, latent_dim, hidden_dimensions_VAE, hidden_dimensions_VAE, num_classes, activation)
-        self.Classifier = Classifier(input_size, hidden_dimensions_clas, num_classes, activation)
+        self.Classifier = Classifier(input_size, hidden_dimensions_clas, num_classes)
 
     def classify(self, x):
         return self.Classifier(x)

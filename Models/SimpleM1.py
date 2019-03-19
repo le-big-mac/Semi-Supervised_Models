@@ -32,10 +32,11 @@ class Classifier(nn.Module):
 
 class SimpleM1(Model):
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
-                 num_classes, activation, device):
+                 num_classes, latent_activation, output_activation, device):
         super(SimpleM1, self).__init__(device)
 
-        self.Autoencoder = Autoencoder(input_size, hidden_dimensions_encoder, latent_size, activation).to(device)
+        self.Autoencoder = Autoencoder(input_size, hidden_dimensions_encoder, latent_size, latent_activation,
+                                       output_activation).to(device)
         self.Autoencoder_criterion = nn.BCELoss(reduction='sum')
         self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
         self.Encoder = self.Autoencoder.encoder
