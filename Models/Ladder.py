@@ -4,7 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 from itertools import cycle
 from torch.utils.data import DataLoader
-from Models import Model
+from Models.Model import Model
 
 
 def bi(inits, size):
