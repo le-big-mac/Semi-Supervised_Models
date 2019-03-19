@@ -12,7 +12,7 @@ def MNIST_train(device):
 
     results = []
     for i in range(5):
-        deep_metabolism = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+        deep_metabolism = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, lambda x: x, nn.Sigmoid(), device)
 
         print(deep_metabolism.Classifier)
 
