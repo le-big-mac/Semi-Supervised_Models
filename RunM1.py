@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from Models.Kingma.M1 import M1
-from utils import arguments, datautils, datautils, datautils, datautils
+from Models.M1 import M1
+from utils import arguments, datautils
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 

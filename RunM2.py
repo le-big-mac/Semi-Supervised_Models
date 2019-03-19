@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from Models.Kingma.M2 import M2_runner
-from utils import datautils, datautils, arguments, datautils, datautils
+from Models.M2 import M2_runner
+from utils import datautils
 
 
 def MNIST_train(device):
