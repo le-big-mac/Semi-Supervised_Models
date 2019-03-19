@@ -14,9 +14,9 @@ def MNIST_train(device):
 
         print(network.Classifier)
 
-        network.full_train(supervised_dataset, validation_dataset)
+        network.train(supervised_dataset, validation_dataset)
 
-        results.append(network.full_test(test_dataset))
+        results.append(network.test(test_dataset))
 
     datautils.save_results(results, 'simple_network', 'MNIST_accuracy')
 
@@ -37,9 +37,9 @@ def file_train(device):
         test_dataset = datautils.SupervisedClassificationDataset([supervised_data[i] for i in test_idx],
                                                                  [supervised_labels[i] for i in test_idx])
 
-        simple_network.full_train(train_dataset)
+        simple_network.train(train_dataset)
 
-        correct_percentage = simple_network.full_test(test_dataset)
+        correct_percentage = simple_network.test(test_dataset)
 
         test_results.append(correct_percentage)
 
