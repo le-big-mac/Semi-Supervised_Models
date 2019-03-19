@@ -163,7 +163,7 @@ class LadderNetwork(Model):
         super(LadderNetwork, self).__init__(device)
 
         layer_sizes = [input_size] + hidden_dimensions + [num_classes]
-        L = len(layer_sizes) - 1 # number of layers
+        self.L = len(layer_sizes) - 1 # number of layers
         shapes = list(zip(layer_sizes[:-1], layer_sizes[1:])) # shapes of linear layers
 
         self.denoising_cost = denoising_cost
