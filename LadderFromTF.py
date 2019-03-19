@@ -3,7 +3,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from itertools import cycle
-from utils.LoadData import load_MNIST_data
+from utils.datautils import load_MNIST_data
 from torch.utils.data import DataLoader
 
 layer_sizes = [784, 1000, 500, 250, 250, 250, 10]
