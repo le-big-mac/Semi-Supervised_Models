@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from itertools import cycle
 from torch.utils.data import DataLoader
 from Models.BuildingBlocks import VariationalEncoder, Decoder, Classifier
-from Models import Model
+from Models.Model import Model
 
 # -----------------------------------------------------------------------
 # Implementation of Kingma M2 semi-supervised variational autoencoder

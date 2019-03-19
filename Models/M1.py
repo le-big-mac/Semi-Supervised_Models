@@ -3,7 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from Models.BuildingBlocks import VAE, Classifier
-from Models import Model
+from Models.Model import Model
 
 
 # TODO: make consistent with all other models

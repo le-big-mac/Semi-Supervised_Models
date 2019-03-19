@@ -3,7 +3,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from utils.accuracy import accuracy
 from Models.BuildingBlocks import Autoencoder
-from Models import Model
+from Models.Model import Model
 
 
 class PretrainingNetwork(Model):
