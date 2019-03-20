@@ -27,7 +27,7 @@ def MNIST_train():
 
     datautils.save_results(epochs_list, 'MNIST', 'simple_network', 'epochs')
     datautils.save_results(losses_list, 'MNIST', 'simple_network', 'losses')
-    datautils.save_results(validation_accs_list, 'MNIST', 'simple_network', 'validaitons_accs')
+    datautils.save_results(validation_accs_list, 'MNIST', 'simple_network', 'validation_accs')
     datautils.save_results(results_list, 'MNIST', 'simple_network', 'test_accuracy')
 
 
