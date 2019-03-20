@@ -43,10 +43,11 @@ class SDAENetwork(Model):
             previous_layers = self.SDAE.hidden_layers[0:i]
 
             for epoch in range(50):
-                self.train_DAE_one_epoch(previous_layers, dae, pretraining_dataloader, criterion, optimizer)
+                self.train_DAE_one_epoch(epoch, previous_layers, dae, pretraining_dataloader, criterion, optimizer)
 
-    def train_DAE_one_epoch(self, previous_layers, dae, dataloader, criterion, optimizer):
+    def train_DAE_one_epoch(self, epoch, previous_layers, dae, dataloader, criterion, optimizer):
         dae.train()
+        train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
             data = data.to(self.device)
@@ -55,18 +56,19 @@ class SDAENetwork(Model):
                 for layer in previous_layers:
                     data = layer(data)
 
-            noisy_data = data.add(0.2*torch.randn_like(data).to(self.device))
+            noisy_data = data.add(0.3*torch.randn_like(data).to(self.device))
 
             optimizer.zero_grad()
 
             predictions = dae(noisy_data)
 
             loss = criterion(predictions, data)
+            train_loss += loss.item()
 
             loss.backward()
             optimizer.step()
 
-            print(loss.item())
+        print('Unsupervised epoch: {} Loss: {}'.format(epoch, train_loss))
 
     def train_classifier_one_epoch(self, epoch, dataloader, validation_dataloader):
         self.SDAE.train()
