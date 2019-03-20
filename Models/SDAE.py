@@ -16,7 +16,7 @@ class SDAE(nn.Module):
                   for i in range(0, len(dims)-1)]
 
         self.hidden_layers = nn.ModuleList(layers)
-        self.classification_layer = nn.Linear(layers[-1].layer.out_features, num_classes)
+        self.classification_layer = nn.Linear(dims[-1], num_classes)
 
     def forward(self, x):
         for layer in self.hidden_layers:
@@ -29,14 +29,12 @@ class SDAENetwork(Model):
     def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
         super(SDAENetwork, self).__init__(device)
 
-        self.SDAE = self.SDAE(input_size, hidden_dimensions, num_classes, activation).to(device)
+        self.SDAE = SDAE(input_size, hidden_dimensions, num_classes, activation).to(device)
         self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss()
 
-    def pretrain_hidden_layers(self, unsupervised_dataset):
-        current_dataset = unsupervised_dataset
-        dataloader = DataLoader
-
+    def pretrain_hidden_layers(self, pretraining_dataloader):
+        # TODO: take in dataset and then redo dataset each iteration (faster)
         for i in range(len(self.SDAE.hidden_layers)):
             dae = AutoencoderSDAE(self.SDAE.hidden_layers[i]).to(self.device)
             criterion = nn.MSELoss()
@@ -45,7 +43,7 @@ class SDAENetwork(Model):
             previous_layers = self.SDAE.hidden_layers[0:i]
 
             for epoch in range(50):
-                self.train_DAE_one_epoch(previous_layers, dae, dataloader, criterion, optimizer)
+                self.train_DAE_one_epoch(previous_layers, dae, pretraining_dataloader, criterion, optimizer)
 
     def train_DAE_one_epoch(self, previous_layers, dae, dataloader, criterion, optimizer):
         dae.train()
