@@ -52,7 +52,7 @@ class SimpleM1(Model):
         for batch_idx, data in enumerate(dataloader):
             data = data.to(self.device)
 
-            self.VAE_optim.zero_grad()
+            self.Autoencoder_optim.zero_grad()
 
             recons = self.Autoencoder(data)
 
@@ -63,11 +63,11 @@ class SimpleM1(Model):
             loss.backward()
             self.Autoencoder_optim.step()
 
-        print('Epoch: {} VAE Loss: {}'.format(epoch, train_loss/len(dataloader.dataset)))
+        print('Epoch: {} Autoencoder Loss: {}'.format(epoch, train_loss/len(dataloader.dataset)))
 
         return train_loss/len(dataloader.dataset)
 
-    def train_classifier_one_epoch(self, epoch, dataloader):
+    def train_classifier_one_epoch(self, epoch, dataloader, validation_dataloader):
         self.Classifier.train()
         train_loss = 0
 
@@ -89,9 +89,8 @@ class SimpleM1(Model):
             loss.backward()
             self.Classifier_optim.step()
 
-        print('Epoch {} Loss {}:'.format(epoch, train_loss/len(dataloader.dataset)))
-
-        return train_loss/len(dataloader.dataset)
+            print('Epoch {} Loss {}: Validation accuracy: {}'.format(epoch, loss.item(),
+                                                                     self.supervised_test(validation_dataloader)))
 
     def supervised_test(self, dataloader):
         self.Encoder.eval()
@@ -121,8 +120,7 @@ class SimpleM1(Model):
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         for epoch in range(50):
-            self.train_classifier_one_epoch(epoch, supervised_dataloader)
-            print('Epoch: {} Validation Acc: {}'.format(epoch, self.supervised_test(validation_dataloader)))
+            self.train_classifier_one_epoch(epoch, supervised_dataloader, validation_dataloader)
 
     def test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
