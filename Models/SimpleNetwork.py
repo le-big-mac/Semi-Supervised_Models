@@ -3,7 +3,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from Models.BuildingBlocks import Classifier
 from Models.Model import Model
-from utils.trainingutils import accuracy
+from utils.trainingutils import accuracy, EarlyStopping
 
 
 class SimpleNetwork(Model):
@@ -14,7 +14,9 @@ class SimpleNetwork(Model):
         self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss()
 
-    def train_one_epoch(self, epoch, train_dataloader, validation_dataloader):
+        self.model_name = 'simple_network'
+
+    def train_one_epoch(self, train_dataloader):
         self.Classifier.train()
 
         for batch_idx, (data, labels) in enumerate(train_dataloader):
@@ -30,15 +32,32 @@ class SimpleNetwork(Model):
             loss.backward()
             self.optimizer.step()
 
-            print('Epoch: {} Loss: {} Validation accuracy: {}'
-                  .format(epoch, loss.item(), accuracy(self.Classifier, validation_dataloader, self.device)))
+            return loss.item()
 
-    def train(self, supervised_dataset, validation_dataset):
+    def train(self, dataset_name, supervised_dataset, batch_size, validation_dataset):
         supervised_dataloader = DataLoader(dataset=supervised_dataset, batch_size=100, shuffle=True)
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
-        for epoch in range(50):
-            self.train_one_epoch(epoch, supervised_dataloader, validation_dataloader)
+        early_stopping = EarlyStopping('{}/{}'.format(self.model_name, dataset_name))
+
+        epochs = []
+        losses = []
+        validation_accs = []
+
+        epoch = 0
+        while not early_stopping.early_stop:
+            loss = self.train_one_epoch(supervised_dataloader)
+            validation_acc = accuracy(self.Classifier, validation_dataloader, self.device)
+
+            early_stopping(1-validation_acc, self.Classifier)
+
+            epochs.append(epoch)
+            losses.append(loss)
+            validation_accs.append(validation_acc)
+
+            epoch += 1
+
+        return epochs, losses, validation_accs
 
     def test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())

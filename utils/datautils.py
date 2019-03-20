@@ -127,18 +127,30 @@ def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     return unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset
 
 
-def save_results(results_list, model_directory, filename):
+def save_results(results_list, dataset_directory, model_directory, filename):
     if not os.path.exists('results'):
         os.mkdir('results')
-    if not os.path.exists('results/{}'.format(model_directory)):
-        os.mkdir('results/{}'.format(model_directory))
+    if not os.path.exists('results/{}'.format(dataset_directory)):
+        os.mkdir('results/{}'.format(dataset_directory))
+    if not os.path.exists('results/{}/{}'.format(dataset_directory, model_directory)):
+        os.mkdir('results/{}/{}'.format(dataset_directory, model_directory))
 
-    accuracy_file = open('results/{}/{}.csv'.format(model_directory, filename), 'w')
-    accuracy_writer = csv.writer(accuracy_file)
+    # if os.path.exists('results/{}/{}/{}.csv'.format(dataset_directory, model_directory, filename)):
+    #     os.remove('results/{}/{}/{}.csv'.format(dataset_directory, model_directory, filename))
 
-    accuracy_writer.writerow(results_list)
+    file = open('results/{}/{}/{}.csv'.format(dataset_directory, model_directory, filename), 'w')
+    writer = csv.writer(file)
 
-    accuracy_file.close()
+    if not isinstance(results_list, list):
+        raise ValueError
+
+    if isinstance(results_list[0], list):
+        for row in results_list:
+            writer.writerow(row)
+    else:
+        writer.writerow(results_list)
+
+    file.close()
 
 
 def k_fold_splits(len_data, num_folds):
