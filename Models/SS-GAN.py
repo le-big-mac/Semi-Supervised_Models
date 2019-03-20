@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import accuracy
+from utils import trainingutils
 
 
 class Classifier(nn.Module):
@@ -206,11 +206,11 @@ class SS_GAN:
         for epoch in range(50):
 
             self.train_one_epoch(epoch, supervised_dataloader, unsupervised_dataloader)
-            print('Epoch: {} Validation Acc: {}'.format(epoch, accuracy.accuracy(self.D, validation_dataloader,
-                                                                                 self.device)))
+            print('Epoch: {} Validation Acc: {}'.format(epoch, trainingutils.accuracy(self.D, validation_dataloader,
+                                                                                      self.device)))
 
     def full_test(self, test_dataset):
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
 
-        return accuracy.accuracy(self.D, test_dataloader, self.device)
+        return trainingutils.accuracy(self.D, test_dataloader, self.device)
 
