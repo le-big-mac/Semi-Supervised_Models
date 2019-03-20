@@ -17,7 +17,7 @@ class Encoder(nn.Module):
 
         self.hidden_layers = nn.ModuleList(layers)
 
-        self.latent = nn.Linear(hidden_dimensions[-1], num_classes)
+        self.latent = nn.Linear(dims[-1], num_classes)
         self.latent_activation = latent_activation
 
     def forward(self, x):
@@ -42,7 +42,7 @@ class Decoder(nn.Module):
 
         self.hidden_layers = nn.ModuleList(layers)
 
-        self.out = nn.Linear(hidden_dimensions[-1], input_size)
+        self.out = nn.Linear(dims[-1], input_size)
         self.output_activation = output_activation
 
     def forward(self, z):

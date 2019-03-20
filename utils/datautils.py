@@ -83,9 +83,9 @@ def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     test_labels = mnist_test.targets
 
     train_data = train_data.view(-1, 784)
-    train_data = 1./255. * train_data.double()
+    train_data = 1./255. * train_data.float()
     test_data = test_data.view(-1, 784)
-    test_data = 1./255. * test_data.double()
+    test_data = 1./255. * test_data.float()
 
     labelled_per_class = num_labelled//10
     unlabelled_per_class = num_unlabelled//10

@@ -1,11 +1,11 @@
 import torch
 from torch import nn
 from Models.SimpleNetwork import SimpleNetwork
-from utils import datautils, datautils, arguments, datautils, datautils
+from utils import arguments, datautils
 
 
 def MNIST_train(device):
-    _, supervised_dataset, validation_dataset, test_dataset = datautils.load_MNIST_data(100, 10000, 10000, 0)
+    _, supervised_dataset, validation_dataset, test_dataset = datautils.load_MNIST_data(100, 0, True, True)
 
     # run 5 times to get average accuracy
     results = []

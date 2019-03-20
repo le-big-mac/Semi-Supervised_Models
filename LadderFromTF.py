@@ -196,7 +196,7 @@ def evaluate(dataloader):
 
     with torch.no_grad():
         for batch_idx, (data, labels) in enumerate(dataloader):
-            data = data.float().to(device)
+            data = data.to(device)
             labels = labels.to(device)
 
             outputs, _ = ladder.forward_encoders(data, 0.0, False)
@@ -216,10 +216,10 @@ for epoch in range(50):
         optimizer.zero_grad()
 
         labelled_images, labels = labelled_data
-        labelled_images = labelled_images.float().to(device)
+        labelled_images = labelled_images.to(device)
         labels = labels.to(device)
 
-        unlabelled_images = unlabelled_data.float().to(device)
+        unlabelled_images = unlabelled_data.to(device)
 
         inputs = torch.cat((labelled_images, unlabelled_images), 0)
 
