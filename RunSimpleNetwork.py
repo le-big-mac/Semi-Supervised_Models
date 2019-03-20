@@ -23,7 +23,7 @@ def MNIST_train():
         epochs_list.append(epochs)
         losses_list.append(losses)
         validation_accs_list.append(validation_accs)
-        results_list.append(results)
+        results_list.append([results])
 
     datautils.save_results(epochs_list, 'MNIST', 'simple_network', 'epochs')
     datautils.save_results(losses_list, 'MNIST', 'simple_network', 'losses')
