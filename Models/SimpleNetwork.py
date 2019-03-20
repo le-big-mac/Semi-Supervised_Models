@@ -16,9 +16,11 @@ class SimpleNetwork(Model):
 
         self.model_name = 'simple_network'
 
-    def train_one_epoch(self, train_dataloader):
+    def train_one_epoch(self, train_dataloader, validation_dataloader):
         self.Classifier.train()
 
+        losses = []
+        validation = []
         for batch_idx, (data, labels) in enumerate(train_dataloader):
             data = data.to(self.device)
             labels = labels.to(self.device)
@@ -32,7 +34,10 @@ class SimpleNetwork(Model):
             loss.backward()
             self.optimizer.step()
 
-            return loss.item()
+            losses.append(loss.item())
+            validation.append(accuracy(self.Classifier, validation_dataloader, self.device))
+
+            return losses, validation
 
     def train(self, dataset_name, supervised_dataset, batch_size, validation_dataset):
         supervised_dataloader = DataLoader(dataset=supervised_dataset, batch_size=100, shuffle=True)
@@ -46,16 +51,18 @@ class SimpleNetwork(Model):
 
         epoch = 0
         while not early_stopping.early_stop:
-            loss = self.train_one_epoch(supervised_dataloader)
+            l, v = self.train_one_epoch(supervised_dataloader, validation_dataloader)
             validation_acc = accuracy(self.Classifier, validation_dataloader, self.device)
 
             early_stopping(1-validation_acc, self.Classifier)
 
-            epochs.append(epoch)
-            losses.append(loss)
-            validation_accs.append(validation_acc)
+            epochs += [epoch] * len(l)
+            losses += l
+            validation_accs += v
 
             epoch += 1
+
+        self.Classifier.load_state_dict(torch.load('./Models/state/{}/{}.pt'.format(self.model_name, dataset_name)))
 
         return epochs, losses, validation_accs
 

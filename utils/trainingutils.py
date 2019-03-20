@@ -19,7 +19,7 @@ def accuracy(model, dataloader, device):
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
-    def __init__(self, checkpoint_filename, patience=50, verbose=False):
+    def __init__(self, checkpoint_filename, patience=25, verbose=False):
         """
         Args:
             patience (int): How long to wait after last time validation loss improved.
@@ -58,5 +58,5 @@ class EarlyStopping:
         if self.verbose:
             print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'
                   .format(self.val_loss_min, val_loss))
-        torch.save(model.state_dict(), './Models/state/{}'.format(self.filename))
+        torch.save(model.state_dict(), './Models/state/{}.pt'.format(self.filename))
         self.val_loss_min = val_loss
