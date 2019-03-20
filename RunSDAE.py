@@ -7,7 +7,7 @@ from utils import arguments, datautils
 def MNIST_train(device):
 
     unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
-        datautils.load_MNIST_data(100, 10000, 10000, 49000)
+        datautils.load_MNIST_data(100, 49900, True, True)
 
     combined_dataset = datautils.MNISTUnsupervised(torch.cat((unsupervised_dataset.data, supervised_dataset.data), 0))
 
@@ -17,9 +17,9 @@ def MNIST_train(device):
 
         print(sdae.SDAE)
 
-        sdae.full_train(combined_dataset, supervised_dataset, validation_dataset)
+        sdae.train(combined_dataset, supervised_dataset, validation_dataset)
 
-        results.append(sdae.full_test(test_dataset))
+        results.append(sdae.test(test_dataset))
 
     datautils.save_results(results, 'sdae', 'MNIST_accuracy')
 

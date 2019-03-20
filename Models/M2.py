@@ -12,12 +12,12 @@ from Models.Model import Model
 
 
 class VAE_M2(nn.Module):
-    def __init__(self, input_size, latent_dim, hidden_dimensions_encoder, hidden_dimensions_decoder, num_classes,
+    def __init__(self, input_size, hidden_dimensions_encoder, hidden_dimensions_decoder, latent_dim, num_classes,
                  output_activation):
         super(VAE_M2, self).__init__()
 
-        self.encoder = VariationalEncoder(input_size + num_classes, latent_dim, hidden_dimensions_encoder)
-        self.decoder = Decoder(input_size, latent_dim + num_classes, hidden_dimensions_decoder, output_activation)
+        self.encoder = VariationalEncoder(input_size + num_classes, hidden_dimensions_encoder, latent_dim)
+        self.decoder = Decoder(input_size, hidden_dimensions_decoder, latent_dim + num_classes, output_activation)
 
     def forward(self, x, y):
         z, mu, logvar = self.encoder(torch.cat((x, y), dim=1))
@@ -28,10 +28,12 @@ class VAE_M2(nn.Module):
 
 
 class M2(nn.Module):
-    def __init__(self, input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim, num_classes, activation):
+    def __init__(self, input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim, num_classes,
+                 output_activation):
         super(M2, self).__init__()
 
-        self.VAE = VAE_M2(input_size, latent_dim, hidden_dimensions_VAE, hidden_dimensions_VAE, num_classes, activation)
+        self.VAE = VAE_M2(input_size, hidden_dimensions_VAE, hidden_dimensions_VAE, latent_dim, num_classes,
+                          output_activation)
         self.Classifier = Classifier(input_size, hidden_dimensions_clas, num_classes)
 
     def classify(self, x):

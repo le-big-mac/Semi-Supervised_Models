@@ -13,7 +13,7 @@ def MNIST_train(device):
 
     results = []
     for i in range(5):
-        m2 = M2Runner(784, [256, 128], [256], 32, 10, nn.ReLU(), device)
+        m2 = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), device)
 
         print(m2.M2)
 
