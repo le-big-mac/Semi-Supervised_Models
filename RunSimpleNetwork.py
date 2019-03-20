@@ -5,7 +5,8 @@ from utils import arguments, datautils
 
 
 def MNIST_train(device):
-    _, supervised_dataset, validation_dataset, test_dataset = datautils.load_MNIST_data(100, 0, True, True)
+    # TODO: change unsupervised argument to be True/False
+    _, supervised_dataset, validation_dataset, test_dataset = datautils.load_MNIST_data(100, 100, True, True)
 
     # run 5 times to get average accuracy
     results = []

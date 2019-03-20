@@ -9,10 +9,10 @@ from Models.Model import Model
 # TODO: make consistent with all other models
 class M1(Model):
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
-                 num_classes, activation, device):
+                 num_classes, output_activation, device):
         super(M1, self).__init__(device)
 
-        self.VAE = VAE(input_size, hidden_dimensions_encoder, latent_size, activation).to(device)
+        self.VAE = VAE(input_size, hidden_dimensions_encoder, latent_size, output_activation).to(device)
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
         self.Encoder = self.VAE.encoder
 
