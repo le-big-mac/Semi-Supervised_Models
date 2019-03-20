@@ -78,7 +78,7 @@ class SimpleM1(Model):
             self.Classifier_optim.zero_grad()
 
             with torch.no_grad():
-                z, _, _ = self.Encoder(data)
+                z = self.Encoder(data)
 
             pred = self.Classifier(z)
 
