@@ -17,6 +17,22 @@ def accuracy(model, dataloader, device):
     return correct / len(dataloader.dataset)
 
 
+def unsupervised_validation_loss(model, dataloader, criterion, device):
+    model.eval()
+
+    validation_loss = 0
+    for batch_idx, (data, _) in enumerate(dataloader):
+        data = data.to(device)
+
+        recons = model(data)
+
+        loss = criterion(recons, data)
+
+        validation_loss += loss.item()
+
+    return validation_loss/len(dataloader)
+
+
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
     def __init__(self, checkpoint_filename, patience=25, verbose=False):

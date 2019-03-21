@@ -17,11 +17,11 @@ class SimpleNetwork(Model):
         self.model_name = 'simple_network'
 
     def train_one_epoch(self, train_dataloader, validation_dataloader):
-        self.Classifier.train()
-
         losses = []
         validation = []
         for batch_idx, (data, labels) in enumerate(train_dataloader):
+            self.Classifier.train()
+
             data = data.to(self.device)
             labels = labels.to(self.device)
 
@@ -37,10 +37,10 @@ class SimpleNetwork(Model):
             losses.append(loss.item())
             validation.append(accuracy(self.Classifier, validation_dataloader, self.device))
 
-            return losses, validation
+        return losses, validation
 
     def train(self, dataset_name, supervised_dataset, batch_size, validation_dataset):
-        supervised_dataloader = DataLoader(dataset=supervised_dataset, batch_size=100, shuffle=True)
+        supervised_dataloader = DataLoader(dataset=supervised_dataset, batch_size=batch_size, shuffle=True)
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
 
         early_stopping = EarlyStopping('{}/{}'.format(self.model_name, dataset_name))

@@ -6,9 +6,9 @@ from Models.BuildingBlocks import Encoder, AutoencoderSDAE
 from Models.Model import Model
 
 
-class SDAE(nn.Module):
+class SDAEClassifier(nn.Module):
     def __init__(self, input_size, hidden_dimensions, num_classes, activation):
-        super(SDAE, self).__init__()
+        super(SDAEClassifier, self).__init__()
 
         dims = [input_size] + hidden_dimensions
 
@@ -25,11 +25,11 @@ class SDAE(nn.Module):
         return self.classification_layer(x)
 
 
-class SDAENetwork(Model):
+class SDAE(Model):
     def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
-        super(SDAENetwork, self).__init__(device)
+        super(SDAE, self).__init__(device)
 
-        self.SDAE = SDAE(input_size, hidden_dimensions, num_classes, activation).to(device)
+        self.SDAE = SDAEClassifier(input_size, hidden_dimensions, num_classes, activation).to(device)
         self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss()
 

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models import SDAENetwork
+from Models import SDAE
 from utils import arguments, datautils
 
 
@@ -13,7 +13,7 @@ def MNIST_train(device):
 
     results = []
     for i in range(5):
-        sdae = SDAENetwork(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+        sdae = SDAE(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
 
         print(sdae.SDAE)
 
@@ -33,7 +33,7 @@ def file_train(device):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    sdae = SDAENetwork(500, [200], 10, nn.ReLU(), device)
+    sdae = SDAE(500, [200], 10, nn.ReLU(), device)
 
     test_results = []
     for test_idx, train_idx in datautils.k_fold_splits(len(supervised_data), 10):
