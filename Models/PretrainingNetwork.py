@@ -100,11 +100,7 @@ class PretrainingNetwork(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train(self, dataset_name, unsupervised_dataset, supervised_dataset, batch_size, validation_dataset):
-        unsupervised_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=batch_size, shuffle=True)
-        supervised_dataloader = DataLoader(dataset=supervised_dataset, batch_size=batch_size, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
-
+    def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
         autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
             self.train_autoencoder_early_stopping(dataset_name, unsupervised_dataloader, validation_dataloader)
 

@@ -53,7 +53,8 @@ validation_accs_list = []
 results_list = []
 for i in range(5):
 
-    epochs, losses, validation_accs = model.train(dataset_name, supervised_dataloader, validation_dataloader)
+    epochs, losses, validation_accs = model.train(dataset_name, supervised_dataloader, unsupervised_dataloader,
+                                                  validation_dataloader)
     results = model.test(test_dataloader)
 
     epochs_list.append(epochs)
