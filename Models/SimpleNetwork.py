@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
 from Models.BuildingBlocks import Classifier
 from Models.Model import Model
 from utils.trainingutils import accuracy, EarlyStopping

@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
 from utils.trainingutils import accuracy, unsupervised_validation_loss
 from Models.BuildingBlocks import Autoencoder
 from Models.Model import Model
@@ -104,12 +103,10 @@ class PretrainingNetwork(Model):
         autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
             self.train_autoencoder_early_stopping(dataset_name, unsupervised_dataloader, validation_dataloader)
 
-        classifier_epochs, classifier_train_losses, classifier_validation_losses = \
+        classifier_epochs, classifier_train_losses, classifier_validation_accs = \
             self.train_classifier_early_stopping(dataset_name, supervised_dataloader, validation_dataloader)
 
-        return classifier_epochs, classifier_train_losses, classifier_validation_losses
+        return classifier_epochs, classifier_train_losses, classifier_validation_accs
 
-    def test(self, test_dataset):
-        test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
-
+    def test(self, test_dataloader):
         return accuracy(self.Classifier, test_dataloader, self.device)

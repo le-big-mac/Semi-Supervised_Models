@@ -1,9 +1,9 @@
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
 from utils.trainingutils import accuracy
 from Models.BuildingBlocks import Encoder, AutoencoderSDAE
 from Models.Model import Model
+from utils.trainingutils import EarlyStopping
 
 
 class SDAEClassifier(nn.Module):
@@ -33,8 +33,9 @@ class SDAE(Model):
         self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss()
 
+        self.model_name = 'sdae'
+
     def pretrain_hidden_layers(self, pretraining_dataloader):
-        # TODO: take in dataset and then redo dataset each iteration (faster)
         for i in range(len(self.SDAE.hidden_layers)):
             dae = AutoencoderSDAE(self.SDAE.hidden_layers[i]).to(self.device)
             criterion = nn.MSELoss()
@@ -42,65 +43,72 @@ class SDAE(Model):
 
             previous_layers = self.SDAE.hidden_layers[0:i]
 
+            # TODO: think about implementing early stopping
             for epoch in range(50):
-                self.train_DAE_one_epoch(epoch, previous_layers, dae, pretraining_dataloader, criterion, optimizer)
+                for batch_idx, data in enumerate(pretraining_dataloader):
+                    dae.train()
+                    data = data.to(self.device)
 
-    def train_DAE_one_epoch(self, epoch, previous_layers, dae, dataloader, criterion, optimizer):
-        dae.train()
-        train_loss = 0
+                    with torch.no_grad():
+                        for layer in previous_layers:
+                            data = layer(data)
 
-        for batch_idx, data in enumerate(dataloader):
-            data = data.to(self.device)
+                    noisy_data = data.add(0.3 * torch.randn_like(data).to(self.device))
 
-            with torch.no_grad():
-                for layer in previous_layers:
-                    data = layer(data)
+                    optimizer.zero_grad()
 
-            noisy_data = data.add(0.3*torch.randn_like(data).to(self.device))
+                    predictions = dae(noisy_data)
 
-            optimizer.zero_grad()
+                    loss = criterion(predictions, data)
 
-            predictions = dae(noisy_data)
+                    loss.backward()
+                    optimizer.step()
 
-            loss = criterion(predictions, data)
-            train_loss += loss.item()
+    def train_classifier(self, dataset_name, test_dataloader, validation_dataloader):
+        epochs = []
+        train_losses = []
+        validation_accs = []
 
-            loss.backward()
-            optimizer.step()
+        early_stopping = EarlyStopping('{}/{}'.format(self.model_name, dataset_name))
 
-        print('Unsupervised epoch: {} Loss: {}'.format(epoch, train_loss))
+        epoch = 0
+        while not early_stopping.early_stop:
+            for batch_idx, (data, labels) in enumerate(test_dataloader):
+                self.SDAE.train()
 
-    def train_classifier_one_epoch(self, epoch, dataloader, validation_dataloader):
-        self.SDAE.train()
+                data = data.to(self.device)
+                labels = labels.to(self.device)
 
-        for batch_idx, (data, labels) in enumerate(dataloader):
-            data = data.to(self.device)
-            labels = labels.to(self.device)
+                self.optimizer.zero_grad()
 
-            self.optimizer.zero_grad()
+                predictions = self.SDAE(data)
 
-            predictions = self.SDAE(data)
+                loss = self.criterion(predictions, labels)
 
-            loss = self.criterion(predictions, labels)
+                loss.backward()
+                self.optimizer.step()
 
-            loss.backward()
-            self.optimizer.step()
+                validation_acc = accuracy(self.SDAE, validation_dataloader, self.device)
 
-            print('Epoch: {} Loss: {} Validation accuracy: {}'
-                  .format(epoch, loss.item(), accuracy(self.SDAE, validation_dataloader, self.device)))
+                early_stopping(1-validation_acc, self.SDAE)
 
-    def train(self, unsupervised_dataset, train_dataset, validation_dataset):
-        pretraining_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=1000, shuffle=True)
+                epochs.append(epoch)
+                train_losses.append(loss.item())
+                validation_accs.append(validation_acc)
 
-        self.pretrain_hidden_layers(pretraining_dataloader)
+            epoch += 1
 
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+        self.SDAE.load_state_dict(torch.load('./Models/state/{}/{}.pt'.format(self.model_name, dataset_name)))
 
-        for epoch in range(50):
-            self.train_classifier_one_epoch(epoch, supervised_dataloader, validation_dataloader)
+        return epochs, train_losses, validation_accs
 
-    def test(self, test_dataset):
-        test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
+    def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+        self.pretrain_hidden_layers(unsupervised_dataloader)
 
+        classifier_epochs, classifier_train_losses, classifier_validation_accs = \
+            self.train_classifier(dataset_name, supervised_dataloader, validation_dataloader)
+
+        return classifier_epochs, classifier_train_losses, classifier_validation_accs
+
+    def test(self, test_dataloader):
         return accuracy(self.SDAE, test_dataloader, self.device)
