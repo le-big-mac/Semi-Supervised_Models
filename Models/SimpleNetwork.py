@@ -16,57 +16,49 @@ class SimpleNetwork(Model):
 
         self.model_name = 'simple_network'
 
-    def train_one_epoch(self, train_dataloader, validation_dataloader):
-        losses = []
-        validation = []
-        for batch_idx, (data, labels) in enumerate(train_dataloader):
-            self.Classifier.train()
-
-            data = data.to(self.device)
-            labels = labels.to(self.device)
-
-            self.optimizer.zero_grad()
-
-            preds = self.Classifier(data)
-
-            loss = self.criterion(preds, labels)
-
-            loss.backward()
-            self.optimizer.step()
-
-            losses.append(loss.item())
-            validation.append(accuracy(self.Classifier, validation_dataloader, self.device))
-
-        return losses, validation
-
-    def train(self, dataset_name, supervised_dataset, batch_size, validation_dataset):
-        supervised_dataloader = DataLoader(dataset=supervised_dataset, batch_size=batch_size, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+    def train_classifier(self, dataset_name, train_dataloader, validation_dataloader):
+        epochs = []
+        train_losses = []
+        validation_accs = []
 
         early_stopping = EarlyStopping('{}/{}'.format(self.model_name, dataset_name))
 
-        epochs = []
-        losses = []
-        validation_accs = []
-
         epoch = 0
         while not early_stopping.early_stop:
-            l, v = self.train_one_epoch(supervised_dataloader, validation_dataloader)
-            validation_acc = accuracy(self.Classifier, validation_dataloader, self.device)
+            for batch_idx, (data, labels) in enumerate(train_dataloader):
+                self.Classifier.train()
 
-            early_stopping(1-validation_acc, self.Classifier)
+                data = data.to(self.device)
+                labels = labels.to(self.device)
 
-            epochs += [epoch] * len(l)
-            losses += l
-            validation_accs += v
+                self.optimizer.zero_grad()
+
+                preds = self.Classifier(data)
+
+                loss = self.criterion(preds, labels)
+
+                loss.backward()
+                self.optimizer.step()
+
+                validation_acc = accuracy(self.Classifier, validation_dataloader, self.device)
+
+                early_stopping(1-validation_acc, self.Classifier)
+
+                epochs.append(epoch)
+                train_losses.append(loss.item())
+                validation_accs.append(accuracy(self.Classifier, validation_dataloader, self.device))
 
             epoch += 1
 
         self.Classifier.load_state_dict(torch.load('./Models/state/{}/{}.pt'.format(self.model_name, dataset_name)))
 
+        return epochs, train_losses, validation_accs
+
+    def train(self, dataset_name, supervised_dataloader, validation_dataloader):
+        epochs, losses, validation_accs = self.train_classifier(dataset_name, supervised_dataloader,
+                                                                validation_dataloader)
+
         return epochs, losses, validation_accs
 
-    def test(self, test_dataset):
-        test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
-
+    def test(self, test_dataloader):
         return accuracy(self.Classifier, test_dataloader, self.device)

@@ -54,7 +54,7 @@ class PretrainingNetwork(Model):
                 train_losses.append(loss.item())
                 validation_losses.append(validation_loss)
 
-                epoch += 1
+            epoch += 1
 
         self.Autoencoder.load_state_dict(torch.load('./Models/state/{}/{}_autoencoder.pt'
                                                     .format(self.model_name, dataset_name)))
@@ -93,7 +93,7 @@ class PretrainingNetwork(Model):
                 train_losses.append(loss.item())
                 validation_accs.append(validation_acc)
 
-                epoch += 1
+            epoch += 1
 
         self.Classifier.load_state_dict(torch.load(
             './Models/state/{}/{}_classifier.pt'.format(self.model_name, dataset_name)))
