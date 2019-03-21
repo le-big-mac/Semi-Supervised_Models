@@ -7,7 +7,7 @@ from utils.trainingutils import accuracy, EarlyStopping
 
 
 class SimpleNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
+    def __init__(self, input_size, hidden_dimensions, num_classes, device):
         super(SimpleNetwork, self).__init__(device)
 
         self.Classifier = Classifier(input_size, hidden_dimensions, num_classes).to(device)
