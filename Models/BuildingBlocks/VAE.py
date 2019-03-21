@@ -37,7 +37,7 @@ class VariationalEncoder(nn.Module):
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5*logvar)
         eps = torch.randn_like(std)
-        z = eps.mul(std).add(mu)
+        z = mu + eps*std
         return z
 
     def forward(self, x):
