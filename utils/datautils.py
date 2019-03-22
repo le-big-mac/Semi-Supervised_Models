@@ -101,9 +101,10 @@ def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
 
     for label, data in buckets_train_data.items():
         labelled_data.extend(data[:labelled_per_class])
-        unlabelled_data.extend(data[labelled_per_class:labelled_per_class + unlabelled_per_class])
+        # changed so that unlabelled data contains the labelled data - to do with cycling supervised data pairs
+        unlabelled_data.extend(data[:unlabelled_per_class])
         if validation:
-            validation_data.extend(data[labelled_per_class + unlabelled_per_class:])
+            validation_data.extend(data[unlabelled_per_class:])
 
     np.random.shuffle(labelled_data)
     np.random.shuffle(unlabelled_data)
