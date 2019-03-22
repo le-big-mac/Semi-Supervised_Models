@@ -21,7 +21,7 @@ class PretrainingNetwork(Model):
 
         self.model_name = 'pretraining_network'
 
-    def train_autoencoder_early_stopping(self, dataset_name, train_dataloader, validation_dataloader):
+    def train_autoencoder(self, dataset_name, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_losses = []
@@ -47,20 +47,18 @@ class PretrainingNetwork(Model):
                 validation_loss = unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
                                                                self.Autoencoder_criterion, self.device)
 
-                early_stopping(validation_loss, self.Autoencoder)
-
                 epochs.append(epoch)
                 train_losses.append(loss.item())
                 validation_losses.append(validation_loss)
 
-            epoch += 1
+            early_stopping(sum(validation_losses)/len(validation_losses), self.Autoencoder)
 
         self.Autoencoder.load_state_dict(torch.load('./Models/state/{}/{}_autoencoder.pt'
                                                     .format(self.model_name, dataset_name)))
 
         return epochs, train_losses, validation_losses
 
-    def train_classifier_early_stopping(self, dataset_name, train_dataloader, validation_dataloader):
+    def train_classifier(self, dataset_name, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -101,10 +99,10 @@ class PretrainingNetwork(Model):
 
     def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
         autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
-            self.train_autoencoder_early_stopping(dataset_name, unsupervised_dataloader, validation_dataloader)
+            self.train_autoencoder(dataset_name, unsupervised_dataloader, validation_dataloader)
 
         classifier_epochs, classifier_train_losses, classifier_validation_accs = \
-            self.train_classifier_early_stopping(dataset_name, supervised_dataloader, validation_dataloader)
+            self.train_classifier(dataset_name, supervised_dataloader, validation_dataloader)
 
         return classifier_epochs, classifier_train_losses, classifier_validation_accs
 

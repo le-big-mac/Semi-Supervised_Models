@@ -1,33 +1,13 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from Models.BuildingBlocks import Autoencoder
+from Models.BuildingBlocks import Autoencoder, Classifier
 from Models.Model import Model
+from utils.trainingutils import EarlyStopping, unsupervised_validation_loss
 
 # --------------------------------------------------------------------------------------
 # Kingma M1 model using simple autoencoder for dimensionality reduction (for comparison)
 # --------------------------------------------------------------------------------------
-
-
-class Classifier(nn.Module):
-    def __init__(self, latent_dim, hidden_dimensions_classifier, num_classes):
-        super(Classifier, self).__init__()
-
-        dims = [latent_dim] + hidden_dimensions_classifier
-
-        layers = [nn.Sequential(
-            nn.Linear(dims[i-1], dims[i]),
-            nn.ReLU(),
-        ) for i in range(1, len(dims))]
-
-        self.layers = nn.ModuleList(layers)
-        self.classification = nn.Linear(dims[-1], num_classes)
-
-    def forward(self, z):
-        for layer in self.layers:
-            z = layer(z)
-
-        return self.classification(z)
 
 
 class SimpleM1(Model):
@@ -37,62 +17,105 @@ class SimpleM1(Model):
 
         self.Autoencoder = Autoencoder(input_size, hidden_dimensions_encoder, latent_size, latent_activation,
                                        output_activation).to(device)
-        self.Autoencoder_criterion = nn.BCELoss(reduction='sum')
+        self.Autoencoder_criterion = nn.BCELoss()
         self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
         self.Encoder = self.Autoencoder.encoder
 
         self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
-        self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
+        self.Classifier_criterion = nn.CrossEntropyLoss()
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
 
-    def train_autoencoder_one_epoch(self, epoch, dataloader):
-        self.Autoencoder.train()
-        train_loss = 0
+        self.model_name = 'simple_m1'
 
-        for batch_idx, data in enumerate(dataloader):
-            data = data.to(self.device)
+    def train_autoencoder(self, dataset_name, train_dataloader, validation_dataloader):
+        epochs = []
+        train_losses = []
+        validation_losses = []
 
-            self.Autoencoder_optim.zero_grad()
+        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, dataset_name))
 
-            recons = self.Autoencoder(data)
+        epoch = 0
+        while not early_stopping.early_stop:
+            train_loss = 0
+            validation_loss = 0
+            for batch_idx, data in enumerate(train_dataloader):
+                self.Autoencoder.train()
 
-            loss = self.Autoencoder_criterion(recons, data)
+                data = data.to(self.device)
 
-            train_loss += loss.item()
+                self.Autoencoder_optim.zero_grad()
 
-            loss.backward()
-            self.Autoencoder_optim.step()
+                recons = self.Autoencoder(data)
 
-        print('Epoch: {} Autoencoder Loss: {}'.format(epoch, train_loss/len(dataloader.dataset)))
+                loss = self.Autoencoder_criterion(recons, data)
 
-        return train_loss/len(dataloader.dataset)
+                train_loss += loss.item()
 
-    def train_classifier_one_epoch(self, epoch, dataloader, validation_dataloader):
-        self.Classifier.train()
-        train_loss = 0
+                loss.backward()
+                self.Autoencoder_optim.step()
 
-        for batch_idx, (data, labels) in enumerate(dataloader):
-            data = data.float().to(self.device)
-            labels = labels.to(self.device)
+                validation_loss += unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
+                                                                self.Autoencoder_criterion, self.device)
 
-            self.Classifier_optim.zero_grad()
+            train_loss /= len(train_dataloader)
+            validation_loss /= len(train_dataloader)
 
-            with torch.no_grad():
-                z = self.Encoder(data)
+            early_stopping(validation_loss, self.Autoencoder)
 
-            pred = self.Classifier(z)
+            epochs.append(epoch)
+            train_losses.append(train_loss)
+            validation_losses.append(validation_loss)
 
-            loss = self.Classifier_criterion(pred, labels)
+            epoch += 1
 
-            train_loss += loss.item()
+        self.Autoencoder.load_state_dict(torch.load('./Models/state/{}/{}_autoencoder.pt'
+                                                    .format(self.model_name, dataset_name)))
 
-            loss.backward()
-            self.Classifier_optim.step()
+        return epochs, train_losses, validation_losses
 
-            print('Epoch {} Loss {}: Validation accuracy: {}'.format(epoch, loss.item(),
-                                                                     self.supervised_test(validation_dataloader)))
+    def train_classifier(self, dataset_name, train_dataloader, validation_dataloader):
+        epochs = []
+        train_losses = []
+        validation_accs = []
 
-    def supervised_test(self, dataloader):
+        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, dataset_name))
+
+        epoch = 0
+        while not early_stopping.early_stop:
+            for batch_idx, (data, labels) in enumerate(train_dataloader):
+                self.Classifier.train()
+
+                data = data.float().to(self.device)
+                labels = labels.to(self.device)
+
+                self.Classifier_optim.zero_grad()
+
+                with torch.no_grad():
+                    z = self.Encoder(data)
+
+                pred = self.Classifier(z)
+
+                loss = self.Classifier_criterion(pred, labels)
+
+                loss.backward()
+                self.Classifier_optim.step()
+
+                validation_acc = self.accuracy(validation_dataloader)
+
+                early_stopping(1-validation_acc, self.Classifier)
+
+                epochs.append(epoch)
+                train_losses.append(loss.item())
+                validation_accs.append(validation_acc)
+
+            epoch += 1
+
+        self.Classifier.load_state_dict(torch.load('./Models/state/{}/{}_classifier.pt'
+                                                   .format(self.model_name, dataset_name)))
+
+        return epochs, train_losses, validation_accs
+
+    def accuracy(self, dataloader):
         self.Encoder.eval()
         self.Classifier.eval()
 
@@ -110,19 +133,14 @@ class SimpleM1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, combined_dataset, train_dataset, validation_dataset=None):
-        pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
+    def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+        autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
+            self.train_autoencoder(dataset_name, unsupervised_dataloader, validation_dataloader)
 
-        for epoch in range(50):
-            self.train_autoencoder_one_epoch(epoch, pretraining_dataloader)
+        classifier_epochs, classifier_losses, classifier_accs = \
+            self.train_classifier(dataset_name, supervised_dataloader, validation_dataloader)
 
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+        return classifier_epochs, classifier_losses, classifier_accs
 
-        for epoch in range(50):
-            self.train_classifier_one_epoch(epoch, supervised_dataloader, validation_dataloader)
-
-    def test(self, test_dataset):
-        test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
-
-        return self.supervised_test(test_dataloader)
+    def test(self, test_dataloader):
+        return self.accuracy(test_dataloader)
