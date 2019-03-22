@@ -4,6 +4,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from Models.BuildingBlocks import VAE, Classifier
 from Models.Model import Model
+from utils.trainingutils import EarlyStopping
 
 
 # TODO: make consistent with all other models
@@ -24,19 +25,22 @@ class M1(Model):
         # KL divergence between two normal distributions (N(0, 1) and parameterized)
         KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1)
 
+        # TODO: change this to M2 reduction
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
         BCE = F.binary_cross_entropy(pred_x, x, reduction='sum')
 
+        # TODO: change BCE depending on what the ouput activation is
         # if not necessarily 0-1 normalised
         # BCE = nn.MSELoss(reduction='sum')(pred_x, x)
 
         return KLD + BCE
 
     def train_VAE_one_epoch(self, epoch, dataloader):
-        self.VAE.train()
         train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
+            self.VAE.train()
+
             data = data.to(self.device)
 
             self.VAE_optim.zero_grad()
