@@ -39,7 +39,7 @@ class PretrainingNetwork(Model):
             self.Autoencoder_optim.step()
 
             validation_loss = unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
-                                                          self.Autoencoder_criterion, self.device)
+                                                           self.Autoencoder_criterion, self.device)
 
         print('Unsupervised Loss: {} Validation Loss: {}'.format(train_loss, validation_loss))
 
