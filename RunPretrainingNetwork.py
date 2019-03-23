@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models.PretrainingNetwork_new import PretrainingNetwork
+from Models.PretrainingNetwork import PretrainingNetwork
 from utils import arguments, datautils
 
 

@@ -43,7 +43,7 @@ class PretrainingNetwork(Model):
     def train_classifier_one_epoch(self, epoch, dataloader, validation_dataloader):
         for batch_idx, (data, labels) in enumerate(dataloader):
             self.Classifier.train()
-            
+
             data = data.to(self.device)
             labels = labels.to(self.device)
 
