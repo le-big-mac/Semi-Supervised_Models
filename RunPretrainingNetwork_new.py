@@ -22,7 +22,9 @@ def MNIST_train():
 
         deep_metabolism.train('a', supervised_dataloader, unsupervised_dataloader, validation_dataloader)
 
-        results.append(deep_metabolism.test(test_dataset))
+        test_dataloader = DataLoader(test_dataset, batch_size=test_dataset.__len__())
+
+        results.append(deep_metabolism.test(test_dataloader))
 
     datautils.save_results(results, 'MNIST_debug', 'pretraining_new', 'results')
 
