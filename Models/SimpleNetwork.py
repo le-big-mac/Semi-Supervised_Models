@@ -13,7 +13,7 @@ class SimpleNetwork(Model):
         self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss()
 
-        self.model_name = 'simple_network'
+        self.model_name = 'simple'
 
     def train_classifier(self, dataset_name, train_dataloader, validation_dataloader):
         epochs = []

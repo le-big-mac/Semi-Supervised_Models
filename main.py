@@ -1,10 +1,13 @@
+import os
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 import argparse
 from utils.datautils import load_MNIST_data, save_results
 from Models import SimpleNetwork, PretrainingNetwork, SDAE, SimpleM1, M1, M2Runner, Ladder
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+state_path = './Models/state'
 
 parser = argparse.ArgumentParser(description="Take arguments to construct model")
 parser.add_argument("model", type=str,
@@ -33,6 +36,11 @@ unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size
 supervised_dataloader = DataLoader(supervised_dataset, batch_size=batch_size, shuffle=True)
 validation_dataloader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())
 test_dataloader = DataLoader(test_dataset, batch_size=test_dataset.__len__())
+
+if not os.path.exists(state_path):
+    os.mkdir(state_path)
+if not os.path.exists('{}/{}'.format(state_path, model_name)):
+    os.mkdir('{}/{}'.format(state_path, model_name))
 
 if model_name == 'simple':
     model = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, device)
