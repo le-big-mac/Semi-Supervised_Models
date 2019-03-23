@@ -20,10 +20,11 @@ class PretrainingNetwork(Model):
         self.Classifier_criterion = nn.CrossEntropyLoss()
 
     def train_autoencoder_one_epoch(self, dataloader):
-        self.Autoencoder.train()
         train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
+            self.Autoencoder.train()
+
             data = data.to(self.device)
 
             self.Autoencoder_optim.zero_grad()
@@ -40,9 +41,9 @@ class PretrainingNetwork(Model):
         print('Unsupervised Loss: {}'.format(train_loss))
 
     def train_classifier_one_epoch(self, epoch, dataloader, validation_dataloader):
-        self.Classifier.train()
-
         for batch_idx, (data, labels) in enumerate(dataloader):
+            self.Classifier.train()
+            
             data = data.to(self.device)
             labels = labels.to(self.device)
 
