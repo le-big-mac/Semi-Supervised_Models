@@ -64,6 +64,8 @@ class SDAE(Model):
                     loss.backward()
                     optimizer.step()
 
+                    print('Unsupervised Layer: {} Epoch: {} Loss: {}'.format(i, epoch, loss.item()))
+
     def train_classifier(self, dataset_name, test_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
@@ -95,6 +97,8 @@ class SDAE(Model):
                 epochs.append(epoch)
                 train_losses.append(loss.item())
                 validation_accs.append(validation_acc)
+
+                print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
 
             epoch += 1
 

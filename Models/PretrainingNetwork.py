@@ -60,6 +60,8 @@ class PretrainingNetwork(Model):
             train_losses.append(train_loss)
             validation_losses.append(validation_loss)
 
+            print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
+
             epoch += 1
 
         self.Autoencoder.load_state_dict(torch.load('./Models/state/{}/{}_autoencoder.pt'
@@ -98,6 +100,8 @@ class PretrainingNetwork(Model):
                 epochs.append(epoch)
                 train_losses.append(loss.item())
                 validation_accs.append(validation_acc)
+
+                print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
 
             epoch += 1
 

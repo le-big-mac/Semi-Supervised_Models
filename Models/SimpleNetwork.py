@@ -47,6 +47,8 @@ class SimpleNetwork(Model):
                 train_losses.append(loss.item())
                 validation_accs.append(accuracy(self.Classifier, validation_dataloader, self.device))
 
+                print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
+
             epoch += 1
 
         self.Classifier.load_state_dict(torch.load('./Models/state/{}/{}.pt'.format(self.model_name, dataset_name)))
