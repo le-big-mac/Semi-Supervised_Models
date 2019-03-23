@@ -16,7 +16,11 @@ def MNIST_train():
 
         print(deep_metabolism.Autoencoder)
 
-        deep_metabolism.train(unsupervised_dataset, supervised_dataset, validation_dataset)
+        supervised_dataloader = DataLoader(supervised_dataset, batch_size=100, shuffle=True)
+        unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=100, shuffle=True)
+        validation_dataloader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())
+
+        deep_metabolism.train('a', supervised_dataloader, unsupervised_dataloader, validation_dataloader)
 
         results.append(deep_metabolism.test(test_dataset))
 
