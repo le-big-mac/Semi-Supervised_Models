@@ -54,6 +54,8 @@ class M2Runner(Model):
         self.optimizer = torch.optim.Adam(self.M2.parameters(), lr=1e-3)
         self.num_classes = num_classes
 
+        self.model_name = 'm2'
+
     def onehot(self, labels):
         labels = labels.unsqueeze(1)
 

@@ -19,7 +19,7 @@ class PretrainingNetwork(Model):
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.Classifier_criterion = nn.CrossEntropyLoss()
 
-        self.model_name = 'pretraining_network'
+        self.model_name = 'pretraining'
 
     def train_autoencoder(self, dataset_name, train_dataloader, validation_dataloader):
         epochs = []
