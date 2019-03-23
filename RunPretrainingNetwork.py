@@ -1,14 +1,12 @@
 import torch
 from torch import nn
-from Models.PretrainingNetwork import PretrainingNetwork
+from Models.PretrainingNetwork_new import PretrainingNetwork
 from utils import arguments, datautils
 
 
 def MNIST_train(device):
     unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
-        datautils.load_MNIST_data(100, 49900, True, True)
-
-    combined_dataset = datautils.MNISTUnsupervised(torch.cat((unsupervised_dataset.data, supervised_dataset.data), 0))
+        datautils.load_MNIST_data(100, 50000, True, True)
 
     results = []
     for i in range(5):
@@ -16,7 +14,7 @@ def MNIST_train(device):
 
         print(deep_metabolism.Autoencoder)
 
-        deep_metabolism.train(combined_dataset, supervised_dataset, validation_dataset)
+        deep_metabolism.train(unsupervised_dataset, supervised_dataset, validation_dataset)
 
         results.append(deep_metabolism.test(test_dataset))
 

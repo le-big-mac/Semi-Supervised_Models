@@ -40,7 +40,10 @@ if not os.path.exists(state_path):
 if not os.path.exists('{}/{}'.format(state_path, model_name)):
     os.mkdir('{}/{}'.format(state_path, model_name))
 
+
 def get_model(model_name):
+    model = None
+
     if model_name == 'simple':
         model = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, device)
     elif model_name == 'pretraining':
@@ -55,6 +58,7 @@ def get_model(model_name):
         model = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), device)
 
     return model
+
 
 epochs_list = []
 losses_list = []
