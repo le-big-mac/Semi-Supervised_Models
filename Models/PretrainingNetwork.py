@@ -38,10 +38,11 @@ class PretrainingNetwork(Model):
             loss.backward()
             self.Autoencoder_optim.step()
 
-            validation_loss = unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
-                                                           self.Autoencoder_criterion, self.device)
+            # validation_loss = unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
+            #                                                self.Autoencoder_criterion, self.device)
 
-        print('Unsupervised Loss: {} Validation Loss: {}'.format(train_loss, validation_loss))
+        # print('Unsupervised Loss: {} Validation Loss: {}'.format(train_loss, validation_loss))
+        print('Unsupervised Loss: {}'.format(train_loss))
 
     def train_classifier_one_epoch(self, epoch, dataloader, validation_dataloader):
         for batch_idx, (data, labels) in enumerate(dataloader):

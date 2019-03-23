@@ -19,7 +19,7 @@ def MNIST_train():
 
         results.append(deep_metabolism.test(test_dataset))
 
-    datautils.save_results(results, 'deep_metabolism', 'MNIST_accuracy')
+    datautils.save_results(results, 'MNIST_debug', 'pretraining_new', 'results')
 
 
 if __name__ == '__main__':
