@@ -28,7 +28,7 @@ batch_size = 100
 
 dataset_name = 'MNIST'
 unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
-    load_MNIST_data(100, 100, True, True)
+    load_MNIST_data(100, 50000, True, True)
 
 unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
 supervised_dataloader = DataLoader(supervised_dataset, batch_size=batch_size, shuffle=True)
