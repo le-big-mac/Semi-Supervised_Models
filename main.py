@@ -23,9 +23,7 @@ parser.add_argument("model", type=str,
 
 args = parser.parse_args()
 
-model = None
 model_name = args.model
-
 batch_size = 100
 
 dataset_name = 'MNIST'
@@ -42,24 +40,28 @@ if not os.path.exists(state_path):
 if not os.path.exists('{}/{}'.format(state_path, model_name)):
     os.mkdir('{}/{}'.format(state_path, model_name))
 
-if model_name == 'simple':
-    model = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, device)
-elif model_name == 'pretraining':
-    model = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, lambda x: x, nn.Sigmoid(), device)
-elif model_name == 'sdae':
-    model = SDAE(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
-elif model_name == 'simple_m1':
-    model = SimpleM1(784, [256, 128], 32, [32], 10, lambda x: x, nn.Sigmoid(), device)
-elif model_name == 'm1':
-    m1 = M1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), device)
-elif model_name == 'm2':
-    model = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), device)
+def get_model(model_name):
+    if model_name == 'simple':
+        model = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, device)
+    elif model_name == 'pretraining':
+        model = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, lambda x: x, nn.Sigmoid(), device)
+    elif model_name == 'sdae':
+        model = SDAE(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+    elif model_name == 'simple_m1':
+        model = SimpleM1(784, [256, 128], 32, [32], 10, lambda x: x, nn.Sigmoid(), device)
+    elif model_name == 'm1':
+        model = M1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), device)
+    elif model_name == 'm2':
+        model = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), device)
+
+    return model
 
 epochs_list = []
 losses_list = []
 validation_accs_list = []
 results_list = []
 for i in range(5):
+    model = get_model(model_name)
 
     epochs, losses, validation_accs = model.train(dataset_name, supervised_dataloader, unsupervised_dataloader,
                                                   validation_dataloader)
