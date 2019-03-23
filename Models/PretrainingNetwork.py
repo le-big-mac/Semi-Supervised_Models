@@ -71,7 +71,6 @@ class PretrainingNetwork(Model):
         for epoch in range(50):
             self.train_autoencoder_one_epoch(pretraining_dataloader, validation_dataloader)
 
-
         for epoch in range(50):
             self.train_classifier_one_epoch(epoch, supervised_dataloader, validation_dataloader)
 
