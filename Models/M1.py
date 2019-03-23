@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from Models.BuildingBlocks import VAE, Classifier
 from Models.Model import Model
-from utils.trainingutils import EarlyStopping
+from utils.trainingutils import EarlyStopping, unsupervised_validation_loss
 
 
 # TODO: make consistent with all other models
@@ -21,70 +21,111 @@ class M1(Model):
         self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
 
-    def VAE_criterion(self, pred_x, x, mu, logvar):
-        # KL divergence between two normal distributions (N(0, 1) and parameterized)
-        KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1)
+        self.model_name = 'm1'
 
-        # TODO: change this to M2 reduction
+    def VAE_criterion(self, batch_params, x):
+        # KL divergence between two normal distributions (N(0, 1) and parameterized)
+        recons, mu, logvar = batch_params
+
+        KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1, dim=1)
+
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
-        BCE = F.binary_cross_entropy(pred_x, x, reduction='sum')
+        BCE = F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
 
         # TODO: change BCE depending on what the ouput activation is
         # if not necessarily 0-1 normalised
         # BCE = nn.MSELoss(reduction='sum')(pred_x, x)
 
-        return KLD + BCE
+        return (KLD + BCE).mean()
 
-    def train_VAE_one_epoch(self, epoch, dataloader):
-        train_loss = 0
+    def train_VAE(self, dataset_name, train_dataloader, validation_dataloader):
+        epochs = []
+        train_losses = []
+        validation_losses = []
 
-        for batch_idx, data in enumerate(dataloader):
-            self.VAE.train()
+        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, dataset_name))
 
-            data = data.to(self.device)
+        epoch = 0
+        while early_stopping.early_stop:
+            train_loss = 0
+            validation_loss = 0
+            for batch_idx, data in enumerate(train_dataloader):
+                self.VAE.train()
 
-            self.VAE_optim.zero_grad()
+                data = data.to(self.device)
 
-            recons, mu, logvar = self.VAE(data)
+                self.VAE_optim.zero_grad()
 
-            loss = self.VAE_criterion(recons, data, mu, logvar)
+                recons, mu, logvar = self.VAE(data)
 
-            train_loss += loss.item()
+                loss = self.VAE_criterion(recons, data, mu, logvar)
 
-            loss.backward()
-            self.VAE_optim.step()
+                train_loss += loss.item()
 
-        print('Epoch: {} VAE Loss: {}'.format(epoch, train_loss/len(dataloader.dataset)))
+                loss.backward()
+                self.VAE_optim.step()
 
-        return train_loss/len(dataloader.dataset)
+                validation_loss = unsupervised_validation_loss(self.VAE, validation_dataloader, self.VAE_criterion,
+                                                               self.device)
 
-    def train_classifier_one_epoch(self, epoch, dataloader):
-        self.Classifier.train()
-        train_loss = 0
+            train_loss /= len(train_dataloader)
+            validation_loss /= len(validation_dataloader)
 
-        for batch_idx, (data, labels) in enumerate(dataloader):
-            data = data.to(self.device)
-            labels = labels.to(self.device)
+            early_stopping(validation_loss, self.VAE)
 
-            self.Classifier_optim.zero_grad()
+            epochs.append(epoch)
+            train_losses.append(train_loss)
+            validation_losses.append(validation_loss)
 
-            with torch.no_grad():
-                z, _, _ = self.Encoder(data)
+            epoch += 1
 
-            pred = self.Classifier(z)
+        self.VAE.load_state_dict(torch.load('./Models/state/{}/{}_autoencoder.pt'
+                                            .format(self.model_name, dataset_name)))
 
-            loss = self.Classifier_criterion(pred, labels)
+        return epochs, train_losses, validation_losses
 
-            train_loss += loss.item()
+    def train_classifier(self, dataset_name, train_dataloader, validation_dataloader):
+        epochs = []
+        train_losses = []
+        validation_accs = []
 
-            loss.backward()
-            self.Classifier_optim.step()
+        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, dataset_name))
 
-        print('Epoch {} Loss {}:'.format(epoch, train_loss/len(dataloader.dataset)))
+        epoch = 0
+        while not early_stopping.early_stop:
+            for batch_idx, (data, labels) in enumerate(train_dataloader):
+                self.Classifier.train()
 
-        return train_loss/len(dataloader.dataset)
+                data = data.to(self.device)
+                labels = labels.to(self.device)
 
-    def evaluate(self, dataloader):
+                self.Classifier_optim.zero_grad()
+
+                with torch.no_grad():
+                    z, _, _ = self.Encoder(data)
+
+                pred = self.Classifier(z)
+
+                loss = self.Classifier_criterion(pred, labels)
+
+                loss.backward()
+                self.Classifier_optim.step()
+
+                validation_acc = self.accuracy(validation_dataloader)
+
+                early_stopping(1-validation_acc, self.Classifier)
+
+                epochs.append(epoch)
+                train_losses.append(loss.item())
+                validation_accs.append(validation_acc)
+
+            epoch += 1
+
+        self.Classifier.load_state_dict(torch.load('{}/{}_classifier'.format(self.model_name, dataset_name)))
+
+        return epochs, train_losses, validation_accs
+
+    def accuracy(self, dataloader):
         self.Encoder.eval()
         self.Classifier.eval()
 
@@ -102,20 +143,14 @@ class M1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, combined_dataset, train_dataset, validation_dataset=None):
-        pretraining_dataloader = DataLoader(dataset=combined_dataset, batch_size=1000, shuffle=True)
+    def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+        autoencoder_epochs, autpencoder_train_losses, autoencoder_validation_losses = \
+            self.train_VAE(dataset_name, unsupervised_dataloader, validation_dataloader)
 
-        for epoch in range(50):
-            self.train_VAE_one_epoch(epoch, pretraining_dataloader)
+        classifier_epochs, classifier_losses, classifier_accs = \
+            self.train_classifier(dataset_name, supervised_dataloader, validation_dataloader)
 
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+        return classifier_epochs, classifier_losses, classifier_accs
 
-        for epoch in range(50):
-            self.train_classifier_one_epoch(epoch, supervised_dataloader)
-            print('Epoch: {} Validation Acc: {}'.format(epoch, self.evaluate(validation_dataloader)))
-
-    def test(self, test_dataset):
-        test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
-
-        return self.evaluate(test_dataloader)
+    def test(self, test_dataloader):
+        return self.accuracy(test_dataloader)
