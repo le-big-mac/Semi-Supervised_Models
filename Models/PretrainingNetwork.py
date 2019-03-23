@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from utils.trainingutils import accuracy
+from utils.trainingutils import accuracy, unsupervised_validation_loss
 from Models.BuildingBlocks import Autoencoder
 from Models.Model import Model
 
@@ -19,7 +19,7 @@ class PretrainingNetwork(Model):
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.Classifier_criterion = nn.CrossEntropyLoss()
 
-    def train_autoencoder_one_epoch(self, dataloader):
+    def train_autoencoder_one_epoch(self, dataloader, validation_dataloader):
         train_loss = 0
 
         for batch_idx, data in enumerate(dataloader):
@@ -38,7 +38,10 @@ class PretrainingNetwork(Model):
             loss.backward()
             self.Autoencoder_optim.step()
 
-        print('Unsupervised Loss: {}'.format(train_loss))
+            validation_loss = unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
+                                                          self.Autoencoder_criterion, self.device)
+
+        print('Unsupervised Loss: {} Validation Loss: {}'.format(train_loss, validation_loss))
 
     def train_classifier_one_epoch(self, epoch, dataloader, validation_dataloader):
         for batch_idx, (data, labels) in enumerate(dataloader):
@@ -60,13 +63,13 @@ class PretrainingNetwork(Model):
                   .format(epoch, loss.item(), accuracy(self.Classifier, validation_dataloader, self.device)))
 
     def train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
-        pretraining_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=1000, shuffle=True)
-
-        for epoch in range(50):
-            self.train_autoencoder_one_epoch(pretraining_dataloader)
-
+        pretraining_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=100, shuffle=True)
         supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
         validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+
+        for epoch in range(50):
+            self.train_autoencoder_one_epoch(pretraining_dataloader, validation_dataloader)
+
 
         for epoch in range(50):
             self.train_classifier_one_epoch(epoch, supervised_dataloader, validation_dataloader)
