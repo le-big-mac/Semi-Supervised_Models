@@ -56,9 +56,9 @@ class M1(Model):
 
                 self.VAE_optim.zero_grad()
 
-                recons, mu, logvar = self.VAE(data)
+                batch_params = self.VAE(data)
 
-                loss = self.VAE_criterion(recons, data, mu, logvar)
+                loss = self.VAE_criterion(batch_params, data)
 
                 train_loss += loss.item()
 
@@ -67,9 +67,6 @@ class M1(Model):
 
                 validation_loss = unsupervised_validation_loss(self.VAE, validation_dataloader, self.VAE_criterion,
                                                                self.device)
-
-            train_loss /= len(train_dataloader)
-            validation_loss /= len(validation_dataloader)
 
             early_stopping(validation_loss, self.VAE)
 

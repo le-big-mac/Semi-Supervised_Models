@@ -57,9 +57,6 @@ class SimpleM1(Model):
                 validation_loss += unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
                                                                 self.Autoencoder_criterion, self.device)
 
-            train_loss /= len(train_dataloader)
-            validation_loss /= len(train_dataloader)
-
             early_stopping(validation_loss, self.Autoencoder)
 
             epochs.append(epoch)
