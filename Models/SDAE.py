@@ -26,22 +26,22 @@ class SDAEClassifier(nn.Module):
 
 
 class SDAE(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, activation, device):
-        super(SDAE, self).__init__(device)
+    def __init__(self, input_size, hidden_dimensions, num_classes, activation, dataset_name, device):
+        super(SDAE, self).__init__(dataset_name, device)
 
-        self.SDAE = SDAEClassifier(input_size, hidden_dimensions, num_classes, activation).to(device)
-        self.optimizer = torch.optim.Adam(self.SDAE.parameters(), lr=1e-3)
+        self.SDAEClassifier = SDAEClassifier(input_size, hidden_dimensions, num_classes, activation).to(device)
+        self.optimizer = torch.optim.Adam(self.SDAEClassifier.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss()
 
         self.model_name = 'sdae'
 
     def pretrain_hidden_layers(self, pretraining_dataloader):
-        for i in range(len(self.SDAE.hidden_layers)):
-            dae = AutoencoderSDAE(self.SDAE.hidden_layers[i]).to(self.device)
+        for i in range(len(self.SDAEClassifier.hidden_layers)):
+            dae = AutoencoderSDAE(self.SDAEClassifier.hidden_layers[i]).to(self.device)
             criterion = nn.MSELoss()
             optimizer = torch.optim.Adam(dae.parameters(), lr=1e-3)
 
-            previous_layers = self.SDAE.hidden_layers[0:i]
+            previous_layers = self.SDAEClassifier.hidden_layers[0:i]
 
             # TODO: think about implementing early stopping
             for epoch in range(50):
@@ -66,33 +66,33 @@ class SDAE(Model):
 
                     print('Unsupervised Layer: {} Epoch: {} Loss: {}'.format(i, epoch, loss.item()))
 
-    def train_classifier(self, dataset_name, test_dataloader, validation_dataloader):
+    def train_classifier(self, test_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}'.format(self.model_name, dataset_name))
+        early_stopping = EarlyStopping('{}/{}'.format(self.model_name, self.dataset_name))
 
         epoch = 0
         while not early_stopping.early_stop:
             for batch_idx, (data, labels) in enumerate(test_dataloader):
-                self.SDAE.train()
+                self.SDAEClassifier.train()
 
                 data = data.to(self.device)
                 labels = labels.to(self.device)
 
                 self.optimizer.zero_grad()
 
-                predictions = self.SDAE(data)
+                predictions = self.SDAEClassifier(data)
 
                 loss = self.criterion(predictions, labels)
 
                 loss.backward()
                 self.optimizer.step()
 
-                validation_acc = accuracy(self.SDAE, validation_dataloader, self.device)
+                validation_acc = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
 
-                early_stopping(1-validation_acc, self.SDAE)
+                early_stopping(1 - validation_acc, self.SDAEClassifier)
 
                 epochs.append(epoch)
                 train_losses.append(loss.item())
@@ -102,17 +102,17 @@ class SDAE(Model):
 
             epoch += 1
 
-        self.SDAE.load_state_dict(torch.load('./Models/state/{}/{}.pt'.format(self.model_name, dataset_name)))
+        early_stopping.load_checkpoint(self.SDAEClassifier)
 
         return epochs, train_losses, validation_accs
 
-    def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
         self.pretrain_hidden_layers(unsupervised_dataloader)
 
         classifier_epochs, classifier_train_losses, classifier_validation_accs = \
-            self.train_classifier(dataset_name, supervised_dataloader, validation_dataloader)
+            self.train_classifier(supervised_dataloader, validation_dataloader)
 
         return classifier_epochs, classifier_train_losses, classifier_validation_accs
 
     def test(self, test_dataloader):
-        return accuracy(self.SDAE, test_dataloader, self.device)
+        return accuracy(self.SDAEClassifier, test_dataloader, self.device)

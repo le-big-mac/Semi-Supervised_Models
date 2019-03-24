@@ -1,17 +1,15 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torch.utils.data import DataLoader
 from Models.BuildingBlocks import VAE, Classifier
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping, unsupervised_validation_loss
 
 
-# TODO: make consistent with all other models
 class M1(Model):
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
-                 num_classes, output_activation, device):
-        super(M1, self).__init__(device)
+                 num_classes, output_activation, dataset_name, device):
+        super(M1, self).__init__(dataset_name, device)
 
         self.VAE = VAE(input_size, hidden_dimensions_encoder, latent_size, output_activation).to(device)
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=1e-3)
@@ -38,12 +36,12 @@ class M1(Model):
 
         return (KLD + BCE).mean()
 
-    def train_VAE(self, dataset_name, train_dataloader, validation_dataloader):
+    def train_VAE(self, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_losses = []
 
-        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, dataset_name), patience=7)
+        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, self.dataset_name), patience=7)
 
         epoch = 0
         while not early_stopping.early_stop:
@@ -78,17 +76,16 @@ class M1(Model):
 
             epoch += 1
 
-        self.VAE.load_state_dict(torch.load('./Models/state/{}/{}_autoencoder.pt'
-                                            .format(self.model_name, dataset_name)))
+        early_stopping.load_checkpoint(self.VAE)
 
         return epochs, train_losses, validation_losses
 
-    def train_classifier(self, dataset_name, train_dataloader, validation_dataloader):
+    def train_classifier(self, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, dataset_name))
+        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, self.dataset_name))
 
         epoch = 0
         while not early_stopping.early_stop:
@@ -122,7 +119,7 @@ class M1(Model):
 
             epoch += 1
 
-        self.Classifier.load_state_dict(torch.load('./Models/state{}/{}_classifier.pt'.format(self.model_name, dataset_name)))
+        early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 
@@ -144,12 +141,12 @@ class M1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
-        autoencoder_epochs, autpencoder_train_losses, autoencoder_validation_losses = \
-            self.train_VAE(dataset_name, unsupervised_dataloader, validation_dataloader)
+    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+        autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
+            self.train_VAE(unsupervised_dataloader, validation_dataloader)
 
         classifier_epochs, classifier_losses, classifier_accs = \
-            self.train_classifier(dataset_name, supervised_dataloader, validation_dataloader)
+            self.train_classifier(supervised_dataloader, validation_dataloader)
 
         return classifier_epochs, classifier_losses, classifier_accs
 

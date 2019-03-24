@@ -15,7 +15,7 @@ def MNIST_train(device):
     for i in range(5):
         sdae = SDAE(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
 
-        print(sdae.SDAE)
+        print(sdae.SDAEClassifier)
 
         sdae.train(combined_dataset, supervised_dataset, validation_dataset)
 

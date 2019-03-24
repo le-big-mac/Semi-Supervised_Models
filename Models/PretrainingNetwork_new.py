@@ -7,8 +7,9 @@ from utils.trainingutils import EarlyStopping
 
 
 class PretrainingNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, latent_activation, output_activation, device):
-        super(PretrainingNetwork, self).__init__(device)
+    def __init__(self, input_size, hidden_dimensions, num_classes, latent_activation, output_activation, dataset_name,
+                 device):
+        super(PretrainingNetwork, self).__init__(dataset_name, device)
 
         self.Autoencoder = Autoencoder(input_size, hidden_dimensions, num_classes, latent_activation,
                                        output_activation).to(device)
@@ -21,12 +22,12 @@ class PretrainingNetwork(Model):
 
         self.model_name = 'pretraining'
 
-    def train_autoencoder(self, dataset_name, train_dataloader, validation_dataloader):
+    def train_autoencoder(self, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_losses = []
 
-        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, dataset_name), patience=7)
+        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, self.dataset_name), patience=7)
 
         epoch = 0
         while not early_stopping.early_stop:
@@ -63,17 +64,16 @@ class PretrainingNetwork(Model):
 
             epoch += 1
 
-        self.Autoencoder.load_state_dict(torch.load('./Models/state/{}/{}_autoencoder.pt'
-                                                    .format(self.model_name, dataset_name)))
+        early_stopping.load_checkpoint(self.Autoencoder)
 
         return epochs, train_losses, validation_losses
 
-    def train_classifier(self, dataset_name, train_dataloader, validation_dataloader):
+    def train_classifier(self, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, dataset_name))
+        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, self.dataset_name))
 
         epoch = 0
         while not early_stopping.early_stop:
@@ -105,17 +105,16 @@ class PretrainingNetwork(Model):
 
             epoch += 1
 
-        self.Classifier.load_state_dict(torch.load(
-            './Models/state/{}/{}_classifier.pt'.format(self.model_name, dataset_name)))
+        early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 
-    def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
         autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
-            self.train_autoencoder(dataset_name, unsupervised_dataloader, validation_dataloader)
+            self.train_autoencoder(unsupervised_dataloader, validation_dataloader)
 
         classifier_epochs, classifier_train_losses, classifier_validation_accs = \
-            self.train_classifier(dataset_name, supervised_dataloader, validation_dataloader)
+            self.train_classifier(supervised_dataloader, validation_dataloader)
 
         return classifier_epochs, classifier_train_losses, classifier_validation_accs
 

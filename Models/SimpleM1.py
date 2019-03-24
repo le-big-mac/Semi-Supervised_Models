@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
 from Models.BuildingBlocks import Autoencoder, Classifier
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping, unsupervised_validation_loss
@@ -27,12 +26,12 @@ class SimpleM1(Model):
 
         self.model_name = 'simple_m1'
 
-    def train_autoencoder(self, dataset_name, train_dataloader, validation_dataloader):
+    def train_autoencoder(self, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_losses = []
 
-        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, dataset_name), patience=7)
+        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, self.dataset_name), patience=7)
 
         epoch = 0
         while not early_stopping.early_stop:
@@ -67,17 +66,16 @@ class SimpleM1(Model):
 
             epoch += 1
 
-        self.Autoencoder.load_state_dict(torch.load('./Models/state/{}/{}_autoencoder.pt'
-                                                    .format(self.model_name, dataset_name)))
+        early_stopping.load_checkpoint(self.Autoencoder)
 
         return epochs, train_losses, validation_losses
 
-    def train_classifier(self, dataset_name, train_dataloader, validation_dataloader):
+    def train_classifier(self, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, dataset_name))
+        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, self.dataset_name))
 
         epoch = 0
         while not early_stopping.early_stop:
@@ -111,8 +109,7 @@ class SimpleM1(Model):
 
             epoch += 1
 
-        self.Classifier.load_state_dict(torch.load('./Models/state/{}/{}_classifier.pt'
-                                                   .format(self.model_name, dataset_name)))
+        early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 
@@ -134,12 +131,12 @@ class SimpleM1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
         autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
-            self.train_autoencoder(dataset_name, unsupervised_dataloader, validation_dataloader)
+            self.train_autoencoder(unsupervised_dataloader, validation_dataloader)
 
         classifier_epochs, classifier_losses, classifier_accs = \
-            self.train_classifier(dataset_name, supervised_dataloader, validation_dataloader)
+            self.train_classifier(supervised_dataloader, validation_dataloader)
 
         return classifier_epochs, classifier_losses, classifier_accs
 
