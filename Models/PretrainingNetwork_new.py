@@ -26,11 +26,11 @@ class PretrainingNetwork(Model):
         train_losses = []
         validation_losses = []
 
-        # early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, dataset_name))
+        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, dataset_name))
 
         epoch = 0
-        # while not early_stopping.early_stop:
-        while epoch < 50:
+        while not early_stopping.early_stop:
+        # while epoch < 50:
             train_loss = 0
             validation_loss = 0
             for batch_idx, data in enumerate(train_dataloader):
@@ -49,22 +49,22 @@ class PretrainingNetwork(Model):
                 loss.backward()
                 self.Autoencoder_optim.step()
 
-                # validation_loss += unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
-                #                                                 self.Autoencoder_criterion, self.device)
+                validation_loss += unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
+                                                                self.Autoencoder_criterion, self.device)
 
-            # early_stopping(validation_loss, self.Autoencoder)
+            early_stopping(validation_loss, self.Autoencoder)
 
             epochs.append(epoch)
             train_losses.append(train_loss)
             validation_losses.append(validation_loss)
 
-            # print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
-            print('Unsupervised Loss: {}'.format(train_loss))
+            print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
+            # print('Unsupervised Loss: {}'.format(train_loss))
 
             epoch += 1
 
-        # self.Autoencoder.load_state_dict(torch.load('./Models/state/{}/{}_autoencoder.pt'
-        #                                             .format(self.model_name, dataset_name)))
+        self.Autoencoder.load_state_dict(torch.load('./Models/state/{}/{}_autoencoder.pt'
+                                                    .format(self.model_name, dataset_name)))
 
         return epochs, train_losses, validation_losses
 
@@ -73,11 +73,11 @@ class PretrainingNetwork(Model):
         train_losses = []
         validation_accs = []
 
-        # early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, dataset_name))
+        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, dataset_name))
 
         epoch = 0
-        # while not early_stopping.early_stop:
-        while epoch < 50:
+        while not early_stopping.early_stop:
+        # while epoch < 50:
             for batch_idx, (data, labels) in enumerate(train_dataloader):
                 self.Classifier.train()
 
@@ -95,7 +95,7 @@ class PretrainingNetwork(Model):
 
                 validation_acc = accuracy(self.Classifier, validation_dataloader, self.device)
 
-                # early_stopping(1-validation_acc, self.Classifier)
+                early_stopping(1-validation_acc, self.Classifier)
 
                 epochs.append(epoch)
                 train_losses.append(loss.item())
@@ -105,8 +105,8 @@ class PretrainingNetwork(Model):
 
             epoch += 1
 
-        # self.Classifier.load_state_dict(torch.load(
-        #     './Models/state/{}/{}_classifier.pt'.format(self.model_name, dataset_name)))
+        self.Classifier.load_state_dict(torch.load(
+            './Models/state/{}/{}_classifier.pt'.format(self.model_name, dataset_name)))
 
         return epochs, train_losses, validation_accs
 
