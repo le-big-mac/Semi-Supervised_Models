@@ -11,8 +11,8 @@ from utils.trainingutils import EarlyStopping, unsupervised_validation_loss
 
 class SimpleM1(Model):
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
-                 num_classes, latent_activation, output_activation, device):
-        super(SimpleM1, self).__init__(device)
+                 num_classes, latent_activation, output_activation, dataset_name, device):
+        super(SimpleM1, self).__init__(dataset_name, device)
 
         self.Autoencoder = Autoencoder(input_size, hidden_dimensions_encoder, latent_size, latent_activation,
                                        output_activation).to(device)

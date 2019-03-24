@@ -55,7 +55,7 @@ class SimpleNetwork(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train(self, supervised_dataloader, unsupervised_dataloader=None, validation_dataloader=None):
+    def train(self, supervised_dataloader, validation_dataloader=None):
         epochs, losses, validation_accs = self.train_classifier(supervised_dataloader, validation_dataloader)
 
         return epochs, losses, validation_accs

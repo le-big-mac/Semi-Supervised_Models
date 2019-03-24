@@ -54,21 +54,23 @@ if not os.path.exists('{}/{}'.format(state_path, model_name)):
 
 def get_model(model_name):
     model = None
+    dataloaders = (supervised_dataloader, unsupervised_dataloader, validation_dataloader)
 
     if model_name == 'simple':
         model = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, dataset_name, device)
+        dataloaders = (supervised_dataloader, validation_dataloader)
     elif model_name == 'pretraining':
-        model = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, lambda x: x, nn.Sigmoid(), device)
+        model = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, lambda x: x, nn.Sigmoid(), dataset_name, device)
     elif model_name == 'sdae':
-        model = SDAE(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), device)
+        model = SDAE(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), dataset_name, device)
     elif model_name == 'simple_m1':
-        model = SimpleM1(784, [256, 128], 32, [32], 10, lambda x: x, nn.Sigmoid(), device)
+        model = SimpleM1(784, [256, 128], 32, [32], 10, lambda x: x, nn.Sigmoid(), dataset_name, device)
     elif model_name == 'm1':
-        model = M1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), device)
+        model = M1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), dataset_name, device)
     elif model_name == 'm2':
-        model = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), device)
+        model = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), dataset_name, device)
 
-    return model
+    return model, dataloaders
 
 
 epochs_list = []
@@ -76,10 +78,9 @@ losses_list = []
 validation_accs_list = []
 results_list = []
 for i in range(5):
-    model = get_model(model_name)
+    model, dataloaders = get_model(model_name)
 
-    epochs, losses, validation_accs = model.train(supervised_dataloader, unsupervised_dataloader,
-                                                  validation_dataloader)
+    epochs, losses, validation_accs = model.train(*dataloaders)
     results = model.test(test_dataloader)
 
     epochs_list.append(epochs)

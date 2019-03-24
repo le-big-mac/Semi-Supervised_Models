@@ -45,8 +45,8 @@ class M2(nn.Module):
 
 class M2Runner(Model):
     def __init__(self, input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim, num_classes, activation,
-               device):
-        super(M2Runner, self).__init__(device)
+                 dataset_name, device):
+        super(M2Runner, self).__init__(dataset_name, device)
 
         self.M2 = M2(input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim,
                      num_classes, activation).to(device)
