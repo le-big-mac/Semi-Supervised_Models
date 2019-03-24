@@ -1,5 +1,6 @@
 class Model(object):
-    def __init__(self, device):
+    def __init__(self, dataset_name, device):
+        self.dataset_name = dataset_name
         self.device = device
 
     def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):

@@ -56,7 +56,7 @@ def get_model(model_name):
     model = None
 
     if model_name == 'simple':
-        model = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, device)
+        model = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, dataset_name, device)
     elif model_name == 'pretraining':
         model = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, lambda x: x, nn.Sigmoid(), device)
     elif model_name == 'sdae':

@@ -6,8 +6,8 @@ from utils.trainingutils import accuracy, EarlyStopping
 
 
 class SimpleNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, device):
-        super(SimpleNetwork, self).__init__(device)
+    def __init__(self, input_size, hidden_dimensions, num_classes, dataset_name, device):
+        super(SimpleNetwork, self).__init__(dataset_name, device)
 
         self.Classifier = Classifier(input_size, hidden_dimensions, num_classes).to(device)
         self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
@@ -51,7 +51,7 @@ class SimpleNetwork(Model):
 
             epoch += 1
 
-        self.Classifier.load_state_dict(torch.load('./Models/state/{}/{}.pt'.format(self.model_name, dataset_name)))
+        early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 

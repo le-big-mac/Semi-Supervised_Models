@@ -43,7 +43,7 @@ class EarlyStopping:
             verbose (bool): If True, prints a message for each validation loss improvement.
                             Default: False
         """
-        self.filename = checkpoint_filename
+        self.filename = './Models/state/{}'.format(checkpoint_filename)
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -74,5 +74,8 @@ class EarlyStopping:
         if self.verbose:
             print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'
                   .format(self.val_loss_min, val_loss))
-        torch.save(model.state_dict(), './Models/state/{}.pt'.format(self.filename))
+        torch.save(model.state_dict(), self.filename)
         self.val_loss_min = val_loss
+
+    def load_checkpoint(self, model):
+        model.load_state_dict(torch.load(self.filename))
