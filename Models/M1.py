@@ -43,10 +43,10 @@ class M1(Model):
         train_losses = []
         validation_losses = []
 
-        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, dataset_name))
+        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, dataset_name), patience=7)
 
         epoch = 0
-        while early_stopping.early_stop:
+        while not early_stopping.early_stop:
             train_loss = 0
             validation_loss = 0
             for batch_idx, data in enumerate(train_dataloader):
