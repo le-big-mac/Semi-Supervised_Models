@@ -122,7 +122,7 @@ class M1(Model):
 
             epoch += 1
 
-        self.Classifier.load_state_dict(torch.load('{}/{}_classifier'.format(self.model_name, dataset_name)))
+        self.Classifier.load_state_dict(torch.load('./Models/state{}/{}_classifier.pt'.format(self.model_name, dataset_name)))
 
         return epochs, train_losses, validation_accs
 
