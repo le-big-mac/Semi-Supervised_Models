@@ -2,9 +2,9 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from itertools import cycle
-from torch.utils.data import DataLoader
 from Models.BuildingBlocks import VariationalEncoder, Decoder, Classifier
 from Models.Model import Model
+from utils.trainingutils import EarlyStopping
 
 # -----------------------------------------------------------------------
 # Implementation of Kingma M2 semi-supervised variational autoencoder
@@ -126,38 +126,59 @@ class M2Runner(Model):
 
             return -self.minus_U(x, pred_y)
 
-    def train_one_epoch(self, epoch, labelled_loader, unlabelled_loader, validation_loader, alpha):
+    def train_m2(self, labelled_loader, unlabelled_loader, validation_loader):
+        alpha = 0.1 * len(unlabelled_loader.dataset)/len(labelled_loader.dataset)
 
-        for batch_idx, (labelled_data, unlabelled_data) in enumerate(zip(cycle(labelled_loader), unlabelled_loader)):
-            self.M2.train()
-            self.optimizer.zero_grad()
+        epochs = []
+        train_losses = []
+        validation_accs = []
 
-            labelled_images, labels = labelled_data
-            labelled_images = labelled_images.float().to(self.device)
-            labels = labels.to(self.device)
+        early_stopping = EarlyStopping('{}/{}'.format(self.model_name, self.dataset_name))
 
-            unlabelled_images, _ = unlabelled_data
-            unlabelled_images = unlabelled_images.float().to(self.device)
+        epoch = 0
+        while not early_stopping.early_stop:
+            for batch_idx, (labelled_data, unlabelled_data) in enumerate(zip(cycle(labelled_loader), unlabelled_loader)):
+                self.M2.train()
+                self.optimizer.zero_grad()
 
-            labelled_predictions = self.M2.classify(labelled_images)
-            labelled_loss = F.cross_entropy(labelled_predictions, labels)
+                labelled_images, labels = labelled_data
+                labelled_images = labelled_images.float().to(self.device)
+                labels = labels.to(self.device)
 
-            # labelled images ELBO
-            L = self.elbo(labelled_images, y=labels)
+                unlabelled_images, _ = unlabelled_data
+                unlabelled_images = unlabelled_images.float().to(self.device)
 
-            U = self.elbo(unlabelled_images)
+                labelled_predictions = self.M2.classify(labelled_images)
+                labelled_loss = F.cross_entropy(labelled_predictions, labels)
 
-            loss = L + U + alpha*labelled_loss
+                # labelled images ELBO
+                L = self.elbo(labelled_images, y=labels)
 
-            loss.backward()
-            self.optimizer.step()
+                U = self.elbo(unlabelled_images)
 
-            # print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
-            #       .format(epoch, labelled_loss.item(), U.item(), L.item(), self.evaluate(validation_loader)))
+                loss = L + U + alpha*labelled_loss
 
-        print('Epoch: {} Validation Accuracy: {}'.format(epoch, self.evaluate(validation_loader)))
+                loss.backward()
+                self.optimizer.step()
 
-    def evaluate(self, dataloader):
+                validation_acc = self.accuracy(validation_loader)
+
+                early_stopping(1-validation_acc, self.M2)
+
+                epochs.append(epoch)
+                train_losses.append(loss.item())
+                validation_accs.append(validation_acc)
+
+                print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
+                      .format(epoch, labelled_loss.item(), U.item(), L.item(), validation_acc))
+
+            epoch += 1
+
+        early_stopping.load_checkpoint(self.M2)
+
+        return epochs, train_losses, validation_accs
+
+    def accuracy(self, dataloader):
         self.M2.eval()
 
         correct = 0
@@ -174,17 +195,11 @@ class M2Runner(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, unsupervised_dataset, supervised_train_dataset, validation_dataset, alpha):
+    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader):
+        epochs, losses, validation_accs = self.train_m2(supervised_dataloader, unsupervised_dataloader,
+                                                        validation_dataloader)
 
-        labelled_loader = DataLoader(supervised_train_dataset, batch_size=100, shuffle=True)
-        unlabelled_loader = DataLoader(unsupervised_dataset, batch_size=100, shuffle=True)
-        validation_loader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())
+        return epochs, losses, validation_accs
 
-        print('Prior Accuracy: {}'.format(self.evaluate(validation_loader)))
-        for epoch in range(100):
-            self.train_one_epoch(epoch, labelled_loader, unlabelled_loader, validation_loader, alpha)
-
-    def test(self, test_dataset):
-        test_loader = DataLoader(test_dataset, batch_size=test_dataset.__len__())
-
-        return self.evaluate(test_loader)
+    def test(self, test_dataloader):
+        return self.accuracy(test_dataloader)
