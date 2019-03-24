@@ -1,5 +1,5 @@
 from .Ladder import LadderNetwork
-from .PretrainingNetwork_new import PretrainingNetwork
+from .PretrainingNetwork import PretrainingNetwork
 from .SDAE import SDAE
 from .SimpleNetwork import SimpleNetwork
 from .M2 import M2Runner

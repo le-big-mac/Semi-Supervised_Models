@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Models.PretrainingNetwork import PretrainingNetwork
+from Models.PretrainingNetwork_old import PretrainingNetwork
 from utils import datautils
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

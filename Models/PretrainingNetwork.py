@@ -1,14 +1,15 @@
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
 from utils.trainingutils import accuracy, unsupervised_validation_loss
 from Models.BuildingBlocks import Autoencoder
 from Models.Model import Model
+from utils.trainingutils import EarlyStopping
 
 
 class PretrainingNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, latent_activation, output_activation, device):
-        super(PretrainingNetwork, self).__init__(device)
+    def __init__(self, input_size, hidden_dimensions, num_classes, latent_activation, output_activation, dataset_name,
+                 device):
+        super(PretrainingNetwork, self).__init__(dataset_name, device)
 
         self.Autoencoder = Autoencoder(input_size, hidden_dimensions, num_classes, latent_activation,
                                        output_activation).to(device)
@@ -19,62 +20,103 @@ class PretrainingNetwork(Model):
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
         self.Classifier_criterion = nn.CrossEntropyLoss()
 
-    def train_autoencoder_one_epoch(self, dataloader, validation_dataloader):
-        train_loss = 0
+        self.model_name = 'pretraining'
 
-        for batch_idx, (data, _) in enumerate(dataloader):
-            self.Autoencoder.train()
+    def train_autoencoder(self, train_dataloader, validation_dataloader):
+        epochs = []
+        train_losses = []
+        validation_losses = []
 
-            data = data.to(self.device)
+        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, self.dataset_name), patience=7)
 
-            self.Autoencoder_optim.zero_grad()
+        epoch = 0
+        while not early_stopping.early_stop:
+        # while epoch < 50:
+            train_loss = 0
+            validation_loss = 0
+            for batch_idx, (data, _) in enumerate(train_dataloader):
+                self.Autoencoder.train()
 
-            recons = self.Autoencoder(data)
+                data = data.to(self.device)
 
-            loss = self.Autoencoder_criterion(recons, data)
+                self.Autoencoder_optim.zero_grad()
 
-            train_loss += loss.item()
+                recons = self.Autoencoder(data)
 
-            loss.backward()
-            self.Autoencoder_optim.step()
+                loss = self.Autoencoder_criterion(recons, data)
 
-            # validation_loss = unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
-            #                                                self.Autoencoder_criterion, self.device)
+                train_loss += loss.item()
 
-        # print('Unsupervised Loss: {} Validation Loss: {}'.format(train_loss, validation_loss))
-        print('Unsupervised Loss: {}'.format(train_loss))
+                loss.backward()
+                self.Autoencoder_optim.step()
 
-    def train_classifier_one_epoch(self, epoch, dataloader, validation_dataloader):
-        for batch_idx, (data, labels) in enumerate(dataloader):
-            self.Classifier.train()
+                validation_loss += unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
+                                                                self.Autoencoder_criterion, self.device)
 
-            data = data.to(self.device)
-            labels = labels.to(self.device)
+            early_stopping(validation_loss, self.Autoencoder)
 
-            self.Classifier_optim.zero_grad()
+            epochs.append(epoch)
+            train_losses.append(train_loss)
+            validation_losses.append(validation_loss)
 
-            preds = self.Classifier(data)
+            print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
+            # print('Unsupervised Loss: {}'.format(train_loss))
 
-            loss = self.Classifier_criterion(preds, labels)
+            epoch += 1
 
-            loss.backward()
-            self.Classifier_optim.step()
+        early_stopping.load_checkpoint(self.Autoencoder)
 
-            print('Epoch: {} Loss: {} Validation accuracy: {}'
-                  .format(epoch, loss.item(), accuracy(self.Classifier, validation_dataloader, self.device)))
+        return epochs, train_losses, validation_losses
 
-    def train(self, unsupervised_dataset, train_dataset, validation_dataset=None):
-        pretraining_dataloader = DataLoader(dataset=unsupervised_dataset, batch_size=100, shuffle=True)
-        supervised_dataloader = DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
-        validation_dataloader = DataLoader(dataset=validation_dataset, batch_size=validation_dataset.__len__())
+    def train_classifier(self, train_dataloader, validation_dataloader):
+        epochs = []
+        train_losses = []
+        validation_accs = []
 
-        for epoch in range(50):
-            self.train_autoencoder_one_epoch(pretraining_dataloader, validation_dataloader)
+        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, self.dataset_name))
 
-        for epoch in range(50):
-            self.train_classifier_one_epoch(epoch, supervised_dataloader, validation_dataloader)
+        epoch = 0
+        while not early_stopping.early_stop:
+        # while epoch < 50:
+            for batch_idx, (data, labels) in enumerate(train_dataloader):
+                self.Classifier.train()
 
-    def test(self, test_dataset):
-        test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
+                data = data.to(self.device)
+                labels = labels.to(self.device)
 
+                self.Classifier_optim.zero_grad()
+
+                preds = self.Classifier(data)
+
+                loss = self.Classifier_criterion(preds, labels)
+
+                loss.backward()
+                self.Classifier_optim.step()
+
+                validation_acc = accuracy(self.Classifier, validation_dataloader, self.device)
+
+                early_stopping(1-validation_acc, self.Classifier)
+
+                epochs.append(epoch)
+                train_losses.append(loss.item())
+                validation_accs.append(validation_acc)
+
+                print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
+
+            epoch += 1
+
+        early_stopping.load_checkpoint(self.Classifier)
+
+        return epochs, train_losses, validation_accs
+
+    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+        autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
+            self.train_autoencoder(unsupervised_dataloader, validation_dataloader)
+
+        classifier_epochs, classifier_train_losses, classifier_validation_accs = \
+            self.train_classifier(supervised_dataloader, validation_dataloader)
+
+        return classifier_epochs, classifier_train_losses, classifier_validation_accs
+
+    def test(self, test_dataloader):
         return accuracy(self.Classifier, test_dataloader, self.device)
