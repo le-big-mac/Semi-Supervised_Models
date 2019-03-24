@@ -78,7 +78,7 @@ results_list = []
 for i in range(5):
     model = get_model(model_name)
 
-    epochs, losses, validation_accs = model.train(dataset_name, supervised_dataloader, unsupervised_dataloader,
+    epochs, losses, validation_accs = model.train(supervised_dataloader, unsupervised_dataloader,
                                                   validation_dataloader)
     results = model.test(test_dataloader)
 
