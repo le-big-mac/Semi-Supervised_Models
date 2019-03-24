@@ -3,7 +3,7 @@ class Model(object):
         self.dataset_name = dataset_name
         self.device = device
 
-    def train(self, dataset_name, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
         raise NotImplementedError
 
     def test(self, test_dataset):
