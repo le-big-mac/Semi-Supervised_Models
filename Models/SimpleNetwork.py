@@ -15,12 +15,12 @@ class SimpleNetwork(Model):
 
         self.model_name = 'simple'
 
-    def train_classifier(self, dataset_name, train_dataloader, validation_dataloader):
+    def train_classifier(self, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}'.format(self.model_name, dataset_name))
+        early_stopping = EarlyStopping('{}/{}'.format(self.model_name, self.dataset_name))
 
         epoch = 0
         while not early_stopping.early_stop:
