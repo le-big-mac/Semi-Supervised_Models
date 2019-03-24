@@ -184,7 +184,8 @@ class LadderNetwork(Model):
             labelled_images = labelled_images.float().to(self.device)
             labels = labels.to(self.device)
 
-            unlabelled_images = unlabelled_data.float().to(self.device)
+            unlabelled_images, _ = unlabelled_data
+            unlabelled_images = unlabelled_images.float().to(self.device)
 
             batch_size = labelled_images.size(0)
 

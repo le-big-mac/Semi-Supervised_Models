@@ -22,7 +22,7 @@ class PretrainingNetwork(Model):
     def train_autoencoder_one_epoch(self, dataloader, validation_dataloader):
         train_loss = 0
 
-        for batch_idx, data in enumerate(dataloader):
+        for batch_idx, (data, _) in enumerate(dataloader):
             self.Autoencoder.train()
 
             data = data.to(self.device)

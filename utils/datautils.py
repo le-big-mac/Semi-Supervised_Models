@@ -2,7 +2,7 @@ import os
 import csv
 import torch
 import numpy as np
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, TensorDataset
 from torchvision import datasets
 from collections import defaultdict
 
@@ -20,47 +20,6 @@ class SupervisedClassificationDataset(Dataset):
 
     def __getitem__(self, index):
         return self.data[index], self.labels[index]
-
-
-class UnsupervisedDataset(Dataset):
-
-    def __init__(self, inputs):
-        super(UnsupervisedDataset, self).__init__()
-
-        self.data = [torch.from_numpy(np.atleast_1d(vec)).float() for vec in inputs]
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, index):
-        return self.data[index]
-
-
-class MNISTSupervised(Dataset):
-    def __init__(self, data, labels):
-
-        self.data = data
-        self.labels = labels
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, index):
-        img = self.data[index]
-        label = self.labels[index]
-
-        return img, label
-
-
-class MNISTUnsupervised(Dataset):
-    def __init__(self, data):
-        self.data = data
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, index):
-        return self.data[index]
 
 
 def load_data_from_file(unsupervised_file_path, supervised_data_file_path, supervised_labels_file_path):
@@ -114,16 +73,16 @@ def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     unlabelled_data = list(zip(*unlabelled_data))
     validation_data = list(zip(*validation_data))
 
-    supervised_dataset = MNISTSupervised(torch.stack(labelled_data[0]), torch.stack(labelled_data[1]))
-    unsupervised_dataset = MNISTUnsupervised(torch.stack(unlabelled_data[0]))
+    supervised_dataset = TensorDataset(torch.stack(labelled_data[0]), torch.stack(labelled_data[1]))
+    unsupervised_dataset = TensorDataset(torch.stack(unlabelled_data[0]), -1 * torch.ones(len(unlabelled_data[1])))
 
     validation_dataset = None
     if validation:
-        validation_dataset = MNISTSupervised(torch.stack(validation_data[0]), torch.stack(validation_data[1]))
+        validation_dataset = TensorDataset(torch.stack(validation_data[0]), torch.stack(validation_data[1]))
 
     test_dataset = None
     if test:
-        test_dataset = MNISTSupervised(test_data, test_labels)
+        test_dataset = TensorDataset(test_data, test_labels)
 
     return unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset
 

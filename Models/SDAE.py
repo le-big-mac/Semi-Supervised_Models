@@ -45,7 +45,7 @@ class SDAE(Model):
 
             # TODO: think about implementing early stopping
             for epoch in range(50):
-                for batch_idx, data in enumerate(pretraining_dataloader):
+                for batch_idx, (data, _) in enumerate(pretraining_dataloader):
                     dae.train()
                     data = data.to(self.device)
 

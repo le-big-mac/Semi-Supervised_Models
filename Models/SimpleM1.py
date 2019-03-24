@@ -37,7 +37,7 @@ class SimpleM1(Model):
         while not early_stopping.early_stop:
             train_loss = 0
             validation_loss = 0
-            for batch_idx, data in enumerate(train_dataloader):
+            for batch_idx, (data, _) in enumerate(train_dataloader):
                 self.Autoencoder.train()
 
                 data = data.to(self.device)
