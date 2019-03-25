@@ -133,7 +133,7 @@ class M2Runner(Model):
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
+        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name), patience=7)
 
         epoch = 0
         while not early_stopping.early_stop:
@@ -163,14 +163,14 @@ class M2Runner(Model):
 
                 validation_acc = self.accuracy(validation_loader)
 
-                early_stopping(1-validation_acc, self.M2)
-
                 epochs.append(epoch)
                 train_losses.append(loss.item())
                 validation_accs.append(validation_acc)
 
                 print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
                       .format(epoch, labelled_loss.item(), U.item(), L.item(), validation_acc))
+
+            early_stopping(1 - sum(validation_accs)/len(validation_accs), self.M2)
 
             epoch += 1
 

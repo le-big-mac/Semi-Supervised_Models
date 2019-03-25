@@ -92,13 +92,13 @@ class SDAE(Model):
 
                 validation_acc = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
 
-                early_stopping(1 - validation_acc, self.SDAEClassifier)
-
                 epochs.append(epoch)
                 train_losses.append(loss.item())
                 validation_accs.append(validation_acc)
 
                 print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
+
+            early_stopping(1 - sum(validation_accs)/len(validation_accs), self.SDAEClassifier)
 
             epoch += 1
 

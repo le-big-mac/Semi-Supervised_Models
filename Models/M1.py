@@ -109,13 +109,13 @@ class M1(Model):
 
                 validation_acc = self.accuracy(validation_dataloader)
 
-                early_stopping(1-validation_acc, self.Classifier)
-
                 epochs.append(epoch)
                 train_losses.append(loss.item())
                 validation_accs.append(validation_acc)
 
                 print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
+
+            early_stopping(1 - sum(validation_accs)/len(validation_accs), self.Classifier)
 
             epoch += 1
 
