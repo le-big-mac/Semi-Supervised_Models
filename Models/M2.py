@@ -133,7 +133,7 @@ class M2Runner(Model):
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}'.format(self.model_name, self.dataset_name))
+        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
 
         epoch = 0
         while not early_stopping.early_stop:

@@ -27,7 +27,7 @@ class PretrainingNetwork(Model):
         train_losses = []
         validation_losses = []
 
-        early_stopping = EarlyStopping('{}/{}_autoencoder'.format(self.model_name, self.dataset_name), patience=7)
+        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=7)
 
         epoch = 0
         while not early_stopping.early_stop:
@@ -73,7 +73,7 @@ class PretrainingNetwork(Model):
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}_classifier'.format(self.model_name, self.dataset_name))
+        early_stopping = EarlyStopping('{}/{}_classifier.pt'.format(self.model_name, self.dataset_name))
 
         epoch = 0
         while not early_stopping.early_stop:
