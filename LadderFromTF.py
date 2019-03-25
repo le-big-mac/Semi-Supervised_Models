@@ -220,7 +220,7 @@ for epoch in range(50):
         labels = labels.to(device)
 
         unlabelled_images, _ = unlabelled_data
-        unlabelled_images = unlabelled_data.to(device)
+        unlabelled_images = unlabelled_images.to(device)
 
         inputs = torch.cat((labelled_images, unlabelled_images), 0)
 
