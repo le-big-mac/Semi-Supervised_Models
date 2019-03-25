@@ -4,7 +4,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 import argparse
 from utils.datautils import load_MNIST_data, save_results
-from Models import SimpleNetwork, PretrainingNetwork, SDAE, SimpleM1, M1, M2Runner, Ladder
+from Models import SimpleNetwork, PretrainingNetwork, SDAE, SimpleM1, M1, M2Runner, LadderNetwork
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 state_path = './Models/state'
