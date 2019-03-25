@@ -157,7 +157,7 @@ class LadderNetwork(Model):
         layer_sizes = [input_size] + hidden_dimensions + [num_classes]
         shapes = list(zip(layer_sizes[:-1], layer_sizes[1:]))
         self.L = len(layer_sizes) - 1
-        self.ladder = Ladder(shapes, layer_sizes, self.L, device)
+        self.ladder = Ladder(shapes, layer_sizes, self.L, device).to(device)
         self.optimizer = torch.optim.Adam(self.ladder.parameters(), lr=1e-3)
         self.supervised_cost_function = nn.CrossEntropyLoss()
         self.unsupervised_cost_function = nn.MSELoss(reduction='mean')

@@ -63,8 +63,8 @@ class M1(Model):
                 loss.backward()
                 self.VAE_optim.step()
 
-                validation_loss = unsupervised_validation_loss(self.VAE, validation_dataloader, self.VAE_criterion,
-                                                               self.device)
+                validation_loss += unsupervised_validation_loss(self.VAE, validation_dataloader, self.VAE_criterion,
+                                                                self.device)
 
             early_stopping(validation_loss, self.VAE)
 
