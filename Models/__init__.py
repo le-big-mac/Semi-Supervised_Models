@@ -1,4 +1,4 @@
-from .Ladder_old import LadderNetwork
+from .Ladder import LadderNetwork
 from .PretrainingNetwork import PretrainingNetwork
 from .SDAE import SDAE
 from .SimpleNetwork import SimpleNetwork

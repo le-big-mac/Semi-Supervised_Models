@@ -69,6 +69,9 @@ def get_model(model_name):
         model = M1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), dataset_name, device)
     elif model_name == 'm2':
         model = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), dataset_name, device)
+    elif model_name == 'ladder':
+        model = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, [1000.0, 10.0, 0.10, 0.10, 0.10, 0.10, 0.10],
+                              dataset_name, device)
 
     return model, dataloaders
 
