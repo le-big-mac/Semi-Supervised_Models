@@ -5,23 +5,7 @@ import torch.nn.functional as F
 from itertools import cycle
 from utils.datautils import load_MNIST_data
 from torch.utils.data import DataLoader
-
-layer_sizes = [784, 1000, 500, 250, 250, 250, 10]
-
-L = len(layer_sizes) - 1  # number of layers
-
-num_examples = 60000
-num_epochs = 150
-num_labeled = 100
-
-starter_learning_rate = 0.02
-
-decay_after = 15  # epoch after which to begin learning rate decay
-
-batch_size = 100
-num_iter = (num_examples/batch_size) * num_epochs  # number of loop iterations
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+from Models.Model import Model
 
 def bi(inits, size):
     return nn.Parameter(inits * torch.ones(size))
@@ -30,13 +14,6 @@ def bi(inits, size):
 def wi(shape):
     return nn.Parameter(torch.randn(shape) / math.sqrt(shape[0]))
 
-
-shapes = list(zip(layer_sizes[:-1], layer_sizes[1:])) # shapes of linear layers
-
-noise_std = 0.3  # scaling factor for noise used in corrupted encoder
-
-# hyperparameters that denote the importance of each layer
-denoising_cost = [1000.0, 10.0, 0.10, 0.10, 0.10, 0.10, 0.10]
 
 join = lambda l, u: torch.cat((l, u), 0)
 labeled = lambda x: x[:batch_size] if x is not None else x
@@ -105,7 +82,7 @@ class encoders(nn.Module):
 
 
 class decoders(nn.Module):
-    def __init__(self, device):
+    def __init__(self, shapes, layer_sizes, L, device):
         super(decoders, self).__init__()
 
         self.V = nn.ParameterList([wi(s[::-1]) for s in shapes])
@@ -167,6 +144,17 @@ class Ladder(nn.Module):
 
     def forward_decoders(self, y_c, corr, clean):
         return self.decoders.forward(y_c, corr, clean)
+
+
+class LadderNetwork(Model):
+    def __init__(self, input_size, hidden_dimensions, num_classes, denoising_costs, dataset_name, device,
+                 noise_std=0.3):
+        super(LadderNetwork, self).__init__(dataset_name, device)
+
+        layer_sizes = [input_size] + hidden_dimensions + [num_classes]
+        shapes = list(zip(layer_sizes[:-1], layer_sizes[1:]))
+        self.L = len(layer_sizes) - 1
+        self.ladder = Ladder()
 
 print('=====Loading Data=====')
 
