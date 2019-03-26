@@ -3,9 +3,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from itertools import cycle
-from utils.datautils import load_MNIST_data
-from torch.utils.data import DataLoader
 from Models.Model import Model
+from utils.trainingutils import EarlyStopping
 
 def bi(inits, size):
     return nn.Parameter(inits * torch.ones(size))
@@ -165,7 +164,9 @@ class LadderNetwork(Model):
         self.denoising_cost = denoising_cost
         self.noise_std = noise_std
 
-    def evaluate(self, dataloader, batch_size):
+        self.model_name = 'ladder'
+
+    def accuracy(self, dataloader, batch_size):
         self.ladder.eval()
 
         correct = 0
@@ -187,7 +188,10 @@ class LadderNetwork(Model):
         train_losses = []
         validation_accs = []
 
-        for epoch in range(50):
+        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
+
+        epoch = 0
+        while not early_stopping.early_stop:
             for batch_idx, (labelled_data, unlabelled_data) in enumerate(
                     zip(cycle(supervised_dataloader), unsupervised_dataloader)):
                 self.ladder.train()
@@ -226,7 +230,7 @@ class LadderNetwork(Model):
                 loss.backward()
                 self.optimizer.step()
 
-                validation_acc = self.evaluate(validation_dataloader, 0)
+                validation_acc = self.accuracy(validation_dataloader, 0)
 
                 epochs.append(epoch)
                 train_losses.append(loss.item())
@@ -235,6 +239,12 @@ class LadderNetwork(Model):
                 print('Epoch: {} Supervised Cost: {} Unsupervised Cost: {} Validation Accuracy: {}'.format(
                     epoch, cost.item(), u_cost.item(), validation_acc
                 ))
+
+            val = self.accuracy(validation_dataloader, 0)
+
+            early_stopping(1- val, self.ladder)
+
+        early_stopping.load_checkpoint(self.ladder)
 
         return epochs, train_losses, validation_accs
 
@@ -245,4 +255,4 @@ class LadderNetwork(Model):
         return epochs, losses, validation_accs
 
     def test(self, test_dataloader):
-        return self.evaluate(test_dataloader, 0)
+        return self.accuracy(test_dataloader, 0)
