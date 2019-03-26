@@ -41,7 +41,7 @@ class M1(Model):
         train_losses = []
         validation_losses = []
 
-        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=7)
+        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=5)
 
         epoch = 0
         while not early_stopping.early_stop:

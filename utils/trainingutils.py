@@ -35,7 +35,7 @@ def unsupervised_validation_loss(model, dataloader, criterion, device):
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
-    def __init__(self, checkpoint_filename, patience=25, verbose=False):
+    def __init__(self, checkpoint_filename, patience=10, delta=0, verbose=False):
         """
         Args:
             patience (int): How long to wait after last time validation loss improved.
@@ -45,6 +45,7 @@ class EarlyStopping:
         """
         self.filename = './Models/state/{}'.format(checkpoint_filename)
         self.patience = patience
+        self.delta = abs(delta)
         self.verbose = verbose
         self.counter = 0
         self.best_score = None
@@ -58,7 +59,7 @@ class EarlyStopping:
         if self.best_score is None:
             self.best_score = score
             self.save_checkpoint(val_loss, model)
-        elif score < self.best_score:
+        elif score < self.best_score + self.delta:
             self.counter += 1
             if self.verbose:
                 print('EarlyStopping counter: {} out of {}'.format(self.counter, self.patience))
