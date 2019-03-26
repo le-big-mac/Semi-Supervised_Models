@@ -33,7 +33,6 @@ class PretrainingNetwork(Model):
         while not early_stopping.early_stop:
         # while epoch < 50:
             train_loss = 0
-            validation_loss = 0
             for batch_idx, (data, _) in enumerate(train_dataloader):
                 self.Autoencoder.train()
 
@@ -50,13 +49,13 @@ class PretrainingNetwork(Model):
                 loss.backward()
                 self.Autoencoder_optim.step()
 
-                validation_loss += unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
-                                                                self.Autoencoder_criterion, self.device)
+            validation_loss = unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
+                                                           self.Autoencoder_criterion, self.device)
 
             early_stopping(validation_loss, self.Autoencoder)
 
             epochs.append(epoch)
-            train_losses.append(train_loss)
+            train_losses.append(train_loss/len(train_dataloader))
             validation_losses.append(validation_loss)
 
             print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))

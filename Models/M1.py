@@ -46,7 +46,6 @@ class M1(Model):
         epoch = 0
         while not early_stopping.early_stop:
             train_loss = 0
-            validation_loss = 0
             for batch_idx, (data, _) in enumerate(train_dataloader):
                 self.VAE.train()
 
@@ -63,13 +62,13 @@ class M1(Model):
                 loss.backward()
                 self.VAE_optim.step()
 
-                validation_loss += unsupervised_validation_loss(self.VAE, validation_dataloader, self.VAE_criterion,
-                                                                self.device)
+            validation_loss = unsupervised_validation_loss(self.VAE, validation_dataloader, self.VAE_criterion,
+                                                           self.device)
 
             early_stopping(validation_loss, self.VAE)
 
             epochs.append(epoch)
-            train_losses.append(train_loss)
+            train_losses.append(train_loss/len(train_dataloader))
             validation_losses.append(validation_loss)
 
             print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
