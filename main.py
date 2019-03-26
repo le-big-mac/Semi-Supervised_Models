@@ -35,13 +35,14 @@ parser.add_argument("model", type=str,
 args = parser.parse_args()
 
 model_name = args.model
+unsupervised_batch_size = 1000
 batch_size = 100
 
 dataset_name = 'MNIST'
 unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = \
     load_MNIST_data(100, 50000, True, True)
 
-unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
+unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=unsupervised_batch_size, shuffle=True)
 supervised_dataloader = DataLoader(supervised_dataset, batch_size=batch_size, shuffle=True)
 validation_dataloader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())
 test_dataloader = DataLoader(test_dataset, batch_size=test_dataset.__len__())
@@ -69,9 +70,13 @@ def get_model(model_name):
         model = M1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), dataset_name, device)
     elif model_name == 'm2':
         model = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), dataset_name, device)
+        un = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
+        dataloaders = (supervised_dataloader, un, validation_dataloader)
     elif model_name == 'ladder':
         model = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, [1000.0, 10.0, 0.10, 0.10, 0.10, 0.10, 0.10],
                               dataset_name, device)
+        un = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
+        dataloaders = (supervised_dataloader, un, validation_dataloader)
 
     return model, dataloaders
 
