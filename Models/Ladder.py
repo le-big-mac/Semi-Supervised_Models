@@ -242,7 +242,9 @@ class LadderNetwork(Model):
 
             val = self.accuracy(validation_dataloader, 0)
 
-            early_stopping(1- val, self.ladder)
+            early_stopping(1 - val, self.ladder)
+
+            epoch += 1
 
         early_stopping.load_checkpoint(self.ladder)
 

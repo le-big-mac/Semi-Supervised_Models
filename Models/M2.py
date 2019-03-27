@@ -93,7 +93,7 @@ class M2Runner(Model):
 
     def minus_U(self, x, pred_y):
         # gives probability for each label
-        logits = F.softmax(pred_y)
+        logits = F.softmax(pred_y, dim=1)
 
         y = self.make_labels(x.size(0))
         y_onehot = self.onehot(y)
@@ -192,7 +192,7 @@ class M2Runner(Model):
 
                 outputs = self.M2.classify(data)
 
-                _, predicted = torch.max(F.softmax(outputs).data, 1)
+                _, predicted = torch.max(F.softmax(outputs, dim=1).data, 1)
                 correct += (predicted == labels).sum().item()
 
         return correct / len(dataloader.dataset)
