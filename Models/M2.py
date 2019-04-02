@@ -171,10 +171,10 @@ class M2Runner(Model):
                 # print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
                 #       .format(epoch, labelled_loss.item(), U.item(), L.item(), validation_acc))
 
-            print('Epoch: {} Loss: {} Validation acc: {}'.format(epoch, sum(train_losses) / len(train_losses),
-                                                                 sum(validation_accs) / len(validation_accs)))
-
             val = self.accuracy(validation_loader)
+
+            print('Epoch: {} Loss: {} Validation acc: {}'.format(epoch, sum(train_losses) / len(train_losses),
+                                                                 val))
 
             early_stopping(1 - val, self.M2)
 
