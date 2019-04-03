@@ -135,24 +135,29 @@ else:
     neg_map = neg_map.view(28, 28)
     abs_map = abs_map.view(28, 28)
 
-    figure = plt.figure(figsize=(8, 8), facecolor='w')
+    plt.imsave('original.png', input, cmpa='gray')
+    plt.imsave('pos.png', pos_map, cmpa='gray')
+    plt.imsave('neg.png', neg_map, cmpa='gray')
+    plt.imsave('abs.png', abs_map, cmpa='gray')
 
-    plt.subplot(2, 2, 1)
-    plt.title("Original Image")
-    plt.imshow(input, cmap="gray")
-
-    plt.subplot(2, 2, 2)
-    plt.title("Positive Saliency")
-    plt.imshow(pos_map, cmap='gray')
-
-    plt.subplot(2, 2, 3)
-    plt.title("Negative Saliency")
-    plt.imshow(neg_map, cmap='gray')
-
-    plt.subplot(2, 2, 4)
-    plt.title("Absolute Saliency")
-    plt.imshow(abs_map, cmap='gray')
-
-    plt.show()
+    # figure = plt.figure(figsize=(8, 8), facecolor='w')
+    #
+    # plt.subplot(2, 2, 1)
+    # plt.title("Original Image")
+    # plt.imshow(input, cmap="gray")
+    #
+    # plt.subplot(2, 2, 2)
+    # plt.title("Positive Saliency")
+    # plt.imshow(pos_map, cmap='gray')
+    #
+    # plt.subplot(2, 2, 3)
+    # plt.title("Negative Saliency")
+    # plt.imshow(neg_map, cmap='gray')
+    #
+    # plt.subplot(2, 2, 4)
+    # plt.title("Absolute Saliency")
+    # plt.imshow(abs_map, cmap='gray')
+    #
+    # plt.show()
 
 
