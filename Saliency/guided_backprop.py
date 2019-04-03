@@ -26,7 +26,7 @@ class GuidedSaliency(Saliency):
 
         grad_outputs[:, target] = 1
 
-        output.backward(gradient = grad_outputs)
+        output.backward(gradient=grad_outputs)
 
         input.requires_grad = False
 

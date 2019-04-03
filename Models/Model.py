@@ -12,3 +12,6 @@ class Model(object):
     def classify(self, dataset):
         # TODO: implement this so that it saves to a file in the models
         raise NotImplementedError
+
+    def eval(self):
+        raise NotImplementedError
