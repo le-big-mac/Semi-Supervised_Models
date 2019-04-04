@@ -66,4 +66,4 @@ class SimpleNetwork(Model):
         return accuracy(self.Classifier, test_dataloader, self.device)
 
     def classify(self, data):
-        return self.Classifier(data)
+        return self.Classifier(data.to(self.device))

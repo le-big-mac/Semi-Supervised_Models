@@ -119,7 +119,10 @@ else:
 
     print(prediction)
 
-    saliency = GuidedSaliency(model.Classifier).generate_saliency(input, prediction)
+    saliency = GuidedSaliency(model.Classifier, device).generate_saliency(input, prediction)
+
+    if device.type == 'cuda':
+        saliency = saliency.cpu()
 
     pos_map = saliency.clamp(min=0)
     pos_map = pos_map / pos_map.max()

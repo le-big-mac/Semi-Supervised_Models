@@ -5,9 +5,10 @@ from Saliency.saliency import Saliency
 
 class GuidedSaliency(Saliency):
     """Class for computing guided saliency"""
-    def __init__(self, model):
-        super(GuidedSaliency, self).__init__(model)
+    def __init__(self, model, device):
+        super(GuidedSaliency, self).__init__(model, device)
 
+    # TODO: only pass gradient through if forward pass > 0
     def guided_relu_hook(self, module, grad_in, grad_out):
         return (torch.clamp(grad_in[0], min=0.0), )
 
@@ -20,7 +21,7 @@ class GuidedSaliency(Saliency):
             if type(module) == nn.ReLU:
                 module.register_backward_hook(self.guided_relu_hook)
 
-        output = self.model(input)
+        output = self.model(input.to(self.device))
 
         grad_outputs = torch.zeros_like(output)
 
