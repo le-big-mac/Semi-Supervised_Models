@@ -7,10 +7,27 @@ class GuidedSaliency(Saliency):
     """Class for computing guided saliency"""
     def __init__(self, model, device):
         super(GuidedSaliency, self).__init__(model, device)
+        self.forward_relu_outputs = []
 
-    # TODO: only pass gradient through if forward pass > 0
-    def guided_relu_hook(self, module, grad_in, grad_out):
-        return (torch.clamp(grad_in[0], min=0.0), )
+    def relu_backward_hook_function(self, module, grad_in, grad_out):
+        """
+        If there is a negative gradient, change it to zero
+        """
+        # Get last forward output
+        corresponding_forward_output = self.forward_relu_outputs[-1]
+        positive_mask = (corresponding_forward_output > 0).type_as(corresponding_forward_output)
+
+        # add zeros to avoid -0.0
+        modified_grad_out = positive_mask * torch.clamp(grad_in[0], min=0.0)
+
+        del self.forward_relu_outputs[-1]  # Remove last forward output
+        return (modified_grad_out,)
+
+    def relu_forward_hook_function(self, module, ten_in, ten_out):
+        """
+        Store results of forward pass
+        """
+        self.forward_relu_outputs.append(ten_out)
 
     def generate_saliency(self, input, target):
         input.requires_grad = True
@@ -19,7 +36,8 @@ class GuidedSaliency(Saliency):
 
         for module in self.model.modules():
             if type(module) == nn.ReLU:
-                module.register_backward_hook(self.guided_relu_hook)
+                module.register_forward_hook(self.relu_forward_hook_function)
+                module.register_backward_hook(self.relu_backward_hook_function)
 
         output = self.model(input.to(self.device))
 
@@ -27,8 +45,8 @@ class GuidedSaliency(Saliency):
 
         grad_outputs[:, target] = 1
 
-        output.backward(gradient=grad_outputs)
+        self.model.zero_grad()
 
-        input.requires_grad = False
+        output.backward(gradient=grad_outputs)
 
         return input.grad.clone()[0]

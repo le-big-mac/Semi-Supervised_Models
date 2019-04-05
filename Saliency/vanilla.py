@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 from Saliency.saliency import Saliency
 
 
@@ -20,7 +21,5 @@ class VanillaSaliency(Saliency):
         grad_outputs[:, target] = 1
 
         output.backward(gradient=grad_outputs)
-
-        input.requires_grad = False
 
         return input.grad.clone()[0]

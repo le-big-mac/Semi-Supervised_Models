@@ -108,7 +108,7 @@ else:
     validation_dataloader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())
     dataloaders = (supervised_dataloader, validation_dataloader)
 
-    model.train(*dataloaders)
+    # model.train(*dataloaders)
 
     input_idx = random.choice(range(len(test_dataset)))
     input = test_dataset[input_idx][0].unsqueeze(0)
@@ -119,48 +119,50 @@ else:
 
     print(prediction)
 
-    saliency = GuidedSaliency(model.Classifier, device).generate_saliency(input, prediction)
+    vanilla_saliency = VanillaSaliency(model.Classifier, device).generate_saliency(input, prediction)
+    guided_saliency = GuidedSaliency(model.Classifier, device).generate_saliency(input, prediction)
 
     if device.type == 'cuda':
-        saliency = saliency.cpu()
+        guided_saliency = guided_saliency.cpu()
 
-    pos_map = saliency.clamp(min=0)
+    pos_map = guided_saliency.clamp(min=0)
     pos_map = pos_map / pos_map.max()
 
-    neg_map = - saliency.clamp(max=0)
+    neg_map = - guided_saliency.clamp(max=0)
     neg_map = neg_map / neg_map.max()
 
-    abs_map = saliency.abs()
+    abs_map = guided_saliency.abs()
     abs_map = abs_map / abs_map.max()
 
+    input = input.detach()
     input = input.view(28, 28)
     pos_map = pos_map.view(28, 28)
     neg_map = neg_map.view(28, 28)
     abs_map = abs_map.view(28, 28)
+    #
+    # plt.imsave('original.png', input, cmap='gray')
+    # plt.imsave('pos.png', pos_map, cmap='gray')
+    # plt.imsave('neg.png', neg_map, cmap='gray')
+    # plt.imsave('abs.png', abs_map, cmap='gray')
 
-    plt.imsave('original.png', input, cmpa='gray')
-    plt.imsave('pos.png', pos_map, cmpa='gray')
-    plt.imsave('neg.png', neg_map, cmpa='gray')
-    plt.imsave('abs.png', abs_map, cmpa='gray')
+    figure = plt.figure(figsize=(8, 8), facecolor='w')
 
-    # figure = plt.figure(figsize=(8, 8), facecolor='w')
-    #
-    # plt.subplot(2, 2, 1)
-    # plt.title("Original Image")
-    # plt.imshow(input, cmap="gray")
-    #
-    # plt.subplot(2, 2, 2)
-    # plt.title("Positive Saliency")
-    # plt.imshow(pos_map, cmap='gray')
-    #
-    # plt.subplot(2, 2, 3)
-    # plt.title("Negative Saliency")
-    # plt.imshow(neg_map, cmap='gray')
-    #
-    # plt.subplot(2, 2, 4)
-    # plt.title("Absolute Saliency")
-    # plt.imshow(abs_map, cmap='gray')
-    #
-    # plt.show()
+    plt.subplot(2, 2, 1)
+    plt.title("Original Image")
+    plt.imshow(input, cmap="gray")
+
+    plt.subplot(2, 2, 2)
+    plt.title("Positive Saliency")
+    plt.imshow(pos_map, cmap='gray')
+
+    plt.subplot(2, 2, 3)
+    plt.title("Negative Saliency")
+    plt.imshow(neg_map, cmap='gray')
+
+    plt.subplot(2, 2, 4)
+    plt.title("Absolute Saliency")
+    plt.imshow(abs_map, cmap='gray')
+
+    plt.show()
 
 
