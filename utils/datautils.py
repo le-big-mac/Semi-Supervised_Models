@@ -21,7 +21,7 @@ class SupervisedClassificationDataset(Dataset):
     def __getitem__(self, index):
         return self.data[index], self.labels[index]
 
-
+# TODO: this sucks
 def load_data_from_file(unsupervised_file_path, supervised_data_file_path, supervised_labels_file_path):
 
     unsupervised_data = np.loadtxt(unsupervised_file_path, dtype=float, delimiter=",")
