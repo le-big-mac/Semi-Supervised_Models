@@ -10,7 +10,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 state_path = './Models/state'
 
 
-def __main__():
+def main():
     parser = argparse.ArgumentParser(description='Take arguments to construct model')
     parser.add_argument('model', type=str,
                         choices=['simple', 'pretraining', 'sdae', 'simple_m1', 'm1', 'm2', 'ladder'],
@@ -68,6 +68,8 @@ def __main__():
         unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
         dataloaders = (supervised_dataloader, unsupervised_dataloader, validation_dataloader)
 
+    print('here')
+
     epochs_list = []
     losses_list = []
     validation_accs_list = []
@@ -86,3 +88,6 @@ def __main__():
     save_results(validation_accs_list, dataset_name, model_name, 'validation_accs')
     save_results(results_list, dataset_name, model_name, 'test_accuracy')
 
+
+if __name__ == '__main__':
+    main()
