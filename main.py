@@ -68,22 +68,21 @@ def __main__():
         unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
         dataloaders = (supervised_dataloader, unsupervised_dataloader, validation_dataloader)
 
-    if not args.saliency:
-        epochs_list = []
-        losses_list = []
-        validation_accs_list = []
-        results_list = []
-        for i in range(5):
-            epochs, losses, validation_accs = model.train(*dataloaders)
-            results = model.test(test_dataloader)
+    epochs_list = []
+    losses_list = []
+    validation_accs_list = []
+    results_list = []
+    for i in range(5):
+        epochs, losses, validation_accs = model.train(*dataloaders)
+        results = model.test(test_dataloader)
 
-            epochs_list.append(epochs)
-            losses_list.append(losses)
-            validation_accs_list.append(validation_accs)
-            results_list.append([results])
+        epochs_list.append(epochs)
+        losses_list.append(losses)
+        validation_accs_list.append(validation_accs)
+        results_list.append([results])
 
-        save_results(epochs_list, dataset_name, model_name, 'epochs')
-        save_results(losses_list, dataset_name, model_name, 'losses')
-        save_results(validation_accs_list, dataset_name, model_name, 'validation_accs')
-        save_results(results_list, dataset_name, model_name, 'test_accuracy')
+    save_results(epochs_list, dataset_name, model_name, 'epochs')
+    save_results(losses_list, dataset_name, model_name, 'losses')
+    save_results(validation_accs_list, dataset_name, model_name, 'validation_accs')
+    save_results(results_list, dataset_name, model_name, 'test_accuracy')
 
