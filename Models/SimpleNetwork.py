@@ -3,6 +3,7 @@ from torch import nn
 from Models.BuildingBlocks import Classifier
 from Models.Model import Model
 from utils.trainingutils import accuracy, EarlyStopping
+from itertools import takewhile, count
 
 
 class SimpleNetwork(Model):
@@ -15,15 +16,17 @@ class SimpleNetwork(Model):
 
         self.model_name = 'simple'
 
-    def train_classifier(self, train_dataloader, validation_dataloader):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
 
         early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
 
-        epoch = 0
-        while not early_stopping.early_stop:
+        for epoch in count():
+            if epoch >= max_epochs or early_stopping.early_stop:
+                break
+
             for batch_idx, (data, labels) in enumerate(train_dataloader):
                 self.Classifier.train()
 
@@ -51,14 +54,14 @@ class SimpleNetwork(Model):
 
             early_stopping(1 - val, self.Classifier)
 
-            epoch += 1
-
         early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 
-    def train(self, supervised_dataloader, validation_dataloader=None):
-        epochs, losses, validation_accs = self.train_classifier(supervised_dataloader, validation_dataloader)
+    def train(self, max_epochs, dataloaders):
+        supervised_dataloader, validation_dataloader = dataloaders
+
+        epochs, losses, validation_accs = self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader)
 
         return epochs, losses, validation_accs
 

@@ -3,6 +3,7 @@ from torch import nn
 from Models.BuildingBlocks import Autoencoder, Classifier
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping, unsupervised_validation_loss
+from itertools import count
 
 # --------------------------------------------------------------------------------------
 # Kingma M1 model using simple autoencoder for dimensionality reduction (for comparison)
@@ -11,10 +12,10 @@ from utils.trainingutils import EarlyStopping, unsupervised_validation_loss
 
 class SimpleM1(Model):
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
-                 num_classes, latent_activation, output_activation, dataset_name, device):
+                 num_classes, output_activation, dataset_name, device):
         super(SimpleM1, self).__init__(dataset_name, device)
 
-        self.Autoencoder = Autoencoder(input_size, hidden_dimensions_encoder, latent_size, latent_activation,
+        self.Autoencoder = Autoencoder(input_size, hidden_dimensions_encoder, latent_size, lambda x: x,
                                        output_activation).to(device)
         self.Autoencoder_criterion = nn.BCELoss()
         self.Autoencoder_optim = torch.optim.Adam(self.Autoencoder.parameters(), lr=1e-3)
@@ -26,15 +27,17 @@ class SimpleM1(Model):
 
         self.model_name = 'simple_m1'
 
-    def train_autoencoder(self, train_dataloader, validation_dataloader):
+    def train_autoencoder(self, max_epochs, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_losses = []
 
         early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=5)
 
-        epoch = 0
-        while not early_stopping.early_stop:
+        for epoch in count():
+            if epoch > max_epochs or early_stopping.early_stop:
+                break
+
             train_loss = 0
             for batch_idx, (data, _) in enumerate(train_dataloader):
                 self.Autoencoder.train()
@@ -63,21 +66,21 @@ class SimpleM1(Model):
 
             print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
 
-            epoch += 1
-
         early_stopping.load_checkpoint(self.Autoencoder)
 
         return epochs, train_losses, validation_losses
 
-    def train_classifier(self, train_dataloader, validation_dataloader):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
 
         early_stopping = EarlyStopping('{}/{}_classifier.pt'.format(self.model_name, self.dataset_name))
 
-        epoch = 0
-        while not early_stopping.early_stop:
+        for epoch in count():
+            if epoch > max_epochs or early_stopping.early_stop:
+                break
+
             for batch_idx, (data, labels) in enumerate(train_dataloader):
                 self.Classifier.train()
 
@@ -107,8 +110,6 @@ class SimpleM1(Model):
             val = self.accuracy(validation_dataloader)
 
             early_stopping(1 - val, self.Classifier)
-
-            epoch += 1
 
         early_stopping.load_checkpoint(self.Classifier)
 
