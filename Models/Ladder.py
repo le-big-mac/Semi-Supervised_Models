@@ -249,7 +249,7 @@ class LadderNetwork(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train(self, max_epochs, dataloaders, comparison):
+    def train(self, max_epochs, dataloaders, comparison=False):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         epochs, losses, validation_accs = self.train_ladder(max_epochs, supervised_dataloader, unsupervised_dataloader,
