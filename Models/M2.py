@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from itertools import cycle
+from itertools import cycle, count
 from Models.BuildingBlocks import VariationalEncoder, Decoder, Classifier
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping
@@ -126,18 +126,19 @@ class M2Runner(Model):
 
             return -self.minus_U(x, pred_y)
 
-    def train_m2(self, labelled_loader, unlabelled_loader, validation_loader):
+    def train_m2(self, max_epochs, labelled_loader, unlabelled_loader, validation_loader):
         alpha = 0.1 * len(unlabelled_loader.dataset)/len(labelled_loader.dataset)
 
         epochs = []
         train_losses = []
         validation_accs = []
 
-        # TODO: print early stopping data, stops too early
-        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name), patience=5)
+        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
 
-        epoch = 0
-        while not early_stopping.early_stop:
+        for epoch in count():
+            if epoch > max_epochs or early_stopping.early_stop:
+                break
+
             for batch_idx, (labelled_data, unlabelled_data) in enumerate(zip(cycle(labelled_loader), unlabelled_loader)):
                 self.M2.train()
                 self.optimizer.zero_grad()
@@ -178,11 +179,8 @@ class M2Runner(Model):
 
             early_stopping(1 - val, self.M2)
 
-            print('Best: {} Counter: {}'.format(early_stopping.best_score, early_stopping.counter))
-
-            epoch += 1
-
-        early_stopping.load_checkpoint(self.M2)
+        if early_stopping.early_stop:
+            early_stopping.load_checkpoint(self.M2)
 
         return epochs, train_losses, validation_accs
 
@@ -203,8 +201,10 @@ class M2Runner(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader):
-        epochs, losses, validation_accs = self.train_m2(supervised_dataloader, unsupervised_dataloader,
+    def train(self, max_epochs, dataloaders):
+        unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
+
+        epochs, losses, validation_accs = self.train_m2(max_epochs, supervised_dataloader, unsupervised_dataloader,
                                                         validation_dataloader)
 
         return epochs, losses, validation_accs

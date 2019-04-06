@@ -27,7 +27,7 @@ class PretrainingNetwork(Model):
         train_losses = []
         validation_losses = []
 
-        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=5)
+        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=10)
 
         for epoch in count():
             if epoch > max_epochs or early_stopping:
@@ -62,7 +62,8 @@ class PretrainingNetwork(Model):
             print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
             # print('Unsupervised Loss: {}'.format(train_loss))
 
-        early_stopping.load_checkpoint(self.Autoencoder)
+        if early_stopping.early_stop:
+            early_stopping.load_checkpoint(self.Autoencoder)
 
         return epochs, train_losses, validation_losses
 
@@ -104,7 +105,8 @@ class PretrainingNetwork(Model):
 
             early_stopping(1 - val, self.Classifier)
 
-        early_stopping.load_checkpoint(self.Classifier)
+        if early_stopping.early_stop:
+            early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 

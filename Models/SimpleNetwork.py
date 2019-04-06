@@ -54,7 +54,8 @@ class SimpleNetwork(Model):
 
             early_stopping(1 - val, self.Classifier)
 
-        early_stopping.load_checkpoint(self.Classifier)
+        if early_stopping.early_stop:
+            early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 

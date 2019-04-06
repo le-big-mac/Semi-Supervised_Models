@@ -32,7 +32,7 @@ class SimpleM1(Model):
         train_losses = []
         validation_losses = []
 
-        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=5)
+        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=10)
 
         for epoch in count():
             if epoch > max_epochs or early_stopping.early_stop:
@@ -66,7 +66,8 @@ class SimpleM1(Model):
 
             print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
 
-        early_stopping.load_checkpoint(self.Autoencoder)
+        if early_stopping.early_stop:
+            early_stopping.load_checkpoint(self.Autoencoder)
 
         return epochs, train_losses, validation_losses
 
@@ -111,7 +112,8 @@ class SimpleM1(Model):
 
             early_stopping(1 - val, self.Classifier)
 
-        early_stopping.load_checkpoint(self.Classifier)
+        if early_stopping.early_stop:
+            early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 
@@ -133,12 +135,14 @@ class SimpleM1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+    def train(self, max_epochs, dataloaders):
+        unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
+
         autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
-            self.train_autoencoder(unsupervised_dataloader, validation_dataloader)
+            self.train_autoencoder(max_epochs, unsupervised_dataloader, validation_dataloader)
 
         classifier_epochs, classifier_losses, classifier_accs = \
-            self.train_classifier(supervised_dataloader, validation_dataloader)
+            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader)
 
         return classifier_epochs, classifier_losses, classifier_accs
 

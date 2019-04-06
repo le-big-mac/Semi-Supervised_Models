@@ -4,6 +4,7 @@ from torch.nn import functional as F
 from Models.BuildingBlocks import VAE, Classifier
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping, unsupervised_validation_loss
+from itertools import count
 
 
 class M1(Model):
@@ -36,15 +37,17 @@ class M1(Model):
 
         return (KLD + BCE).mean()
 
-    def train_VAE(self, train_dataloader, validation_dataloader):
+    def train_VAE(self, max_epochs, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_losses = []
 
-        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=5)
+        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=10)
 
-        epoch = 0
-        while not early_stopping.early_stop:
+        for epoch in count():
+            if epoch > max_epochs or early_stopping.early_stop:
+                break
+
             train_loss = 0
             for batch_idx, (data, _) in enumerate(train_dataloader):
                 self.VAE.train()
@@ -73,21 +76,22 @@ class M1(Model):
 
             print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
 
-            epoch += 1
-
-        early_stopping.load_checkpoint(self.VAE)
+        if early_stopping.early_stop:
+            early_stopping.load_checkpoint(self.VAE)
 
         return epochs, train_losses, validation_losses
 
-    def train_classifier(self, train_dataloader, validation_dataloader):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
 
         early_stopping = EarlyStopping('{}/{}_classifier.pt'.format(self.model_name, self.dataset_name))
 
-        epoch = 0
-        while not early_stopping.early_stop:
+        for epoch in count():
+            if epoch > max_epochs or early_stopping.early_stop:
+                break
+
             for batch_idx, (data, labels) in enumerate(train_dataloader):
                 self.Classifier.train()
 
@@ -118,9 +122,8 @@ class M1(Model):
 
             early_stopping(1 - val, self.Classifier)
 
-            epoch += 1
-
-        early_stopping.load_checkpoint(self.Classifier)
+        if early_stopping.early_stop:
+            early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 
@@ -142,7 +145,9 @@ class M1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
+    def train(self, max_epochs, dataloaders):
+        unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
+
         autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
             self.train_VAE(unsupervised_dataloader, validation_dataloader)
 

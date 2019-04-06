@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 import argparse
 from utils.datautils import load_MNIST_data, save_results, load_data_from_file
 from Models import SimpleNetwork, PretrainingNetwork, SDAE, SimpleM1, M1, M2Runner, LadderNetwork
+from default_values import *
 
 
 def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, unsupervised_batch_size):
@@ -38,14 +39,14 @@ def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, u
         model = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), dataset_name, device)
 
         unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
-        train_dataloaders = (supervised_dataloader, unsupervised_dataloader, validation_dataloader)
+        train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
 
     elif model_name == 'ladder':
         model = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, [1000.0, 10.0, 0.10, 0.10, 0.10, 0.10, 0.10],
                               dataset_name, device)
 
         unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
-        train_dataloaders = (supervised_dataloader, unsupervised_dataloader, validation_dataloader)
+        train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
 
     return model, train_dataloaders, test_dataloader
 

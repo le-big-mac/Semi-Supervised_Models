@@ -4,6 +4,7 @@ from utils.trainingutils import accuracy
 from Models.BuildingBlocks import Encoder, AutoencoderSDAE
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping
+from itertools import count
 
 
 class SDAEClassifier(nn.Module):
@@ -35,7 +36,7 @@ class SDAE(Model):
 
         self.model_name = 'sdae'
 
-    def pretrain_hidden_layers(self, pretraining_dataloader):
+    def pretrain_hidden_layers(self, max_epochs, pretraining_dataloader):
         for i in range(len(self.SDAEClassifier.hidden_layers)):
             dae = AutoencoderSDAE(self.SDAEClassifier.hidden_layers[i]).to(self.device)
             criterion = nn.MSELoss()
@@ -44,7 +45,7 @@ class SDAE(Model):
             previous_layers = self.SDAEClassifier.hidden_layers[0:i]
 
             # TODO: think about implementing early stopping
-            for epoch in range(50):
+            for epoch in range(max_epochs):
                 for batch_idx, (data, _) in enumerate(pretraining_dataloader):
                     dae.train()
                     data = data.to(self.device)
@@ -66,15 +67,17 @@ class SDAE(Model):
 
                     print('Unsupervised Layer: {} Epoch: {} Loss: {}'.format(i, epoch, loss.item()))
 
-    def train_classifier(self, test_dataloader, validation_dataloader):
+    def train_classifier(self, max_epochs, test_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
 
         early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
 
-        epoch = 0
-        while not early_stopping.early_stop:
+        for epoch in count():
+            if epoch > max_epochs or early_stopping.early_stop:
+                break
+
             for batch_idx, (data, labels) in enumerate(test_dataloader):
                 self.SDAEClassifier.train()
 
@@ -102,17 +105,18 @@ class SDAE(Model):
 
             early_stopping(1 - val, self.SDAEClassifier)
 
-            epoch += 1
-
-        early_stopping.load_checkpoint(self.SDAEClassifier)
+        if early_stopping.early_stop:
+            early_stopping.load_checkpoint(self.SDAEClassifier)
 
         return epochs, train_losses, validation_accs
 
-    def train(self, supervised_dataloader, unsupervised_dataloader, validation_dataloader=None):
-        self.pretrain_hidden_layers(unsupervised_dataloader)
+    def train(self, max_epochs, dataloaders):
+        unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
+
+        self.pretrain_hidden_layers(max_epochs, unsupervised_dataloader)
 
         classifier_epochs, classifier_train_losses, classifier_validation_accs = \
-            self.train_classifier(supervised_dataloader, validation_dataloader)
+            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader)
 
         return classifier_epochs, classifier_train_losses, classifier_validation_accs
 
