@@ -3,7 +3,6 @@ from torch import nn
 from Models.BuildingBlocks import Classifier
 from Models.Model import Model
 from utils.trainingutils import accuracy, EarlyStopping
-from itertools import takewhile, count
 
 
 class SimpleNetwork(Model):
@@ -23,8 +22,8 @@ class SimpleNetwork(Model):
 
         early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
 
-        for epoch in count():
-            if epoch >= max_epochs or early_stopping.early_stop:
+        for epoch in range(max_epochs):
+            if early_stopping.early_stop:
                 break
 
             for batch_idx, (data, labels) in enumerate(train_dataloader):

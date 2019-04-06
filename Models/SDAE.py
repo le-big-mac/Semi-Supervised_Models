@@ -4,7 +4,6 @@ from utils.trainingutils import accuracy
 from Models.BuildingBlocks import Encoder, AutoencoderSDAE
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping
-from itertools import count
 
 
 class SDAEClassifier(nn.Module):
@@ -74,8 +73,8 @@ class SDAE(Model):
 
         early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
 
-        for epoch in count():
-            if epoch > max_epochs or early_stopping.early_stop:
+        for epoch in range(max_epochs):
+            if early_stopping.early_stop:
                 break
 
             for batch_idx, (data, labels) in enumerate(test_dataloader):

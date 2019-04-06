@@ -4,7 +4,6 @@ from torch.nn import functional as F
 from Models.BuildingBlocks import VAE, Classifier
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping, unsupervised_validation_loss
-from itertools import count
 
 
 class M1(Model):
@@ -40,8 +39,8 @@ class M1(Model):
     def train_VAE(self, max_epochs, train_dataloader, validation_dataloader):
         early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=10)
 
-        for epoch in count():
-            if epoch > max_epochs or early_stopping.early_stop:
+        for epoch in range(max_epochs):
+            if early_stopping.early_stop:
                 break
 
             train_loss = 0
@@ -78,8 +77,8 @@ class M1(Model):
 
         early_stopping = EarlyStopping('{}/{}_classifier.pt'.format(self.model_name, self.dataset_name))
 
-        for epoch in count():
-            if epoch > max_epochs or early_stopping.early_stop:
+        for epoch in range(max_epochs):
+            if early_stopping.early_stop:
                 break
 
             for batch_idx, (data, labels) in enumerate(train_dataloader):

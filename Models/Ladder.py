@@ -2,7 +2,7 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
-from itertools import cycle, count
+from itertools import cycle
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping
 
@@ -191,8 +191,8 @@ class LadderNetwork(Model):
 
         early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name), patience=5)
 
-        for epoch in count():
-            if epoch > max_epochs or early_stopping.early_stop:
+        for epoch in range(max_epochs):
+            if early_stopping.early_stop:
                 break
 
             for batch_idx, (labelled_data, unlabelled_data) in enumerate(
