@@ -57,7 +57,7 @@ class SimpleNetwork(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train(self, max_epochs, dataloaders, comparison=False):
+    def train_model(self, max_epochs, dataloaders, comparison=False):
         supervised_dataloader, validation_dataloader = dataloaders
 
         epochs, losses, validation_accs = self.train_classifier(max_epochs, supervised_dataloader,
@@ -65,8 +65,13 @@ class SimpleNetwork(Model):
 
         return epochs, losses, validation_accs
 
-    def test(self, test_dataloader):
+    def test_model(self, test_dataloader):
         return accuracy(self.Classifier, test_dataloader, self.device)
 
     def classify(self, data):
+        self.Classifier.eval()
+
+        return self.forward(data)
+
+    def forward(self, data):
         return self.Classifier(data.to(self.device))

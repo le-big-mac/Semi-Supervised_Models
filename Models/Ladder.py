@@ -189,7 +189,7 @@ class LadderNetwork(Model):
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name), patience=5)
+        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
 
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
@@ -249,7 +249,7 @@ class LadderNetwork(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train(self, max_epochs, dataloaders, comparison=False):
+    def train_model(self, max_epochs, dataloaders, comparison=False):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         epochs, losses, validation_accs = self.train_ladder(max_epochs, supervised_dataloader, unsupervised_dataloader,
@@ -257,5 +257,15 @@ class LadderNetwork(Model):
 
         return epochs, losses, validation_accs
 
-    def test(self, test_dataloader):
+    def test_model(self, test_dataloader):
         return self.accuracy(test_dataloader, 0)
+
+    def classify(self, data):
+        self.ladder.eval()
+
+        return self.forward(data)
+
+    def forward(self, data):
+        y, _ = self.ladder.forward_encoders(data, 0.0, False, 0)
+
+        return y

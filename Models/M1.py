@@ -133,7 +133,7 @@ class M1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, max_epochs, dataloaders, comparison=False):
+    def train_model(self, max_epochs, dataloaders, comparison=False):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         self.train_VAE(max_epochs, unsupervised_dataloader, validation_dataloader)
@@ -143,5 +143,16 @@ class M1(Model):
 
         return classifier_epochs, classifier_losses, classifier_accs
 
-    def test(self, test_dataloader):
+    def test_model(self, test_dataloader):
         return self.accuracy(test_dataloader)
+
+    def classify(self, data):
+        self.Encoder.eval()
+        self.Classifier.eval()
+
+        return self.forward(data)
+
+    def forward(self, data):
+        z, _, _ = self.Encoder(data)
+
+        return self.Classifier(z)

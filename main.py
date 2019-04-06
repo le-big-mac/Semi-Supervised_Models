@@ -26,7 +26,7 @@ def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, u
         model = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, nn.Sigmoid(), dataset_name, device)
 
     elif model_name == 'sdae':
-        model = SDAE(784, [1000, 500, 250, 250, 250], 10, nn.ReLU(), dataset_name, device)
+        model = SDAE(784, [1000, 500, 250, 250, 250], 10, dataset_name, device)
 
     elif model_name == 'simple_m1':
         model = SimpleM1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), dataset_name, device)
@@ -82,7 +82,7 @@ def main():
         model, train_dataloaders, test_dataloader = \
             get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, unsupervised_batch_size)
 
-        epochs, losses, validation_accs = model.train(args.max_epochs, train_dataloaders)
+        epochs, losses, validation_accs = model.train_model(args.max_epochs, train_dataloaders)
         results = model.test(test_dataloader)
 
         epochs_list.append(epochs)

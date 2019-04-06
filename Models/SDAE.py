@@ -7,12 +7,12 @@ from utils.trainingutils import EarlyStopping
 
 
 class SDAEClassifier(nn.Module):
-    def __init__(self, input_size, hidden_dimensions, num_classes, activation):
+    def __init__(self, input_size, hidden_dimensions, num_classes):
         super(SDAEClassifier, self).__init__()
 
         dims = [input_size] + hidden_dimensions
 
-        layers = [Encoder(dims[i], [], dims[i+1], activation)
+        layers = [Encoder(dims[i], [], dims[i+1], nn.ReLU())
                   for i in range(0, len(dims)-1)]
 
         self.hidden_layers = nn.ModuleList(layers)
@@ -26,10 +26,10 @@ class SDAEClassifier(nn.Module):
 
 
 class SDAE(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, activation, dataset_name, device):
+    def __init__(self, input_size, hidden_dimensions, num_classes, dataset_name, device):
         super(SDAE, self).__init__(dataset_name, device)
 
-        self.SDAEClassifier = SDAEClassifier(input_size, hidden_dimensions, num_classes, activation).to(device)
+        self.SDAEClassifier = SDAEClassifier(input_size, hidden_dimensions, num_classes).to(device)
         self.optimizer = torch.optim.Adam(self.SDAEClassifier.parameters(), lr=1e-3)
         self.criterion = nn.CrossEntropyLoss()
 
@@ -108,7 +108,7 @@ class SDAE(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train(self, max_epochs, dataloaders, comparison=False):
+    def train_model(self, max_epochs, dataloaders, comparison=False):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         self.pretrain_hidden_layers(max_epochs, unsupervised_dataloader)
@@ -118,5 +118,13 @@ class SDAE(Model):
 
         return classifier_epochs, classifier_train_losses, classifier_validation_accs
 
-    def test(self, test_dataloader):
+    def test_model(self, test_dataloader):
         return accuracy(self.SDAEClassifier, test_dataloader, self.device)
+
+    def classify(self, data):
+        self.SDAEClassifier.eval()
+
+        return self.forward(data)
+
+    def forward(self, data):
+        return self.SDAEClassifier(data)

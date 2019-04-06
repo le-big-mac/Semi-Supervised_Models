@@ -199,7 +199,7 @@ class M2Runner(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, max_epochs, dataloaders, comparison=False):
+    def train_model(self, max_epochs, dataloaders, comparison=False):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         epochs, losses, validation_accs = self.train_m2(max_epochs, supervised_dataloader, unsupervised_dataloader,
@@ -207,5 +207,13 @@ class M2Runner(Model):
 
         return epochs, losses, validation_accs
 
-    def test(self, test_dataloader):
+    def test_model(self, test_dataloader):
         return self.accuracy(test_dataloader)
+
+    def classify(self, data):
+        self.M2.eval()
+
+        return self.forward(data)
+
+    def forward(self, data):
+        return self.M2.classify(data)
