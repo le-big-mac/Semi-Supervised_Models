@@ -4,7 +4,6 @@ from torch import nn
 from torch.utils.data import DataLoader
 import argparse
 from utils.datautils import load_MNIST_data, save_results, load_data_from_file
-from Models import SimpleNetwork, PretrainingNetwork, SDAE, SimpleM1, M1, M2Runner, LadderNetwork
 from default_values import *
 
 
@@ -58,6 +57,9 @@ def main():
                         help="Choose which model to run"
                         )
     parser.add_argument('--max_epochs', type=int, default=100, help='Maximum number of epochs to run for')
+    parser.add_argument('--comparison', type=bool, default=False,
+                        help='Saves data on validation and losses per iteration for comparison between models (will '
+                             'slow down training)')
     args = parser.parse_args()
 
     model_name = args.model
@@ -88,10 +90,11 @@ def main():
         validation_accs_list.append(validation_accs)
         results_list.append([results])
 
-    save_results(epochs_list, dataset_name, model_name, 'epochs')
-    save_results(losses_list, dataset_name, model_name, 'losses')
-    save_results(validation_accs_list, dataset_name, model_name, 'validation_accs')
     save_results(results_list, dataset_name, model_name, 'test_accuracy')
+    if args.comparison:
+        save_results(epochs_list, dataset_name, model_name, 'epochs')
+        save_results(losses_list, dataset_name, model_name, 'losses')
+        save_results(validation_accs_list, dataset_name, model_name, 'validation_accs')
 
 
 if __name__ == '__main__':

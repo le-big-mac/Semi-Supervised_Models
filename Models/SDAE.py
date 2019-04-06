@@ -67,7 +67,7 @@ class SDAE(Model):
 
                     print('Unsupervised Layer: {} Epoch: {} Loss: {}'.format(i, epoch, loss.item()))
 
-    def train_classifier(self, max_epochs, test_dataloader, validation_dataloader):
+    def train_classifier(self, max_epochs, test_dataloader, validation_dataloader, comparison):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -93,15 +93,14 @@ class SDAE(Model):
                 loss.backward()
                 self.optimizer.step()
 
-                validation_acc = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
-
+            if comparison:
                 epochs.append(epoch)
                 train_losses.append(loss.item())
-                validation_accs.append(validation_acc)
-
-                print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
+                validation_accs.append(accuracy(self.SDAEClassifier, validation_dataloader, self.device))
 
             val = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
+
+            print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.SDAEClassifier)
 
@@ -110,13 +109,13 @@ class SDAE(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train(self, max_epochs, dataloaders):
+    def train(self, max_epochs, dataloaders, comparison=False):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         self.pretrain_hidden_layers(max_epochs, unsupervised_dataloader)
 
         classifier_epochs, classifier_train_losses, classifier_validation_accs = \
-            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader)
+            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader, comparison)
 
         return classifier_epochs, classifier_train_losses, classifier_validation_accs
 

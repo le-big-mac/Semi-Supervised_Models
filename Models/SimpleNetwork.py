@@ -16,7 +16,7 @@ class SimpleNetwork(Model):
 
         self.model_name = 'simple'
 
-    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader, comparison):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -42,15 +42,14 @@ class SimpleNetwork(Model):
                 loss.backward()
                 self.optimizer.step()
 
-                validation_acc = accuracy(self.Classifier, validation_dataloader, self.device)
-
-                epochs.append(epoch)
-                train_losses.append(loss.item())
-                validation_accs.append(accuracy(self.Classifier, validation_dataloader, self.device))
-
-                print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
+                if comparison:
+                    epochs.append(epoch)
+                    train_losses.append(loss.item())
+                    validation_accs.append(accuracy(self.Classifier, validation_dataloader, self.device))
 
             val = accuracy(self.Classifier, validation_dataloader, self.device)
+
+            print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.Classifier)
 
@@ -59,10 +58,11 @@ class SimpleNetwork(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train(self, max_epochs, dataloaders):
+    def train(self, max_epochs, dataloaders, comparison=False):
         supervised_dataloader, validation_dataloader = dataloaders
 
-        epochs, losses, validation_accs = self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader)
+        epochs, losses, validation_accs = self.train_classifier(max_epochs, supervised_dataloader,
+                                                                validation_dataloader, comparison)
 
         return epochs, losses, validation_accs
 

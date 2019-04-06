@@ -23,10 +23,6 @@ class PretrainingNetwork(Model):
         self.model_name = 'pretraining'
 
     def train_autoencoder(self, max_epochs, train_dataloader, validation_dataloader):
-        epochs = []
-        train_losses = []
-        validation_losses = []
-
         early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=10)
 
         for epoch in count():
@@ -55,19 +51,13 @@ class PretrainingNetwork(Model):
 
             early_stopping(validation_loss, self.Autoencoder)
 
-            epochs.append(epoch)
-            train_losses.append(train_loss/len(train_dataloader))
-            validation_losses.append(validation_loss)
-
             print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
             # print('Unsupervised Loss: {}'.format(train_loss))
 
         if early_stopping.early_stop:
             early_stopping.load_checkpoint(self.Autoencoder)
 
-        return epochs, train_losses, validation_losses
-
-    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader, comparison):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -93,15 +83,14 @@ class PretrainingNetwork(Model):
                 loss.backward()
                 self.Classifier_optim.step()
 
-                validation_acc = accuracy(self.Classifier, validation_dataloader, self.device)
-
-                epochs.append(epoch)
-                train_losses.append(loss.item())
-                validation_accs.append(validation_acc)
-
-                print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
+                if comparison:
+                    epochs.append(epoch)
+                    train_losses.append(loss.item())
+                    validation_accs.append(accuracy(self.Classifier, validation_dataloader, self.device))
 
             val = accuracy(self.Classifier, validation_dataloader, self.device)
+
+            print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.Classifier)
 
@@ -110,16 +99,15 @@ class PretrainingNetwork(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train(self, max_epochs, dataloaders):
+    def train(self, max_epochs, dataloaders, comparison=False):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
-        autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
-            self.train_autoencoder(max_epochs, unsupervised_dataloader, validation_dataloader)
+        self.train_autoencoder(max_epochs, unsupervised_dataloader, validation_dataloader)
 
-        classifier_epochs, classifier_train_losses, classifier_validation_accs = \
-            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader)
+        epochs, train_losses, validation_accs = \
+            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader, comparison)
 
-        return classifier_epochs, classifier_train_losses, classifier_validation_accs
+        return epochs, train_losses, validation_accs
 
     def test(self, test_dataloader):
         return accuracy(self.Classifier, test_dataloader, self.device)

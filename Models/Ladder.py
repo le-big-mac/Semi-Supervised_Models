@@ -70,8 +70,7 @@ class encoders(nn.Module):
                 z = self.batch_norm_clean_labelled[l-1](z_pre)
 
             if l == self.L:
-                # use softmax activation in output layer
-                # softmax done outside to allow crossentropyloss
+                # softmax done in nn.CrossEntropyLoss so output from model is linear
                 h = self.gamma * (z + self.beta[l-1])
             else:
                 # use ReLU activation in hidden layers
@@ -184,7 +183,8 @@ class LadderNetwork(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train_ladder(self, max_epochs, supervised_dataloader, unsupervised_dataloader, validation_dataloader):
+    def train_ladder(self, max_epochs, supervised_dataloader, unsupervised_dataloader, validation_dataloader,
+                     comparison):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -233,17 +233,14 @@ class LadderNetwork(Model):
                 loss.backward()
                 self.optimizer.step()
 
-                validation_acc = self.accuracy(validation_dataloader, 0)
-
-                epochs.append(epoch)
-                train_losses.append(loss.item())
-                validation_accs.append(validation_acc)
-
-                print('Epoch: {} Supervised Cost: {} Unsupervised Cost: {} Validation Accuracy: {}'.format(
-                    epoch, cost.item(), u_cost.item(), validation_acc
-                ))
+                if comparison:
+                    epochs.append(epoch)
+                    train_losses.append(loss.item())
+                    validation_accs.append(self.accuracy(validation_dataloader, 0))
 
             val = self.accuracy(validation_dataloader, 0)
+
+            print('Epoch: {} Validation Accuracy: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.ladder)
 
@@ -252,11 +249,11 @@ class LadderNetwork(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train(self, max_epochs, dataloaders):
+    def train(self, max_epochs, dataloaders, comparison):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         epochs, losses, validation_accs = self.train_ladder(max_epochs, supervised_dataloader, unsupervised_dataloader,
-                                                            validation_dataloader)
+                                                            validation_dataloader, comparison)
 
         return epochs, losses, validation_accs
 

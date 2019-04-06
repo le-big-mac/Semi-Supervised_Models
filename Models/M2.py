@@ -126,7 +126,7 @@ class M2Runner(Model):
 
             return -self.minus_U(x, pred_y)
 
-    def train_m2(self, max_epochs, labelled_loader, unlabelled_loader, validation_loader):
+    def train_m2(self, max_epochs, labelled_loader, unlabelled_loader, validation_loader, comparison):
         alpha = 0.1 * len(unlabelled_loader.dataset)/len(labelled_loader.dataset)
 
         epochs = []
@@ -163,19 +163,17 @@ class M2Runner(Model):
                 loss.backward()
                 self.optimizer.step()
 
-                validation_acc = self.accuracy(validation_loader)
-
-                epochs.append(epoch)
-                train_losses.append(loss.item())
-                validation_accs.append(validation_acc)
+                if comparison:
+                    epochs.append(epoch)
+                    train_losses.append(loss.item())
+                    validation_accs.append(self.accuracy(validation_loader))
 
                 # print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
                 #       .format(epoch, labelled_loss.item(), U.item(), L.item(), validation_acc))
 
             val = self.accuracy(validation_loader)
 
-            print('Epoch: {} Loss: {} Validation acc: {}'.format(epoch, sum(train_losses) / len(train_losses),
-                                                                 val))
+            print('Epoch: {} Validation acc: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.M2)
 
@@ -201,11 +199,11 @@ class M2Runner(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, max_epochs, dataloaders):
+    def train(self, max_epochs, dataloaders, comparison=False):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         epochs, losses, validation_accs = self.train_m2(max_epochs, supervised_dataloader, unsupervised_dataloader,
-                                                        validation_dataloader)
+                                                        validation_dataloader, comparison)
 
         return epochs, losses, validation_accs
 

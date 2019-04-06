@@ -28,10 +28,6 @@ class SimpleM1(Model):
         self.model_name = 'simple_m1'
 
     def train_autoencoder(self, max_epochs, train_dataloader, validation_dataloader):
-        epochs = []
-        train_losses = []
-        validation_losses = []
-
         early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=10)
 
         for epoch in count():
@@ -56,22 +52,16 @@ class SimpleM1(Model):
                 self.Autoencoder_optim.step()
 
             validation_loss = unsupervised_validation_loss(self.Autoencoder, validation_dataloader,
-                                                            self.Autoencoder_criterion, self.device)
+                                                           self.Autoencoder_criterion, self.device)
 
             early_stopping(validation_loss, self.Autoencoder)
-
-            epochs.append(epoch)
-            train_losses.append(train_loss/len(train_dataloader))
-            validation_losses.append(validation_loss)
 
             print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
 
         if early_stopping.early_stop:
             early_stopping.load_checkpoint(self.Autoencoder)
 
-        return epochs, train_losses, validation_losses
-
-    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader, comparison):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -100,15 +90,14 @@ class SimpleM1(Model):
                 loss.backward()
                 self.Classifier_optim.step()
 
-                validation_acc = self.accuracy(validation_dataloader)
-
-                epochs.append(epoch)
-                train_losses.append(loss.item())
-                validation_accs.append(validation_acc)
-
-                print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
+                if comparison:
+                    epochs.append(epoch)
+                    train_losses.append(loss.item())
+                    validation_accs.append(self.accuracy(validation_dataloader))
 
             val = self.accuracy(validation_dataloader)
+
+            print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.Classifier)
 
@@ -135,16 +124,15 @@ class SimpleM1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, max_epochs, dataloaders):
+    def train(self, max_epochs, dataloaders, comparison=False):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
-        autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
-            self.train_autoencoder(max_epochs, unsupervised_dataloader, validation_dataloader)
+        self.train_autoencoder(max_epochs, unsupervised_dataloader, validation_dataloader)
 
-        classifier_epochs, classifier_losses, classifier_accs = \
-            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader)
+        epochs, losses, validation_accs = self.train_classifier(max_epochs, supervised_dataloader,
+                                                                validation_dataloader, comparison)
 
-        return classifier_epochs, classifier_losses, classifier_accs
+        return epochs, losses, validation_accs
 
     def test(self, test_dataloader):
         return self.accuracy(test_dataloader)

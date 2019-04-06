@@ -38,10 +38,6 @@ class M1(Model):
         return (KLD + BCE).mean()
 
     def train_VAE(self, max_epochs, train_dataloader, validation_dataloader):
-        epochs = []
-        train_losses = []
-        validation_losses = []
-
         early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=10)
 
         for epoch in count():
@@ -70,18 +66,12 @@ class M1(Model):
 
             early_stopping(validation_loss, self.VAE)
 
-            epochs.append(epoch)
-            train_losses.append(train_loss/len(train_dataloader))
-            validation_losses.append(validation_loss)
-
             print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
 
         if early_stopping.early_stop:
             early_stopping.load_checkpoint(self.VAE)
 
-        return epochs, train_losses, validation_losses
-
-    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader, comparison):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -110,15 +100,14 @@ class M1(Model):
                 loss.backward()
                 self.Classifier_optim.step()
 
-                validation_acc = self.accuracy(validation_dataloader)
-
-                epochs.append(epoch)
-                train_losses.append(loss.item())
-                validation_accs.append(validation_acc)
-
-                print('Supervised Epoch: {} Loss: {} Validation acc: {}'.format(epoch, loss.item(), validation_acc))
+                if comparison:
+                    epochs.append(epoch)
+                    train_losses.append(loss.item())
+                    validation_accs.append(self.accuracy(validation_dataloader))
 
             val = self.accuracy(validation_dataloader)
+
+            print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.Classifier)
 
@@ -145,14 +134,13 @@ class M1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train(self, max_epochs, dataloaders):
+    def train(self, max_epochs, dataloaders, comparison=False):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
-        autoencoder_epochs, autoencoder_train_losses, autoencoder_validation_losses = \
-            self.train_VAE(unsupervised_dataloader, validation_dataloader)
+        self.train_VAE(max_epochs, unsupervised_dataloader, validation_dataloader)
 
         classifier_epochs, classifier_losses, classifier_accs = \
-            self.train_classifier(supervised_dataloader, validation_dataloader)
+            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader, comparison)
 
         return classifier_epochs, classifier_losses, classifier_accs
 

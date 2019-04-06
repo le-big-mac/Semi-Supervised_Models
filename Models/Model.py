@@ -3,7 +3,7 @@ class Model(object):
         self.dataset_name = dataset_name
         self.device = device
 
-    def train(self,  max_epochs, dataloaders):
+    def train(self,  max_epochs, dataloaders, comparison):
         raise NotImplementedError
 
     def test(self, test_dataset):
