@@ -83,7 +83,7 @@ def main():
             get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, unsupervised_batch_size)
 
         epochs, losses, validation_accs = model.train_model(args.max_epochs, train_dataloaders)
-        results = model.test(test_dataloader)
+        results = model.test_model(test_dataloader)
 
         epochs_list.append(epochs)
         losses_list.append(losses)
