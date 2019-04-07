@@ -45,7 +45,7 @@ def accuracy(model):
 
 
 for i in range(5):
-    model = MLP()
+    model = MLP().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
