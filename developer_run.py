@@ -31,6 +31,9 @@ def get_models_and_dataloaders(args, datasets, input_size, output_size):
     batch_size = 100
     pretraining_batch_size = 1000
 
+    print(unsupervised_dataset.__len__())
+    print(supervised_dataset.__len__())
+
     unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=pretraining_batch_size, shuffle=True)
     supervised_dataloader = DataLoader(supervised_dataset, batch_size=batch_size, shuffle=True)
     validation_dataloader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())
@@ -85,9 +88,9 @@ def main():
                         help="Choose which model to run"
                         )
     parser.add_argument('dataset', type=str, choices=['mnist', 'toy', 'tcga', 'metabric'], help='Dataset to run on')
-    parser.add_argument('classifier_layers', type=list, help='Hidden layer sizes')
     parser.add_argument('num_labelled', type=int)
     parser.add_argument('num_unlabelled', type=int)
+    parser.add_argument('classifier_layers', type=int, nargs='+', help='Hidden layer sizes')
     parser.add_argument('--latent_size', type=int)
     parser.add_argument('--autoencoder_layers', type=int)
     parser.add_argument('--max_epochs', type=int, default=100, help='Maximum number of epochs to run for')
