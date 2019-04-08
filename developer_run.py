@@ -31,9 +31,6 @@ def get_models_and_dataloaders(args, datasets, input_size, output_size):
     batch_size = 100
     pretraining_batch_size = 1000
 
-    print(unsupervised_dataset.__len__())
-    print(supervised_dataset.__len__())
-
     unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=pretraining_batch_size, shuffle=True)
     supervised_dataloader = DataLoader(supervised_dataset, batch_size=batch_size, shuffle=True)
     validation_dataloader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())

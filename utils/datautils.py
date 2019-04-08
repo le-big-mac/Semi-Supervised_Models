@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, TensorDataset
 from torchvision import datasets
 from collections import defaultdict
 from sklearn.datasets import make_classification
+import xenaPython as xena
 
 
 def normalize_tensors(data):
@@ -49,30 +50,30 @@ def load_toy_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     labels = np.loadtxt('./data/toy/toy_labels.csv', dtype=int, delimiter=',')
 
     input_size = len(data[0])
-
     num_classes = len(set(labels))
-    labelled_per_class = num_labelled//num_classes
-    unlabelled_per_class = num_unlabelled//num_classes
+
+    labelled_per_class = num_labelled // num_classes
+    unlabelled_per_class = num_unlabelled // num_classes
 
     data_buckets = defaultdict(list)
 
     for d, l in zip(data, labels):
-        data_buckets[l].append((data, l))
+        data_buckets[l].append((d, l))
 
     unlabelled_data = []
     labelled_data = []
     validation_data = []
     test_data = []
 
-    for labels, d in data_buckets.items():
+    for l, d in data_buckets.items():
         labelled_data.extend(d[:labelled_per_class])
         unlabelled_data.extend(d[:unlabelled_per_class])
 
         lower = max(labelled_per_class, unlabelled_per_class)
         if validation and test:
             leftover = len(d) - lower
-            validation_data.extend(d[lower:lower+leftover/2])
-            test_data.extend(d[lower+leftover/2:])
+            validation_data.extend(d[lower:lower + leftover // 2])
+            test_data.extend(d[lower + leftover // 2:])
         elif validation:
             validation_data.extend(d[lower:])
         elif test:
@@ -89,7 +90,7 @@ def load_toy_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     test_data = list(zip(*test_data))
 
     supervised_dataset = TensorDataset(torch.from_numpy(np.stack(labelled_data[0])),
-                                       torch.from_numpy(np.concatenate(labelled_data[1])).long())
+                                       torch.from_numpy(np.array(labelled_data[1])).long())
 
     unsupervised_dataset = None
     if num_unlabelled > 0:
@@ -98,18 +99,21 @@ def load_toy_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     validation_dataset = None
     if validation:
         supervised_dataset = TensorDataset(torch.from_numpy(np.stack(validation_data[0])),
-                                           torch.from_numpy(np.concatenate(validation_data[1])).long())
+                                           torch.from_numpy(np.array(validation_data[1])).long())
     test_dataset = None
     if test:
         test_dataset = TensorDataset(torch.from_numpy(np.stack(test_data[0])),
-                                           torch.from_numpy(np.concatenate(test_data[1])).long())
+                                     torch.from_numpy(np.array(test_data[1])).long())
 
     return (unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset), input_size, num_classes
 
 
-# def load_tcga_data(num_labelled, num_unlabelled):
-#     if not os.path.exists('./data/tcga'):
-#         dataset = host.
+def load_tcga_data(num_labelled, num_unlabelled):
+    if not os.path.exists('./data/tcga'):
+        host = xena.PUBLIC_HUBS['pancanAtlasHub']
+        dataset = 'EB++AdjustPANCAN_IlluminaHiSeq_RNASeqV2.geneExp.xena'
+
+        samples = xena.dataset_samples(host, dataset, None)
 
 
 
