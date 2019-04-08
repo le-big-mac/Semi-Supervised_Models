@@ -3,47 +3,74 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 import argparse
-from utils.datautils import load_MNIST_data, save_results
+from utils.datautils import load_MNIST_data, load_toy_data, save_results
 from Models import *
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 state_path = './Models/state'
 
-def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, unsupervised_batch_size):
+
+def get_datasets(args):
+    dataset_name = args.dataset
+    num_labelled = args.num_labelled
+    num_unlabelled = args.num_unlabelled
+
+    datasets = None
+    if dataset_name == 'mnist':
+        datasets = load_MNIST_data(num_labelled, num_unlabelled, True, True)
+        input_size = 784
+        output_size = 10
+    elif dataset_name == 'toy':
+        datasets, input_size, output_size = load_toy_data(num_labelled, num_unlabelled, True, True)
+
+    return datasets, input_size, output_size
+
+
+def get_models_and_dataloaders(args, datasets, input_size, output_size):
     model = None
     unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = datasets
+    batch_size = 100
+    pretraining_batch_size = 1000
 
-    unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=unsupervised_batch_size, shuffle=True)
+    unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=pretraining_batch_size, shuffle=True)
     supervised_dataloader = DataLoader(supervised_dataset, batch_size=batch_size, shuffle=True)
     validation_dataloader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())
     test_dataloader = DataLoader(test_dataset, batch_size=test_dataset.__len__())
 
+    # default
     train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
 
+    model_name = args.model
+    dataset_name = args.dataset
+    classifier_layers = args.classifier_layers
+
     if model_name == 'simple':
-        model = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, dataset_name, device)
+        model = SimpleNetwork(input_size, classifier_layers, output_size, dataset_name, device)
         train_dataloaders = (supervised_dataloader, validation_dataloader)
 
     elif model_name == 'pretraining':
-        model = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, nn.Sigmoid(), dataset_name, device)
+        model = PretrainingNetwork(input_size, classifier_layers, output_size, nn.Sigmoid(), dataset_name, device)
 
     elif model_name == 'sdae':
-        model = SDAE(784, [1000, 500, 250, 250, 250], 10, dataset_name, device)
+        model = SDAE(input_size, classifier_layers, output_size, dataset_name, device)
 
     elif model_name == 'simple_m1':
-        model = SimpleM1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), dataset_name, device)
+        model = SimpleM1(input_size, args.autoencoder_layers, args.latent_size, classifier_layers, output_size,
+                         lambda x: x, dataset_name, device)
 
     elif model_name == 'm1':
-        model = M1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), dataset_name, device)
+        model = M1(input_size, args.autoencoder_layers, args.latent_size, classifier_layers, output_size,
+                   lambda x: x, dataset_name, device)
 
     elif model_name == 'm2':
-        model = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), dataset_name, device)
+        model = M2Runner(input_size, args.autoencoder_layers, classifier_layers, args.latent_size, output_size,
+                         lambda x: x, dataset_name, device)
 
         unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
         train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
 
     elif model_name == 'ladder':
-        model = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, [1000.0, 10.0, 0.10, 0.10, 0.10, 0.10, 0.10],
-                              dataset_name, device)
+        model = LadderNetwork(input_size, classifier_layers, output_size,
+                              [1000.0, 10.0] + [0.1] * (len(classifier_layers)), dataset_name, device)
 
         unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
         train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
@@ -57,6 +84,12 @@ def main():
                         choices=['simple', 'pretraining', 'sdae', 'simple_m1', 'm1', 'm2', 'ladder'],
                         help="Choose which model to run"
                         )
+    parser.add_argument('dataset', type=str, choices=['mnist', 'toy', 'tcga', 'metabric'], help='Dataset to run on')
+    parser.add_argument('classifier_layers', type=list, help='Hidden layer sizes')
+    parser.add_argument('num_labelled', type=int)
+    parser.add_argument('num_unlabelled', type=int)
+    parser.add_argument('--latent_size', type=int)
+    parser.add_argument('--autoencoder_layers', type=int)
     parser.add_argument('--max_epochs', type=int, default=100, help='Maximum number of epochs to run for')
     parser.add_argument('--comparison', type=bool, default=False,
                         help='Saves data on validation and losses per iteration for comparison between models (will '
@@ -64,16 +97,14 @@ def main():
     args = parser.parse_args()
 
     model_name = args.model
-    unsupervised_batch_size = 1000
-    batch_size = 100
-
-    dataset_name = 'MNIST'
-    datasets = load_MNIST_data(100, 2000, True, True)
 
     if not os.path.exists(state_path):
         os.mkdir(state_path)
     if not os.path.exists('{}/{}'.format(state_path, model_name)):
         os.mkdir('{}/{}'.format(state_path, model_name))
+
+    dataset_name = args.dataset
+    datasets, input_size, output_size = get_datasets(args)
 
     epochs_list = []
     losses_list = []
@@ -81,7 +112,7 @@ def main():
     results_list = []
     for i in range(5):
         model, train_dataloaders, test_dataloader = \
-            get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, unsupervised_batch_size)
+            get_models_and_dataloaders(args, datasets, input_size, output_size)
 
         epochs, losses, validation_accs = model.train_model(args.max_epochs, train_dataloaders)
         results = model.test_model(test_dataloader)

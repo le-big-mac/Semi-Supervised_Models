@@ -5,30 +5,112 @@ import numpy as np
 from torch.utils.data import Dataset, TensorDataset
 from torchvision import datasets
 from collections import defaultdict
+from sklearn.datasets import make_classification
 
 
-class SupervisedClassificationDataset(Dataset):
+def normalize_tensors(data):
+    mean = data.mean(dim=0)
+    std = data.std(dim=0)
 
-    def __init__(self, inputs, outputs):
-        super(SupervisedClassificationDataset, self).__init__()
+    norm_data = (data - mean) / (1e-7 + std)
 
-        self.data = [torch.from_numpy(np.atleast_1d(vec)).float() for vec in inputs]
-        self.labels = [torch.squeeze(torch.from_numpy(np.atleast_1d(vec)).long()) for vec in outputs]
+    return norm_data
 
-    def __len__(self):
-        return len(self.labels)
 
-    def __getitem__(self, index):
-        return self.data[index], self.labels[index]
+def make_toy_data(n_samples, n_features, n_classes):
+    data, labels = make_classification(n_samples=n_samples, n_features=n_features, n_informative=10, n_redundant=20,
+                                       n_classes=n_classes, n_clusters_per_class=1, shuffle=False)
 
-# TODO: this sucks
-def load_data_from_file(unsupervised_file_path, supervised_data_file_path, supervised_labels_file_path):
+    dataset = zip(data, labels)
 
-    unsupervised_data = np.loadtxt(unsupervised_file_path, dtype=float, delimiter=",")
-    supervised_data = np.loadtxt(supervised_data_file_path, dtype=float, delimiter=",")
-    supervised_labels = np.loadtxt(supervised_labels_file_path, dtype=int, delimiter=",")
+    if not os.path.exists('./data'):
+        os.mkdir('./data')
+    if not os.path.exists('./data/toy'):
+        os.mkdir('./data/toy')
 
-    return unsupervised_data, supervised_data, supervised_labels
+    toy_data_file = open('./data/toy/toy_data.csv', 'w')
+    toy_labels_file = open('./data/toy/toy_labels.csv', 'w')
+
+    data_writer = csv.writer(toy_data_file)
+    labels_writer = csv.writer(toy_labels_file)
+
+    for d, l in dataset:
+        data_writer.writerow(d)
+        labels_writer.writerow([l])
+
+
+def load_toy_data(num_labelled, num_unlabelled=0, validation=True, test=True):
+    if not os.path.exists('./data/toy/toy_data.csv'):
+        num_samples = max(num_labelled, num_unlabelled) + int(validation) * 1000 + int(test) * 1000
+
+        make_toy_data(num_samples, 500, 4)
+
+    data = np.loadtxt('./data/toy/toy_data.csv', dtype=float, delimiter=',')
+    labels = np.loadtxt('./data/toy/toy_labels.csv', dtype=int, delimiter=',')
+
+    input_size = len(data[0])
+
+    num_classes = len(set(labels))
+    labelled_per_class = num_labelled//num_classes
+    unlabelled_per_class = num_unlabelled//num_classes
+
+    data_buckets = defaultdict(list)
+
+    for d, l in zip(data, labels):
+        data_buckets[l].append((data, l))
+
+    unlabelled_data = []
+    labelled_data = []
+    validation_data = []
+    test_data = []
+
+    for labels, d in data_buckets.items():
+        labelled_data.extend(d[:labelled_per_class])
+        unlabelled_data.extend(d[:unlabelled_per_class])
+
+        lower = max(labelled_per_class, unlabelled_per_class)
+        if validation and test:
+            leftover = len(d) - lower
+            validation_data.extend(d[lower:lower+leftover/2])
+            test_data.extend(d[lower+leftover/2:])
+        elif validation:
+            validation_data.extend(d[lower:])
+        elif test:
+            test_data.extend(d[lower:])
+
+    np.random.shuffle(labelled_data)
+    np.random.shuffle(unlabelled_data)
+    np.random.shuffle(validation_data)
+    np.random.shuffle(test_data)
+
+    labelled_data = list(zip(*labelled_data))
+    unlabelled_data = list(zip(*unlabelled_data))
+    validation_data = list(zip(*validation_data))
+    test_data = list(zip(*test_data))
+
+    supervised_dataset = TensorDataset(torch.from_numpy(np.stack(labelled_data[0])),
+                                       torch.from_numpy(np.concatenate(labelled_data[1])).long())
+
+    unsupervised_dataset = None
+    if num_unlabelled > 0:
+        unsupervised_dataset = TensorDataset(torch.from_numpy(np.stack(unlabelled_data[0])),
+                                             torch.from_numpy(np.array([-1] * len(unlabelled_data[1]))).long())
+    validation_dataset = None
+    if validation:
+        supervised_dataset = TensorDataset(torch.from_numpy(np.stack(validation_data[0])),
+                                           torch.from_numpy(np.concatenate(validation_data[1])).long())
+    test_dataset = None
+    if test:
+        test_dataset = TensorDataset(torch.from_numpy(np.stack(test_data[0])),
+                                           torch.from_numpy(np.concatenate(test_data[1])).long())
+
+    return (unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset), input_size, num_classes
+
+
+# def load_tcga_data(num_labelled, num_unlabelled):
+#     if not os.path.exists('./data/tcga'):
+#         dataset = host.
+
 
 
 def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
@@ -74,7 +156,11 @@ def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     validation_data = list(zip(*validation_data))
 
     supervised_dataset = TensorDataset(torch.stack(labelled_data[0]), torch.stack(labelled_data[1]))
-    unsupervised_dataset = TensorDataset(torch.stack(unlabelled_data[0]), -1 * torch.ones(len(unlabelled_data[1])))
+
+    unsupervised_dataset = None
+    if num_unlabelled > 0:
+        unsupervised_dataset = TensorDataset(torch.stack(unlabelled_data[0]),
+                                             -1 * torch.ones(len(unlabelled_data[1])).long())
 
     validation_dataset = None
     if validation:
