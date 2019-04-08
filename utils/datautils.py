@@ -89,20 +89,20 @@ def load_toy_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     validation_data = list(zip(*validation_data))
     test_data = list(zip(*test_data))
 
-    supervised_dataset = TensorDataset(torch.from_numpy(np.stack(labelled_data[0])),
+    supervised_dataset = TensorDataset(torch.from_numpy(np.stack(labelled_data[0])).float(),
                                        torch.from_numpy(np.array(labelled_data[1])).long())
 
     unsupervised_dataset = None
     if num_unlabelled > 0:
-        unsupervised_dataset = TensorDataset(torch.from_numpy(np.stack(unlabelled_data[0])),
+        unsupervised_dataset = TensorDataset(torch.from_numpy(np.stack(unlabelled_data[0])).float(),
                                              torch.from_numpy(np.array([-1] * len(unlabelled_data[1]))).long())
     validation_dataset = None
     if validation:
-        supervised_dataset = TensorDataset(torch.from_numpy(np.stack(validation_data[0])),
+        validation_dataset = TensorDataset(torch.from_numpy(np.stack(validation_data[0])).float(),
                                            torch.from_numpy(np.array(validation_data[1])).long())
     test_dataset = None
     if test:
-        test_dataset = TensorDataset(torch.from_numpy(np.stack(test_data[0])),
+        test_dataset = TensorDataset(torch.from_numpy(np.stack(test_data[0])).float(),
                                      torch.from_numpy(np.array(test_data[1])).long())
 
     return (unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset), input_size, num_classes
