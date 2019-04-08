@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, TensorDataset
 from torchvision import datasets
 from collections import defaultdict
 from sklearn.datasets import make_classification
-import xenaPython as xena
+# import xenaPython as xena
 
 
 def normalize_tensors(data):
@@ -108,12 +108,12 @@ def load_toy_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     return (unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset), input_size, num_classes
 
 
-def load_tcga_data(num_labelled, num_unlabelled):
-    if not os.path.exists('./data/tcga'):
-        host = xena.PUBLIC_HUBS['pancanAtlasHub']
-        dataset = 'EB++AdjustPANCAN_IlluminaHiSeq_RNASeqV2.geneExp.xena'
-
-        samples = xena.dataset_samples(host, dataset, None)
+# def load_tcga_data(num_labelled, num_unlabelled):
+#     if not os.path.exists('./data/tcga'):
+#         host = xena.PUBLIC_HUBS['pancanAtlasHub']
+#         dataset = 'EB++AdjustPANCAN_IlluminaHiSeq_RNASeqV2.geneExp.xena'
+#
+#         samples = xena.dataset_samples(host, dataset, None)
 
 
 

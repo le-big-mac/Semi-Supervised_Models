@@ -114,7 +114,7 @@ def main():
         model, train_dataloaders, test_dataloader = \
             get_models_and_dataloaders(args, datasets, input_size, output_size)
 
-        epochs, losses, validation_accs = model.train_model(args.max_epochs, train_dataloaders)
+        epochs, losses, validation_accs = model.train_model(args.max_epochs, train_dataloaders, args.comparison)
         results = model.test_model(test_dataloader)
 
         epochs_list.append(epochs)
