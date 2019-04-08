@@ -91,7 +91,7 @@ def main():
     parser.add_argument('--latent_size', type=int)
     parser.add_argument('--autoencoder_layers', type=int)
     parser.add_argument('--max_epochs', type=int, default=100, help='Maximum number of epochs to run for')
-    parser.add_argument('--comparison', type=bool, default=False,
+    parser.add_argument('--comparison', type=bool, default=True,
                         help='Saves data on validation and losses per iteration for comparison between models (will '
                              'slow down training)')
     args = parser.parse_args()

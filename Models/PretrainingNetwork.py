@@ -98,7 +98,7 @@ class PretrainingNetwork(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train_model(self, max_epochs, dataloaders, comparison=False):
+    def train_model(self, max_epochs, dataloaders, comparison):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         self.train_autoencoder(max_epochs, unsupervised_dataloader, validation_dataloader)

@@ -123,7 +123,7 @@ class SimpleM1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train_model(self, max_epochs, dataloaders, comparison=False):
+    def train_model(self, max_epochs, dataloaders, comparison):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         self.train_autoencoder(max_epochs, unsupervised_dataloader, validation_dataloader)
