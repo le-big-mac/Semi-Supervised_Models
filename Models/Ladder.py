@@ -234,9 +234,14 @@ class LadderNetwork(Model):
                 self.optimizer.step()
 
                 if comparison:
+                    val_acc = self.accuracy(validation_dataloader, 0)
+
                     epochs.append(epoch)
                     train_losses.append(loss.item())
-                    validation_accs.append(self.accuracy(validation_dataloader, 0))
+                    validation_accs.append(val_acc)
+
+                    print('Epoch: {} Supervised Loss: {} Unsupervised Loss: {} Validation Accuracy: {}'
+                          .format(epoch, cost.item(), u_cost.item(), val_acc))
 
             val = self.accuracy(validation_dataloader, 0)
 
