@@ -6,16 +6,28 @@ from torch.utils.data import Dataset, TensorDataset
 from torchvision import datasets
 from collections import defaultdict
 from sklearn.datasets import make_classification
-# import xenaPython as xena
+import pandas as pd
+from enum import Enum
+from math import ceil
 
 
-def normalize_tensors(data):
-    mean = data.mean(dim=0)
-    std = data.std(dim=0)
+class NormalizeTensors:
+    def __init__(self):
+        self.means = None
+        self.stds = None
 
-    norm_data = (data - mean) / (1e-7 + std)
+    def apply_train(self, data):
+        self.means = data.mean(dim=0, keepdim=True)
+        self.stds = data.std(dim=0, unbiased=False, keepdim=True)
 
-    return norm_data
+        norm_data = (data - self.means) / (1e-7 + self.stds)
+
+        return norm_data
+
+    def apply_test(self, data):
+        norm_data = (data - self.means) / (1e-7 + self.stds)
+
+        return norm_data
 
 
 def make_toy_data(n_samples, n_features, n_classes):
@@ -41,6 +53,8 @@ def make_toy_data(n_samples, n_features, n_classes):
 
 
 def load_toy_data(num_labelled, num_unlabelled=0, validation=True, test=True):
+    assert num_unlabelled > num_labelled or num_unlabelled == 0
+
     if not os.path.exists('./data/toy/toy_data.csv'):
         num_samples = max(num_labelled, num_unlabelled) + int(validation) * 1000 + int(test) * 1000
 
@@ -108,16 +122,109 @@ def load_toy_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     return (unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset), input_size, num_classes
 
 
-# def load_tcga_data(num_labelled, num_unlabelled):
-#     if not os.path.exists('./data/tcga'):
-#         host = xena.PUBLIC_HUBS['pancanAtlasHub']
-#         dataset = 'EB++AdjustPANCAN_IlluminaHiSeq_RNASeqV2.geneExp.xena'
-#
-#         samples = xena.dataset_samples(host, dataset, None)
+class ImputationType(Enum):
+    DROP_SAMPLES = 1
+    DROP_GENES = 2
+    MEAN_VALUE = 3
+    ZERO = 4
 
+
+def load_tcga_data(num_labelled, num_unlabelled, validation=True, test=True,
+                   imputation_type=ImputationType.DROP_SAMPLES, stratified_labelled=True):
+    assert num_unlabelled > num_labelled or num_unlabelled == 0
+
+    rnaseq_df = pd.read_csv('data/tcga/rnaseq_data_with_labels.csv', index_col=0)
+
+    if imputation_type == ImputationType.DROP_SAMPLES:
+        rnaseq_df = rnaseq_df.dropna(axis=0, how='any')
+    elif imputation_type == ImputationType.DROP_GENES:
+        rnaseq_df = rnaseq_df.dropna(axis=1, how='any')
+    elif imputation_type == ImputationType.MEAN_VALUE:
+        col_means = rnaseq_df.mean()
+        rnaseq_df = rnaseq_df.fillna(col_means)
+    else:
+        rnaseq_df = rnaseq_df.fillna(0)
+
+    num_samples_map = rnaseq_df['DISEASE'].value_counts().to_dict()
+    total_samples = len(rnaseq_df.index)
+    num_classes = len(num_samples_map)
+    input_size = len(rnaseq_df.columns) - 1
+
+    disease_label_map = {d: i for i, d in enumerate(list(num_samples_map.keys()))}
+
+    labelled_data = []
+    unlabelled_data = []
+    validation_data = []
+    test_data = []
+
+    labelled_per_sample = num_labelled // num_classes
+    unlabelled_per_sample = num_unlabelled // num_classes
+
+    for disease, num_samples in num_samples_map.items():
+        sample_rows = rnaseq_df.loc[rnaseq_df['DISEASE'] == disease]
+        sample_rows = sample_rows.drop('DISEASE', axis=1)
+        disease_tensor = torch.tensor(sample_rows.values)
+        labels_tensor = disease_label_map[disease] * torch.ones(disease_tensor.size(0))
+        data_list = list(zip(disease_tensor, labels_tensor))
+
+        if stratified_labelled:
+            relative = num_samples/total_samples
+            labelled_per_sample = int(ceil(num_labelled * relative))
+            unlabelled_per_sample = int(ceil(num_unlabelled * relative))
+
+        labelled_data.extend(data_list[:labelled_per_sample])
+        unlabelled_data.extend(data_list[:unlabelled_per_sample])
+
+        lower = max(labelled_per_sample, unlabelled_per_sample)
+        if validation and test:
+            leftover = len(data_list) - lower
+            validation_data.extend(data_list[lower:lower + leftover // 2])
+            test_data.extend(data_list[lower + leftover // 2:])
+        elif validation:
+            validation_data.extend(data_list[lower:])
+        elif test:
+            test_data.extend(data_list[lower:])
+
+    np.random.shuffle(labelled_data)
+    np.random.shuffle(unlabelled_data)
+    np.random.shuffle(validation_data)
+    np.random.shuffle(test_data)
+
+    labelled_data = list(zip(*labelled_data))
+    unlabelled_data = list(zip(*unlabelled_data))
+    validation_data = list(zip(*validation_data))
+    test_data = list(zip(*test_data))
+
+    normalizer = NormalizeTensors()
+    if num_unlabelled > num_labelled:
+        unsupervised_data = normalizer.apply_train(torch.stack(unlabelled_data[0]).float())
+        supervised_data = normalizer.apply_test(torch.stack(labelled_data[0]).float())
+    else:
+        supervised_data = normalizer.apply_test(torch.stack(labelled_data[0]).float())
+
+    print(supervised_data[0])
+
+    supervised_dataset = TensorDataset(supervised_data, torch.stack(labelled_data[1]).long())
+
+    unsupervised_dataset = None
+    if num_unlabelled > 0:
+        unsupervised_dataset = TensorDataset(unsupervised_data,
+                                             -1 * torch.ones(len(unlabelled_data[1])).long())
+    validation_dataset = None
+    if validation:
+        validation_dataset = TensorDataset(normalizer.apply_test(torch.stack(validation_data[0]).float()),
+                                           torch.stack(validation_data[1]).long())
+    test_dataset = None
+    if test:
+        test_dataset = TensorDataset(normalizer.apply_test(torch.stack(test_data[0]).float()),
+                                     torch.stack(test_data[1]).long())
+
+    return (unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset), input_size, num_classes
 
 
 def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
+    assert num_unlabelled > num_labelled or num_unlabelled == 0
+
     mnist_train = datasets.MNIST(root='data/MNIST', train=True, download=True, transform=None)
     mnist_test = datasets.MNIST(root='data/MNIST', train=False, download=True, transform=None)
 

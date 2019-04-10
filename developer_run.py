@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 import argparse
-from utils.datautils import load_MNIST_data, load_toy_data, save_results
+from utils.datautils import *
 from Models import *
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 state_path = './Models/state'
@@ -21,6 +21,8 @@ def get_datasets(args):
         output_size = 10
     elif dataset_name == 'toy':
         datasets, input_size, output_size = load_toy_data(num_labelled, num_unlabelled, True, True)
+    elif dataset_name == 'tcga':
+        datasets, input_size, output_size = load_tcga_data(num_labelled, num_unlabelled)
 
     return datasets, input_size, output_size
 
@@ -113,6 +115,8 @@ def main():
     for i in range(5):
         model, train_dataloaders, test_dataloader = \
             get_models_and_dataloaders(args, datasets, input_size, output_size)
+
+        print(model)
 
         epochs, losses, validation_accs = model.train_model(args.max_epochs, train_dataloaders, args.comparison)
         results = model.test_model(test_dataloader)
