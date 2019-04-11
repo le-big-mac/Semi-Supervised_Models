@@ -196,20 +196,17 @@ def load_tcga_data(num_labelled, num_unlabelled, validation=True, test=True,
     test_data = list(zip(*test_data))
 
     normalizer = NormalizeTensors()
-    if num_unlabelled > num_labelled:
-        unsupervised_data = normalizer.apply_train(torch.stack(unlabelled_data[0]).float())
-        supervised_data = normalizer.apply_test(torch.stack(labelled_data[0]).float())
-    else:
-        supervised_data = normalizer.apply_test(torch.stack(labelled_data[0]).float())
-
-    print(supervised_data[0])
-
-    supervised_dataset = TensorDataset(supervised_data, torch.stack(labelled_data[1]).long())
 
     unsupervised_dataset = None
-    if num_unlabelled > 0:
-        unsupervised_dataset = TensorDataset(unsupervised_data,
+    if num_unlabelled > num_labelled:
+        unsupervised_dataset = TensorDataset(normalizer.apply_train(torch.stack(unlabelled_data[0]).float()),
                                              -1 * torch.ones(len(unlabelled_data[1])).long())
+        supervised_dataset = TensorDataset(normalizer.apply_test(torch.stack(labelled_data[0]).float()),
+                                           torch.stack(labelled_data[1]).long())
+    else:
+        supervised_dataset = TensorDataset(normalizer.apply_train(torch.stack(labelled_data[0]).float()),
+                                           torch.stack(labelled_data[1]).long())
+
     validation_dataset = None
     if validation:
         validation_dataset = TensorDataset(normalizer.apply_test(torch.stack(validation_data[0]).float()),

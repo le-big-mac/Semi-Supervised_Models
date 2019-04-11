@@ -22,6 +22,7 @@ class SimpleNetwork(Model):
 
         early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
 
+        print(accuracy(self.Classifier, validation_dataloader, self.device))
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
                 break

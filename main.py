@@ -8,6 +8,7 @@ from Models import *
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 state_path = './Models/state'
 
+
 def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, unsupervised_batch_size):
     model = None
     unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = datasets
