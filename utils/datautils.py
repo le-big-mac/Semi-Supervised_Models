@@ -131,7 +131,7 @@ class ImputationType(Enum):
 
 def load_tcga_data(num_labelled, num_unlabelled, validation=True, test=True,
                    imputation_type=ImputationType.DROP_SAMPLES, stratified_labelled=True):
-    assert num_unlabelled > num_labelled or num_unlabelled == 0
+    # assert num_unlabelled > num_labelled or num_unlabelled == 0
 
     rnaseq_df = pd.read_csv('data/tcga/rnaseq_data_with_labels.csv', index_col=0)
 
@@ -206,6 +206,8 @@ def load_tcga_data(num_labelled, num_unlabelled, validation=True, test=True,
     else:
         supervised_dataset = TensorDataset(normalizer.apply_train(torch.stack(labelled_data[0]).float()),
                                            torch.stack(labelled_data[1]).long())
+        unsupervised_dataset = TensorDataset(normalizer.apply_test(torch.stack(unlabelled_data[0]).float()),
+                                             -1 * torch.ones(len(unlabelled_data[1])).long())
 
     validation_dataset = None
     if validation:
