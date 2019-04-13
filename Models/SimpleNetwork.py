@@ -3,10 +3,11 @@ from torch import nn
 from Models.BuildingBlocks import Classifier
 from Models.Model import Model
 from utils.trainingutils import accuracy, EarlyStopping
+import csv
 
 
 class SimpleNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, dataset_name, device):
+    def __init__(self, input_size, hidden_dimensions, num_classes, lr, dataset_name, device):
         super(SimpleNetwork, self).__init__(dataset_name, device)
 
         self.Classifier = Classifier(input_size, hidden_dimensions, num_classes).to(device)
@@ -76,3 +77,24 @@ class SimpleNetwork(Model):
 
     def forward(self, data):
         return self.Classifier(data.to(self.device))
+
+
+def hyperparameter_loop(dataset_name, dataloaders, input_size, output_size, device):
+    learning_rates = [0.1, 0.01, 0.001]
+    hidden_layer_size = max(1024, (input_size + output_size)//2)
+    hidden_layers = range(1, 4)
+    unsupervised, supervised, validation, test = dataloaders
+    num_labelled = len(supervised.dataset)
+
+    f = open('./results/simple/{}_{}labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
+    writer = csv.writer(f)
+
+    for lr in learning_rates:
+        for h in hidden_layers:
+            model = SimpleNetwork(input_size, [hidden_layer_size] * h, output_size, lr, dataset_name, device)
+            model.train_model(100, (supervised, validation), False)
+            test_result = model.test_model(test)
+
+            writer.writerow([lr, hidden_layer_size, h, test_result])
+
+    f.close()

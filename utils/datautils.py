@@ -5,7 +5,6 @@ import numpy as np
 from torch.utils.data import Dataset, TensorDataset
 from torchvision import datasets
 from collections import defaultdict
-from sklearn.datasets import make_classification
 import pandas as pd
 from enum import Enum
 from math import ceil
@@ -28,98 +27,6 @@ class NormalizeTensors:
         norm_data = (data - self.means) / (1e-7 + self.stds)
 
         return norm_data
-
-
-def make_toy_data(n_samples, n_features, n_classes):
-    data, labels = make_classification(n_samples=n_samples, n_features=n_features, n_informative=10, n_redundant=20,
-                                       n_classes=n_classes, n_clusters_per_class=1, shuffle=False)
-
-    dataset = zip(data, labels)
-
-    if not os.path.exists('./data'):
-        os.mkdir('./data')
-    if not os.path.exists('./data/toy'):
-        os.mkdir('./data/toy')
-
-    toy_data_file = open('./data/toy/toy_data.csv', 'w')
-    toy_labels_file = open('./data/toy/toy_labels.csv', 'w')
-
-    data_writer = csv.writer(toy_data_file)
-    labels_writer = csv.writer(toy_labels_file)
-
-    for d, l in dataset:
-        data_writer.writerow(d)
-        labels_writer.writerow([l])
-
-
-def load_toy_data(num_labelled, num_unlabelled=0, validation=True, test=True):
-    assert num_unlabelled > num_labelled or num_unlabelled == 0
-
-    if not os.path.exists('./data/toy/toy_data.csv'):
-        num_samples = max(num_labelled, num_unlabelled) + int(validation) * 1000 + int(test) * 1000
-
-        make_toy_data(num_samples, 500, 4)
-
-    data = np.loadtxt('./data/toy/toy_data.csv', dtype=float, delimiter=',')
-    labels = np.loadtxt('./data/toy/toy_labels.csv', dtype=int, delimiter=',')
-
-    input_size = len(data[0])
-    num_classes = len(set(labels))
-
-    labelled_per_class = num_labelled // num_classes
-    unlabelled_per_class = num_unlabelled // num_classes
-
-    data_buckets = defaultdict(list)
-
-    for d, l in zip(data, labels):
-        data_buckets[l].append((d, l))
-
-    unlabelled_data = []
-    labelled_data = []
-    validation_data = []
-    test_data = []
-
-    for l, d in data_buckets.items():
-        labelled_data.extend(d[:labelled_per_class])
-        unlabelled_data.extend(d[:unlabelled_per_class])
-
-        lower = max(labelled_per_class, unlabelled_per_class)
-        if validation and test:
-            leftover = len(d) - lower
-            validation_data.extend(d[lower:lower + leftover // 2])
-            test_data.extend(d[lower + leftover // 2:])
-        elif validation:
-            validation_data.extend(d[lower:])
-        elif test:
-            test_data.extend(d[lower:])
-
-    np.random.shuffle(labelled_data)
-    np.random.shuffle(unlabelled_data)
-    np.random.shuffle(validation_data)
-    np.random.shuffle(test_data)
-
-    labelled_data = list(zip(*labelled_data))
-    unlabelled_data = list(zip(*unlabelled_data))
-    validation_data = list(zip(*validation_data))
-    test_data = list(zip(*test_data))
-
-    supervised_dataset = TensorDataset(torch.from_numpy(np.stack(labelled_data[0])).float(),
-                                       torch.from_numpy(np.array(labelled_data[1])).long())
-
-    unsupervised_dataset = None
-    if num_unlabelled > 0:
-        unsupervised_dataset = TensorDataset(torch.from_numpy(np.stack(unlabelled_data[0])).float(),
-                                             torch.from_numpy(np.array([-1] * len(unlabelled_data[1]))).long())
-    validation_dataset = None
-    if validation:
-        validation_dataset = TensorDataset(torch.from_numpy(np.stack(validation_data[0])).float(),
-                                           torch.from_numpy(np.array(validation_data[1])).long())
-    test_dataset = None
-    if test:
-        test_dataset = TensorDataset(torch.from_numpy(np.stack(test_data[0])).float(),
-                                     torch.from_numpy(np.array(test_data[1])).long())
-
-    return (unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset), input_size, num_classes
 
 
 class ImputationType(Enum):

@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from itertools import cycle
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping
+import csv
 
 
 def bi(inits, size):
@@ -149,20 +150,19 @@ class Ladder(nn.Module):
 
 
 class LadderNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, denoising_cost, dataset_name, device,
-                 noise_std=0.3):
+    def __init__(self, input_size, hidden_dimensions, num_classes, lr, denoising_cost, dataset_name, device):
         super(LadderNetwork, self).__init__(dataset_name, device)
 
         layer_sizes = [input_size] + hidden_dimensions + [num_classes]
         shapes = list(zip(layer_sizes[:-1], layer_sizes[1:]))
         self.L = len(layer_sizes) - 1
         self.ladder = Ladder(shapes, layer_sizes, self.L, device).to(device)
-        self.optimizer = torch.optim.Adam(self.ladder.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.ladder.parameters(), lr=lr)
         self.supervised_cost_function = nn.CrossEntropyLoss()
         self.unsupervised_cost_function = nn.MSELoss(reduction='mean')
 
         self.denoising_cost = denoising_cost
-        self.noise_std = noise_std
+        self.noise_std = 0.3
 
         self.model_name = 'ladder'
 
@@ -274,3 +274,27 @@ class LadderNetwork(Model):
         y, _ = self.ladder.forward_encoders(data, 0.0, False, 0)
 
         return y
+
+
+def hyperparameter_loop(dataset_name, dataloaders, input_size, output_size, device):
+    learning_rates = [0.1, 0.01, 0.001]
+    hidden_layer_size = max(1024, (input_size + output_size)//2)
+    hidden_layers = range(1, 4)
+    unsupervised, supervised, validation, test = dataloaders
+    num_labelled = len(supervised.dataset)
+
+    f = open('./results/ladder/{}_{}labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
+    writer = csv.writer(f)
+
+    for lr in learning_rates:
+        for h in hidden_layers:
+            denoising_cost = [1000.0, 10.0] + ([0.1] * h)
+
+            model = LadderNetwork(input_size, [hidden_layer_size] * h, output_size, lr, denoising_cost, dataset_name,
+                                  device)
+            model.train_model(100, (unsupervised, supervised, validation), False)
+            test_result = model.test_model(test)
+
+            writer.writerow([lr, hidden_layer_size, h, test_result])
+
+    f.close()
