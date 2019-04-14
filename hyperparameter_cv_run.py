@@ -65,6 +65,9 @@ def main():
         v_dl = DataLoader(v_d, batch_size=v_d.__len__())
         t_dl = DataLoader(t_d, batch_size=t_d.__len__())
 
+        open('./results/{}/{}_{}labelled_hyperparameter_train.csv'.format(model_name, dataset_name, args.num_labelled),
+             'w').close()
+
         for i in range(5):
             hyperparameter_optimizer(dataset_name, (u_dl, s_dl, v_dl, t_dl), 784, 10, device)
 

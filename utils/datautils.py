@@ -29,6 +29,91 @@ class NormalizeTensors:
         return norm_data
 
 
+def other_stratified_split(data, labels, num_labelled):
+    labels_np = labels.numpy()
+    lab = np.unique(labels_np)
+    num_classes = len(lab)
+
+    assert(num_labelled > len(lab))
+
+    total_samples = labels.size(0)
+
+    # shuffle tensors
+    shuffled = torch.randperm(total_samples)
+    data = data[shuffled]
+    labels = labels[shuffled]
+
+    # if randomly shuffled can select first num_labelled
+    labelled_data_indices = list(range(num_labelled))
+
+    lab_lab, lab_count = np.unique(labels[:num_labelled].numpy(), return_counts=True)
+
+    # make sure there's at least one of each label
+    for i in list(set(lab) - set(lab_lab)):
+        # get the first index of the missing class
+        index = (labels == i).nonzero()[0].item()
+
+        # find the label with the most values
+        max_index = np.argmax(lab_count)
+        max_lab = lab_lab[max_index]
+
+        # remove one of the max elements
+        first_index_max = (labels == max_lab).nonzero()[0].item()
+        labelled_data_indices.remove(first_index_max)
+        lab_count[max_index] -= 1
+
+        # add in the indices of the missing class
+        labelled_data_indices.append(index)
+        lab_lab.append(i)
+        lab_count.append(1)
+
+    labelled_data = data[labelled_data_indices]
+    labelled_labels = labels[labelled_data_indices]
+
+    assert len(np.unique(labelled_labels.numpy()) == num_classes)
+
+    supervised_dataset = TensorDataset(labelled_data, labelled_labels)
+    unsupervised_dataset = TensorDataset(data, -1 * torch.ones(labels.size(0)))
+
+    return supervised_dataset, unsupervised_dataset
+
+
+def stratified_labelled_split(data, labels, num_labelled):
+    labels_count = np.unique(labels.numpy(), return_counts=True)
+    total_samples = labels.size(0)
+
+    assert (num_labelled > len(labels_count[0]))
+
+    # shuffle tensors
+    shuffled = torch.randperm(total_samples)
+    data = data[shuffled]
+    labels = labels[shuffled]
+
+    label_index_dict = {}
+
+    for lab, count in labels_count:
+        relative = ceil((count/total_samples) * num_labelled)
+        lab_indexes = (labels == lab).nonzero()
+
+        label_index_dict[lab] = lab_indexes[:relative]
+
+    labelled_samples_len = sum(label_index_dict.values())
+
+    for i in range(labelled_samples_len - num_labelled):
+        # remove one from the maximum each time
+        max_key = max(label_index_dict, key=label_index_dict.get)
+        label_index_dict[max_key].pop()
+
+    labelled_indices = sum(label_index_dict.values(), [])
+    labelled_data = data[labelled_indices]
+    labelled_labels = labels[labelled_indices]
+
+    supervised_dataset = TensorDataset(labelled_data, labelled_labels)
+    unsupervised_dataset = TensorDataset(data, -1 * torch.ones(labels.size(0)))
+
+    return supervised_dataset, unsupervised_dataset
+
+
 class ImputationType(Enum):
     DROP_SAMPLES = 1
     DROP_GENES = 2
@@ -130,6 +215,7 @@ def load_tcga_data(num_labelled, num_unlabelled, validation=True, test=True,
 
 def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     assert num_unlabelled > num_labelled or num_unlabelled == 0
+    assert num_labelled % 10 == 0
 
     mnist_train = datasets.MNIST(root='data/MNIST', train=True, download=True, transform=None)
     mnist_test = datasets.MNIST(root='data/MNIST', train=False, download=True, transform=None)
@@ -148,40 +234,47 @@ def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     labelled_per_class = num_labelled//10
     unlabelled_per_class = num_unlabelled//10
 
-    buckets_train_data = defaultdict(list)
+    shuffled = torch.randperm(train_labels.size(0))
+    train_data = train_data[shuffled]
+    train_labels = train_labels[shuffled]
 
-    for image, label in zip(train_data, train_labels):
-        buckets_train_data[label.item()].append((image, label))
+    labels_count = np.unique(train_labels.numpy(), return_counts=True)
 
-    labelled_data = []
-    unlabelled_data = []
-    validation_data = []
+    labelled_index_dict = {}
+    unlabelled_index_dict = {}
+    validation_index_dict = {}
 
-    for label, data in buckets_train_data.items():
-        labelled_data.extend(data[:labelled_per_class])
-        # changed so that unlabelled data contains the labelled data - to do with cycling supervised data pairs
-        unlabelled_data.extend(data[:unlabelled_per_class])
+    for lab, count in labels_count:
+        lab_indexes = (train_labels == lab).nonzero()
+
+        labelled_index_dict[lab] = lab_indexes[:labelled_per_class]
+        unlabelled_index_dict[lab] = lab_indexes[:unlabelled_per_class]
         if validation:
-            validation_data.extend(data[unlabelled_per_class:])
+            validation_index_dict[lab] = lab_indexes[unlabelled_per_class:]
 
-    np.random.shuffle(labelled_data)
-    np.random.shuffle(unlabelled_data)
-    np.random.shuffle(validation_data)
+    labelled_indices = sum(labelled_index_dict.values(), [])
+    np.random.shuffle(labelled_indices)
+    labelled_data = train_data[labelled_indices]
+    labelled_labels = train_labels[labelled_indices]
 
-    labelled_data = list(zip(*labelled_data))
-    unlabelled_data = list(zip(*unlabelled_data))
-    validation_data = list(zip(*validation_data))
-
-    supervised_dataset = TensorDataset(torch.stack(labelled_data[0]), torch.stack(labelled_data[1]))
+    supervised_dataset = TensorDataset(labelled_data, labelled_labels)
 
     unsupervised_dataset = None
     if num_unlabelled > 0:
-        unsupervised_dataset = TensorDataset(torch.stack(unlabelled_data[0]),
-                                             -1 * torch.ones(len(unlabelled_data[1])).long())
+        unlabelled_indices = sum(unlabelled_index_dict.values(), [])
+        np.random.shuffle(unlabelled_indices)
+        unlabelled_data = train_data[unlabelled_indices]
+
+        unsupervised_dataset = TensorDataset(unlabelled_data, -1 * torch.ones(len(unlabelled_indices)))
 
     validation_dataset = None
     if validation:
-        validation_dataset = TensorDataset(torch.stack(validation_data[0]), torch.stack(validation_data[1]))
+        validation_indices = sum(validation_index_dict.values(), [])
+        np.random.shuffle(validation_indices)
+        validation_data = train_data[validation_indices]
+        validation_labels = train_labels[validation_indices]
+
+        validation_dataset = TensorDataset(validation_data, validation_labels)
 
     test_dataset = None
     if test:
