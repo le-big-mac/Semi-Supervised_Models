@@ -29,55 +29,6 @@ class NormalizeTensors:
         return norm_data
 
 
-def other_stratified_split(data, labels, num_labelled):
-    labels_np = labels.numpy()
-    lab = np.unique(labels_np)
-    num_classes = len(lab)
-
-    assert(num_labelled > len(lab))
-
-    total_samples = labels.size(0)
-
-    # shuffle tensors
-    shuffled = torch.randperm(total_samples)
-    data = data[shuffled]
-    labels = labels[shuffled]
-
-    # if randomly shuffled can select first num_labelled
-    labelled_data_indices = list(range(num_labelled))
-
-    lab_lab, lab_count = np.unique(labels[:num_labelled].numpy(), return_counts=True)
-
-    # make sure there's at least one of each label
-    for i in list(set(lab) - set(lab_lab)):
-        # get the first index of the missing class
-        index = (labels == i).nonzero()[0].item()
-
-        # find the label with the most values
-        max_index = np.argmax(lab_count)
-        max_lab = lab_lab[max_index]
-
-        # remove one of the max elements
-        first_index_max = (labels == max_lab).nonzero()[0].item()
-        labelled_data_indices.remove(first_index_max)
-        lab_count[max_index] -= 1
-
-        # add in the indices of the missing class
-        labelled_data_indices.append(index)
-        lab_lab.append(i)
-        lab_count.append(1)
-
-    labelled_data = data[labelled_data_indices]
-    labelled_labels = labels[labelled_data_indices]
-
-    assert len(np.unique(labelled_labels.numpy()) == num_classes)
-
-    supervised_dataset = TensorDataset(labelled_data, labelled_labels)
-    unsupervised_dataset = TensorDataset(data, -1 * torch.ones(labels.size(0)))
-
-    return supervised_dataset, unsupervised_dataset
-
-
 def stratified_labelled_split(data, labels, num_labelled):
     labels_count = np.unique(labels.numpy(), return_counts=True)
     total_samples = labels.size(0)
@@ -93,18 +44,19 @@ def stratified_labelled_split(data, labels, num_labelled):
 
     for lab, count in labels_count:
         relative = ceil((count/total_samples) * num_labelled)
-        lab_indexes = (labels == lab).nonzero()
+        lab_indexes = (labels == lab).nonzero().squeeze(1)
 
         label_index_dict[lab] = lab_indexes[:relative]
 
-    labelled_samples_len = sum(label_index_dict.values())
+    labelled_samples_len = sum(tens.size(0) for tens in label_index_dict.values())
 
     for i in range(labelled_samples_len - num_labelled):
         # remove one from the maximum each time
-        max_key = max(label_index_dict, key=label_index_dict.get)
-        label_index_dict[max_key].pop()
+        max_key = max(label_index_dict, key=lambda x: label_index_dict[x].size(0))
+        label_index_dict[max_key] = label_index_dict[max_key][:-1]
 
-    labelled_indices = sum(label_index_dict.values(), [])
+    labelled_indices = torch.cat(list(label_index_dict.values()))
+    np.random.shuffle(labelled_indices.numpy())
     labelled_data = data[labelled_indices]
     labelled_labels = labels[labelled_indices]
 
@@ -245,15 +197,16 @@ def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     validation_index_dict = {}
 
     for lab, count in labels_count:
-        lab_indexes = (train_labels == lab).nonzero()
+        lab_indexes = (train_labels == lab).nonzero().squeeze(1)
 
         labelled_index_dict[lab] = lab_indexes[:labelled_per_class]
         unlabelled_index_dict[lab] = lab_indexes[:unlabelled_per_class]
         if validation:
             validation_index_dict[lab] = lab_indexes[unlabelled_per_class:]
 
-    labelled_indices = sum(labelled_index_dict.values(), [])
-    np.random.shuffle(labelled_indices)
+    labelled_indices = torch.cat(list(labelled_index_dict.values()))
+    # this works because they share the underlying data
+    np.random.shuffle(labelled_indices.numpy())
     labelled_data = train_data[labelled_indices]
     labelled_labels = train_labels[labelled_indices]
 
@@ -261,16 +214,16 @@ def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
 
     unsupervised_dataset = None
     if num_unlabelled > 0:
-        unlabelled_indices = sum(unlabelled_index_dict.values(), [])
-        np.random.shuffle(unlabelled_indices)
+        unlabelled_indices = torch.cat(list(unlabelled_index_dict.values()))
+        np.random.shuffle(unlabelled_indices.numpy())
         unlabelled_data = train_data[unlabelled_indices]
 
         unsupervised_dataset = TensorDataset(unlabelled_data, -1 * torch.ones(len(unlabelled_indices)))
 
     validation_dataset = None
     if validation:
-        validation_indices = sum(validation_index_dict.values(), [])
-        np.random.shuffle(validation_indices)
+        validation_indices = torch.cat(list(validation_index_dict.values()))
+        np.random.shuffle(validation_indices.numpy())
         validation_data = train_data[validation_indices]
         validation_labels = train_labels[validation_indices]
 
@@ -309,29 +262,50 @@ def save_results(results_list, dataset_directory, model_directory, filename):
     file.close()
 
 
-def k_fold_splits(len_data, num_folds):
-    indices = list(range(len_data))
+def other_stratified_split(data, labels, num_labelled):
+    labels_np = labels.numpy()
+    lab = np.unique(labels_np)
+    num_classes = len(lab)
 
-    test_idx = []
-    train_idx = []
+    assert(num_labelled > len(lab))
 
-    for index_chunk in np.array_split(indices, num_folds):
-        test_idx.append(index_chunk)
-        train_idx.append(list(set(indices) - set(index_chunk)))
+    total_samples = labels.size(0)
 
-    return zip(test_idx, train_idx)
+    # shuffle tensors
+    shuffled = torch.randperm(total_samples)
+    data = data[shuffled]
+    labels = labels[shuffled]
 
+    # if randomly shuffled can select first num_labelled
+    labelled_data_indices = list(range(num_labelled))
 
-def k_fold_splits_with_validation(len_data, num_folds):
-    indices = list(range(len_data))
+    lab_lab, lab_count = np.unique(labels[:num_labelled].numpy(), return_counts=True)
 
-    test_idx = []
-    validation_idx = []
-    train_idx = []
+    # make sure there's at least one of each label
+    for i in list(set(lab) - set(lab_lab)):
+        # get the first index of the missing class
+        index = (labels == i).nonzero()[0].item()
 
-    for index_chunk in np.array_split(indices, num_folds):
-        test_idx.append(index_chunk[:len(index_chunk)//2])
-        validation_idx.append(index_chunk[len(index_chunk)//2:])
-        train_idx.append(list(set(indices) - set(index_chunk)))
+        # find the label with the most values
+        max_index = np.argmax(lab_count)
+        max_lab = lab_lab[max_index]
 
-    return zip(test_idx, validation_idx, train_idx)
+        # remove one of the max elements
+        first_index_max = (labels == max_lab).nonzero()[0].item()
+        labelled_data_indices.remove(first_index_max)
+        lab_count[max_index] -= 1
+
+        # add in the indices of the missing class
+        labelled_data_indices.append(index)
+        lab_lab.append(i)
+        lab_count.append(1)
+
+    labelled_data = data[labelled_data_indices]
+    labelled_labels = labels[labelled_data_indices]
+
+    assert len(np.unique(labelled_labels.numpy()) == num_classes)
+
+    supervised_dataset = TensorDataset(labelled_data, labelled_labels)
+    unsupervised_dataset = TensorDataset(data, -1 * torch.ones(labels.size(0)))
+
+    return supervised_dataset, unsupervised_dataset
