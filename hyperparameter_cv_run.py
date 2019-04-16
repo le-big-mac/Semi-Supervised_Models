@@ -82,10 +82,13 @@ def main():
              'w').close()
 
         for train_indices, val_and_test_indices in stratified_k_fold(data, labels, num_folds=num_folds):
-            s_d, u_d = \
-                labelled_split(data[train_indices], labels([train_indices]), num_labelled=args.num_labelled)
+            normalizer = GaussianNormalizeTensors()
+            train_data = normalizer.apply_train(data[train_indices])
 
-            val_and_test_data = data[val_and_test_indices]
+            s_d, u_d = \
+                labelled_split(train_data, labels([train_indices]), num_labelled=args.num_labelled)
+
+            val_and_test_data = normalizer.apply_test(data[val_and_test_indices])
             val_and_test_labels = labels[val_and_test_indices]
             val_indices, test_indices = next(stratified_k_fold(val_and_test_data, val_and_test_labels,
                                                                num_folds=2))
