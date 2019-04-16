@@ -1,4 +1,5 @@
 import torch
+import csv
 from torch import nn
 from torch.nn import functional as F
 from itertools import cycle
@@ -45,13 +46,13 @@ class M2(nn.Module):
 
 class M2Runner(Model):
     def __init__(self, input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim, num_classes, activation,
-                 dataset_name, device):
+                 lr, dataset_name, device):
         super(M2Runner, self).__init__(dataset_name, device)
 
         self.M2 = M2(input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim,
                      num_classes, activation).to(device)
         # change this to something more applicable with softmax
-        self.optimizer = torch.optim.Adam(self.M2.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.M2.parameters(), lr=lr)
         self.num_classes = num_classes
 
         self.model_name = 'm2'
@@ -69,7 +70,8 @@ class M2Runner(Model):
         KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1, dim=1)
 
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
-        likelihood = -F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
+        # likelihood = -F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
+        likelihood = -F.mse_loss(recons, x, reduction='none').sum(dim=1)
 
         # prior over y (commented out because a uniform prior results in a constant for all labels)
         # prior_y = log_standard_categorical(y)
@@ -217,3 +219,47 @@ class M2Runner(Model):
 
     def forward(self, data):
         return self.M2.classify(data)
+
+
+def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, device):
+    hidden_layer_size = max(1024, (input_size + num_classes) // 2)
+    hidden_layers_classifier = range(1, 3)
+    hidden_layers_vae = range(1, 3)
+    latent_sizes = [32, 64, 128]
+    unsupervised, supervised, validation = dataloaders
+    num_labelled = len(supervised.dataset)
+    lr = 1e-3
+
+    f = open('./results/ladder/{}_{}labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
+    writer = csv.writer(f)
+    writer.writerow(['learning rate', 'hidden layer size', 'num classifier layers', 'num autoencoder layers',
+                    'latent size', 'accuracy'])
+
+    accuracies = []
+    parameters = []
+
+    for l in latent_sizes:
+        for h_v in hidden_layers_classifier:
+            for h_c in hidden_layers_vae:
+                model = M2Runner(input_size, [hidden_layer_size] * h_v, [hidden_layer_size] * h_c, l, num_classes,
+                                 lambda x: x, lr, dataset_name, device)
+                model.train_model(100, (unsupervised, supervised, validation), False)
+                test_result = model.test_model(validation)
+
+                writer.writerow([lr, hidden_layer_size, h_c, h_v, l, test_result])
+
+                accuracies.append(test_result)
+                parameters.append({'input_size': input_size, 'hidden_layers_autoencoder': [hidden_layer_size] * h_v,
+                                   'hidden_layers_classifier': [hidden_layer_size] * h_c, 'latent_size': l,
+                                   'num_classes': num_classes, 'lr': lr,
+                                   'dataset_name': dataset_name, 'device': device})
+
+    f.close()
+
+    return accuracies, parameters
+
+
+def construct_from_parameter_dict(parameters):
+    return M2Runner(parameters['input_size'], parameters['hidden_layers_autoencoder'],
+                    parameters['hidden_layers_classifier'], parameters['latent_size'], parameters['num_classes'],
+                    lambda x: x, parameters['lr'], parameters['datatset_name'], parameters['device'])

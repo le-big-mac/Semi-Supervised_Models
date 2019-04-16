@@ -25,7 +25,7 @@ class PretrainingNetwork(Model):
         early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=10)
 
         for epoch in range(max_epochs):
-            if early_stopping:
+            if early_stopping.early_stop:
                 break
 
             train_loss = 0

@@ -12,12 +12,14 @@ results_path = './results'
 hyperparameter_fns = {
     'simple': simple_hyperparameter_loop,
     'sdae': sdae_hyperparameter_loop,
+    'm2': m2_hyperparameter_loop,
     'ladder': ladder_hyperparameter_loop,
 }
 
 construction_fns = {
     'simple': simple_constructor,
     'sdae': sdae_constructor,
+    'm2': m2_constructor,
     'ladder': ladder_constructor,
 }
 

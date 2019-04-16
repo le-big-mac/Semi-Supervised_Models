@@ -26,14 +26,11 @@ def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, u
     elif model_name == 'sdae':
         model = SDAE(784, [1000, 500, 250, 250, 250], 10, 1e-3, dataset_name, device)
 
-    elif model_name == 'pretraining':
-        model = PretrainingNetwork(784, [397], 10, lambda x: x, dataset_name, device)
-
     elif model_name == 'm1':
         model = M1(784, [256, 128], 32, [32], 10, lambda x: x, dataset_name, device)
 
     elif model_name == 'm2':
-        model = M2Runner(784, [256, 128], [256], 32, 10, nn.Sigmoid(), dataset_name, device)
+        model = M2Runner(784, [256, 128], [256], 32, 10, lambda x: x, dataset_name, device)
 
         unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
         train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
