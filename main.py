@@ -21,17 +21,11 @@ def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, u
     train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
 
     if model_name == 'simple':
-        model = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, dataset_name, device)
+        model = SimpleNetwork(784, [1000, 500, 250, 250, 250], 10, 1e-3, dataset_name, device)
         train_dataloaders = (supervised_dataloader, validation_dataloader)
 
-    elif model_name == 'pretraining':
-        model = PretrainingNetwork(784, [1000, 500, 250, 250, 250], 10, nn.Sigmoid(), dataset_name, device)
-
     elif model_name == 'sdae':
-        model = SDAE(784, [1000, 500, 250, 250, 250], 10, dataset_name, device)
-
-    elif model_name == 'simple_m1':
-        model = SimpleM1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), dataset_name, device)
+        model = SDAE(784, [1000, 500, 250, 250, 250], 10, 1e-3, dataset_name, device)
 
     elif model_name == 'm1':
         model = M1(784, [256, 128], 32, [32], 10, nn.Sigmoid(), dataset_name, device)
@@ -43,7 +37,7 @@ def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, u
         train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
 
     elif model_name == 'ladder':
-        model = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, [1000.0, 10.0, 0.10, 0.10, 0.10, 0.10, 0.10],
+        model = LadderNetwork(784, [397], 10, [1000.0, 10.0, 0.10, 0.10, 0.10, 0.10, 0.10], 1e-3,
                               dataset_name, device)
 
         unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
@@ -55,7 +49,7 @@ def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, u
 def main():
     parser = argparse.ArgumentParser(description='Take arguments to construct model')
     parser.add_argument('model', type=str,
-                        choices=['simple', 'pretraining', 'sdae', 'simple_m1', 'm1', 'm2', 'ladder'],
+                        choices=['simple', 'sdae', 'm1', 'm2', 'ladder'],
                         help="Choose which model to run"
                         )
     parser.add_argument('--max_epochs', type=int, default=100, help='Maximum number of epochs to run for')
@@ -69,7 +63,7 @@ def main():
     batch_size = 100
 
     dataset_name = 'MNIST'
-    datasets = load_MNIST_data(100, 2000, True, True)
+    datasets = load_MNIST_data(100, 50000, True, True)
 
     if not os.path.exists(state_path):
         os.mkdir(state_path)
@@ -84,7 +78,7 @@ def main():
         model, train_dataloaders, test_dataloader = \
             get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, unsupervised_batch_size)
 
-        epochs, losses, validation_accs = model.train_model(args.max_epochs, train_dataloaders)
+        epochs, losses, validation_accs = model.train_model(args.max_epochs, train_dataloaders, True)
         results = model.test_model(test_dataloader)
 
         epochs_list.append(epochs)

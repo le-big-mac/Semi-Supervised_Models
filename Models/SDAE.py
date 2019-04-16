@@ -1,4 +1,5 @@
 import torch
+import csv
 from torch import nn
 from utils.trainingutils import accuracy
 from Models.BuildingBlocks import Encoder, AutoencoderSDAE
@@ -26,11 +27,11 @@ class SDAEClassifier(nn.Module):
 
 
 class SDAE(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, dataset_name, device):
+    def __init__(self, input_size, hidden_dimensions, num_classes, lr, dataset_name, device):
         super(SDAE, self).__init__(dataset_name, device)
 
         self.SDAEClassifier = SDAEClassifier(input_size, hidden_dimensions, num_classes).to(device)
-        self.optimizer = torch.optim.Adam(self.SDAEClassifier.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.SDAEClassifier.parameters(), lr=lr)
         self.criterion = nn.CrossEntropyLoss()
 
         self.model_name = 'sdae'
@@ -128,3 +129,37 @@ class SDAE(Model):
 
     def forward(self, data):
         return self.SDAEClassifier(data)
+
+
+def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, device):
+    hidden_layer_size = max(1024, (input_size + num_classes) // 2)
+    hidden_layers = range(1, 4)
+    unsupervised, supervised, validation = dataloaders
+    num_labelled = len(supervised.dataset)
+    lr = 1e-3
+
+    f = open('./results/sdae/{}_{}labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
+    writer = csv.writer(f)
+
+    accuracies = []
+    parameters = []
+
+    for h in hidden_layers:
+        model = SDAE(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device)
+        model.train_model(100, dataloaders, False)
+        validation_result = model.test_model(validation)
+
+        writer.writerow([lr, hidden_layer_size, h, validation_result])
+
+        accuracies.append(validation_result)
+        parameters.append({'input_size': input_size, 'hidden_layers': [hidden_layer_size] * h,
+                           'num_classes': num_classes, 'lr': lr, 'dataset_name': dataset_name, 'device': device})
+
+    f.close()
+
+    return accuracies, parameters
+
+
+def construct_from_parameter_dict(parameters):
+    return SDAE(parameters['input_size'], parameters['hidden_layers'], parameters['num_classes'], parameters['lr'],
+                parameters['datatset_name'], parameters['device'])
