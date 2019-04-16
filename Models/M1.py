@@ -28,13 +28,12 @@ class M1(Model):
         KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1, dim=1)
 
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
-        BCE = F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
+        recons = F.mse_loss(recons, x, reduction='none').sum(dim=1)
 
-        # TODO: change BCE depending on what the ouput activation is
-        # if not necessarily 0-1 normalised
-        # BCE = nn.MSELoss(reduction='sum')(pred_x, x)
+        # BCE used for mnist in original, removed here to allow for non-constrained input
+        # recons = F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
 
-        return (KLD + BCE).mean()
+        return (KLD + recons).mean()
 
     def train_VAE(self, max_epochs, train_dataloader, validation_dataloader):
         early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=10)
