@@ -1,4 +1,5 @@
 import torch
+import gc
 from torch import nn
 from Models.BuildingBlocks import Classifier
 from Models.Model import Model
@@ -102,6 +103,16 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
         accuracies.append(validation_result)
         parameters.append({'input_size': input_size, 'hidden_layers': [hidden_layer_size] * h,
                            'num_classes': num_classes, 'lr': lr, 'dataset_name': dataset_name, 'device': device})
+
+        for obj in gc.get_objects():
+            try:
+                if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+                    print(type(obj), obj.size())
+            except:
+                pass
+
+        if device == 'cuda':
+            torch.cuda.empty_cache()
 
     f.close()
 

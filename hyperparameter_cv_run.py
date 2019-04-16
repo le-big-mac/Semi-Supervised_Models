@@ -27,7 +27,7 @@ construction_fns = {
 def main():
     parser = argparse.ArgumentParser(description='Take arguments to construct model')
     parser.add_argument('model', type=str,
-                        choices=['simple', 'pretraining', 'sdae', 'simple_m1', 'm1', 'm2', 'ladder'],
+                        choices=['simple', 'sdae', 'simple_m1', 'm1', 'm2', 'ladder'],
                         help="Choose which model to run"
                         )
     parser.add_argument('dataset', type=str, choices=['mnist', 'tcga', 'metabric'], help='Dataset to run on')
@@ -86,7 +86,7 @@ def main():
             train_data = normalizer.apply_train(data[train_indices])
 
             s_d, u_d = \
-                labelled_split(train_data, labels([train_indices]), num_labelled=args.num_labelled)
+                labelled_split(train_data, labels[train_indices], num_labelled=args.num_labelled)
 
             val_and_test_data = normalizer.apply_test(data[val_and_test_indices])
             val_and_test_labels = labels[val_and_test_indices]
