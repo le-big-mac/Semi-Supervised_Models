@@ -1,7 +1,7 @@
 import os
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 import argparse
 from utils.datautils import *
 from Models import *
@@ -9,25 +9,13 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 state_path = './Models/state'
 results_path = './results'
 
-
-def get_datasets(args):
-    dataset_name = args.dataset
-    num_labelled = args.num_labelled
-    num_unlabelled = args.num_unlabelled
-
-    if dataset_name == 'mnist':
-        datasets = load_MNIST_data(num_labelled, num_unlabelled, True, True)
-        input_size = 784
-        output_size = 10
-    elif dataset_name == 'tcga':
-        datasets, input_size, output_size = load_tcga_data(num_labelled, num_unlabelled)
-
-    return datasets, input_size, output_size
-
-
 hyperparameter_fns = {
     'simple': simple_hyperparameter_loop,
     'ladder': ladder_hyperparameter_loop
+}
+
+construction_fns = {
+    'simple': simple_constructor
 }
 
 
@@ -39,10 +27,13 @@ def main():
                         )
     parser.add_argument('dataset', type=str, choices=['mnist', 'tcga', 'metabric'], help='Dataset to run on')
     parser.add_argument('num_labelled', type=int)
+    parser.add_argument('--num_folds', type=int, default=5)
 
     args = parser.parse_args()
 
     model_name = args.model
+    hyperparameter_optimizer = hyperparameter_fns[model_name]
+    constructor = construction_fns[model_name]
 
     if not os.path.exists(state_path):
         os.mkdir(state_path)
@@ -54,25 +45,65 @@ def main():
         os.mkdir('{}/{}'.format(results_path, model_name))
 
     dataset_name = args.dataset
-    datasets, input_size, output_size = get_datasets(args)
+    num_folds = args.num_folds
+    fold_accuracies = []
 
     if dataset_name == 'mnist':
-        u_d, s_d, v_d, t_d = load_MNIST_data(args.num_labelled, 50000, True, True)
-        hyperparameter_optimizer = hyperparameter_fns[model_name]
+        open('./results/{}/{}_{}labelled_hyperparameter_train.csv'.format(model_name, dataset_name, args.num_labelled),
+             'w').close()
 
-        u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
-        s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
-        v_dl = DataLoader(v_d, batch_size=v_d.__len__())
-        t_dl = DataLoader(t_d, batch_size=t_d.__len__())
+        for i in range(num_folds):
+            u_d, s_d, v_d, t_d = load_MNIST_data(args.num_labelled, 50000, True, True)
+
+            u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+            s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
+            v_dl = DataLoader(v_d, batch_size=v_d.__len__())
+            t_dl = DataLoader(t_d, batch_size=t_d.__len__())
+
+            accuracies, parameter_dict = hyperparameter_optimizer(dataset_name, (u_dl, s_dl, v_dl), 784, 10, device)
+
+            index = accuracies.index(max(accuracies))
+
+            model = constructor(parameter_dict[index], 784, 100, dataset_name, device)
+
+            model.train_model(100, (u_dl, s_dl, v_dl), False)
+
+            fold_accuracies.append(model.test_model(t_dl))
+
+    elif dataset_name == 'tcga':
+        (data, labels), input_size, num_classes = load_tcga_data()
 
         open('./results/{}/{}_{}labelled_hyperparameter_train.csv'.format(model_name, dataset_name, args.num_labelled),
              'w').close()
 
-        for i in range(5):
-            hyperparameter_optimizer(dataset_name, (u_dl, s_dl, v_dl, t_dl), 784, 10, device)
+        for train_indices, val_and_test_indices in stratified_k_fold(data, labels, num_folds=num_folds):
+            s_d, u_d = \
+                labelled_split(data[train_indices], labels([train_indices]), num_labelled=args.num_labelled)
 
-    elif dataset_name == 'tcga':
-        dataset = load_tcga_data()
+            val_and_test_data = data[val_and_test_indices]
+            val_and_test_labels = labels[val_and_test_indices]
+            val_indices, test_indices = next(stratified_k_fold(val_and_test_data, val_and_test_labels,
+                                                               num_folds=2))
+            v_d = TensorDataset(val_and_test_data[val_indices], val_and_test_labels[val_indices])
+            t_d = TensorDataset(val_and_test_data[test_indices], val_and_test_labels[test_indices])
+
+            u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+            s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
+            v_dl = DataLoader(v_d, batch_size=v_d.__len__())
+            t_dl = DataLoader(t_d, batch_size=t_d.__len__())
+
+            accuracies, parameter_dict = hyperparameter_optimizer(dataset_name, (u_dl, s_dl, v_dl), input_size,
+                                                                  num_classes, device)
+
+            index = accuracies.index(max(accuracies))
+
+            model = constructor(parameter_dict[index], input_size, num_classes, dataset_name, device)
+
+            model.train_model(100, (u_dl, s_dl, v_dl), False)
+
+            fold_accuracies.append(model.test_model(t_dl))
+
+    save_results(fold_accuracies, dataset_name, model_name, '{}_fold_accuracies'.format(num_folds))
 
 
 if __name__ == '__main__':

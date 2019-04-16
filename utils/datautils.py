@@ -2,12 +2,12 @@ import os
 import csv
 import torch
 import numpy as np
-from torch.utils.data import Dataset, TensorDataset
+from torch.utils.data import TensorDataset
 from torchvision import datasets
-from collections import defaultdict
 import pandas as pd
 from enum import Enum
 from math import ceil
+from sklearn.model_selection import StratifiedKFold
 
 
 class NormalizeTensors:
@@ -29,11 +29,18 @@ class NormalizeTensors:
         return norm_data
 
 
-def stratified_labelled_split(data, labels, num_labelled):
-    labels_count = np.unique(labels.numpy(), return_counts=True)
-    total_samples = labels.size(0)
+def stratified_k_fold(data, labels, num_folds=5):
+    skf = StratifiedKFold(num_folds)
 
-    assert (num_labelled > len(labels_count[0]))
+    return skf.split(data, labels)
+
+
+def labelled_split(data, labels, num_labelled, stratified=True):
+    unique_labels, counts = np.unique(labels.numpy(), return_counts=True)
+    total_samples = labels.size(0)
+    num_classes = len(unique_labels)
+
+    assert (num_labelled > num_classes)
 
     # shuffle tensors
     shuffled = torch.randperm(total_samples)
@@ -42,8 +49,10 @@ def stratified_labelled_split(data, labels, num_labelled):
 
     label_index_dict = {}
 
-    for lab, count in labels_count:
-        relative = ceil((count/total_samples) * num_labelled)
+    # unstratified won't return as many labelled as expected if labelled_per_class is bigger than smallest class
+    labelled_per_class = ceil(num_labelled/num_classes)
+    for lab, count in zip(unique_labels, counts):
+        relative = ceil((count/total_samples) * num_labelled) if stratified else labelled_per_class
         lab_indexes = (labels == lab).nonzero().squeeze(1)
 
         label_index_dict[lab] = lab_indexes[:relative]
@@ -73,8 +82,7 @@ class ImputationType(Enum):
     ZERO = 4
 
 
-def load_tcga_data(num_labelled, num_unlabelled, validation=True, test=True,
-                   imputation_type=ImputationType.DROP_SAMPLES, stratified_labelled=True):
+def load_tcga_data(imputation_type=ImputationType.DROP_SAMPLES):
     # assert num_unlabelled > num_labelled or num_unlabelled == 0
 
     rnaseq_df = pd.read_csv('data/tcga/rnaseq_data_with_labels.csv', index_col=0)
@@ -89,80 +97,20 @@ def load_tcga_data(num_labelled, num_unlabelled, validation=True, test=True,
     else:
         rnaseq_df = rnaseq_df.fillna(0)
 
-    num_samples_map = rnaseq_df['DISEASE'].value_counts().to_dict()
-    total_samples = len(rnaseq_df.index)
-    num_classes = len(num_samples_map)
-    input_size = len(rnaseq_df.columns) - 1
+    unique_labels = rnaseq_df['DISEASE'].unique()
+    string_int_label_map = dict(zip(unique_labels, range(len(unique_labels))))
 
-    disease_label_map = {d: i for i, d in enumerate(list(num_samples_map.keys()))}
+    labels = torch.tensor([string_int_label_map[d] for d in rnaseq_df['DISEASE'].values]).long()
+    data = torch.tensor(rnaseq_df.loc[rnaseq_df.index].drop('DISEASE', axis=1).values).float()
 
-    labelled_data = []
-    unlabelled_data = []
-    validation_data = []
-    test_data = []
+    rand = torch.randperm(labels.size(0))
+    labels = labels[rand]
+    data = data[rand]
 
-    labelled_per_sample = num_labelled // num_classes
-    unlabelled_per_sample = num_unlabelled // num_classes
+    num_classes = len(unique_labels)
+    input_size = data.size(1)
 
-    for disease, num_samples in num_samples_map.items():
-        sample_rows = rnaseq_df.loc[rnaseq_df['DISEASE'] == disease]
-        sample_rows = sample_rows.drop('DISEASE', axis=1)
-        disease_tensor = torch.tensor(sample_rows.values)
-        labels_tensor = disease_label_map[disease] * torch.ones(disease_tensor.size(0))
-        data_list = list(zip(disease_tensor, labels_tensor))
-
-        if stratified_labelled:
-            relative = num_samples/total_samples
-            labelled_per_sample = int(ceil(num_labelled * relative))
-            unlabelled_per_sample = int(ceil(num_unlabelled * relative))
-
-        labelled_data.extend(data_list[:labelled_per_sample])
-        unlabelled_data.extend(data_list[:unlabelled_per_sample])
-
-        lower = max(labelled_per_sample, unlabelled_per_sample)
-        if validation and test:
-            leftover = len(data_list) - lower
-            validation_data.extend(data_list[lower:lower + leftover // 2])
-            test_data.extend(data_list[lower + leftover // 2:])
-        elif validation:
-            validation_data.extend(data_list[lower:])
-        elif test:
-            test_data.extend(data_list[lower:])
-
-    np.random.shuffle(labelled_data)
-    np.random.shuffle(unlabelled_data)
-    np.random.shuffle(validation_data)
-    np.random.shuffle(test_data)
-
-    labelled_data = list(zip(*labelled_data))
-    unlabelled_data = list(zip(*unlabelled_data))
-    validation_data = list(zip(*validation_data))
-    test_data = list(zip(*test_data))
-
-    normalizer = NormalizeTensors()
-
-    unsupervised_dataset = None
-    if num_unlabelled > num_labelled:
-        unsupervised_dataset = TensorDataset(normalizer.apply_train(torch.stack(unlabelled_data[0]).float()),
-                                             -1 * torch.ones(len(unlabelled_data[1])).long())
-        supervised_dataset = TensorDataset(normalizer.apply_test(torch.stack(labelled_data[0]).float()),
-                                           torch.stack(labelled_data[1]).long())
-    else:
-        supervised_dataset = TensorDataset(normalizer.apply_train(torch.stack(labelled_data[0]).float()),
-                                           torch.stack(labelled_data[1]).long())
-        unsupervised_dataset = TensorDataset(normalizer.apply_test(torch.stack(unlabelled_data[0]).float()),
-                                             -1 * torch.ones(len(unlabelled_data[1])).long())
-
-    validation_dataset = None
-    if validation:
-        validation_dataset = TensorDataset(normalizer.apply_test(torch.stack(validation_data[0]).float()),
-                                           torch.stack(validation_data[1]).long())
-    test_dataset = None
-    if test:
-        test_dataset = TensorDataset(normalizer.apply_test(torch.stack(test_data[0]).float()),
-                                     torch.stack(test_data[1]).long())
-
-    return (unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset), input_size, num_classes
+    return (data, labels), input_size, num_classes
 
 
 def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
@@ -190,13 +138,13 @@ def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
     train_data = train_data[shuffled]
     train_labels = train_labels[shuffled]
 
-    labels_count = np.unique(train_labels.numpy(), return_counts=True)
+    unique_labels, counts = np.unique(train_labels.numpy(), return_counts=True)
 
     labelled_index_dict = {}
     unlabelled_index_dict = {}
     validation_index_dict = {}
 
-    for lab, count in labels_count:
+    for lab, count in zip(unique_labels, counts):
         lab_indexes = (train_labels == lab).nonzero().squeeze(1)
 
         labelled_index_dict[lab] = lab_indexes[:labelled_per_class]

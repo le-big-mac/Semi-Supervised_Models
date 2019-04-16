@@ -1,10 +1,7 @@
-import os
 import torch
 import argparse
-from utils.datautils import load_MNIST_data, load_data_from_file
-from Models import SimpleNetwork, PretrainingNetwork, SDAE, SimpleM1, M1, M2Runner, LadderNetwork
+from utils.datautils import load_data_from_file
 from Saliency import VanillaSaliency, GuidedSaliency
-import random
 import matplotlib.pyplot as plt
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

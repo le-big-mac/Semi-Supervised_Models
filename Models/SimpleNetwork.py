@@ -11,7 +11,7 @@ class SimpleNetwork(Model):
         super(SimpleNetwork, self).__init__(dataset_name, device)
 
         self.Classifier = Classifier(input_size, hidden_dimensions, num_classes).to(device)
-        self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=lr)
         self.criterion = nn.CrossEntropyLoss()
 
         self.model_name = 'simple'
@@ -60,7 +60,7 @@ class SimpleNetwork(Model):
         return epochs, train_losses, validation_accs
 
     def train_model(self, max_epochs, dataloaders, comparison):
-        supervised_dataloader, validation_dataloader = dataloaders
+        _, supervised_dataloader, validation_dataloader = dataloaders
 
         epochs, losses, validation_accs = self.train_classifier(max_epochs, supervised_dataloader,
                                                                 validation_dataloader, comparison)
@@ -80,21 +80,35 @@ class SimpleNetwork(Model):
 
 
 def hyperparameter_loop(dataset_name, dataloaders, input_size, output_size, device):
-    learning_rates = [0.1, 0.01, 0.001]
     hidden_layer_size = max(1024, (input_size + output_size)//2)
     hidden_layers = range(1, 4)
-    unsupervised, supervised, validation, test = dataloaders
+    unsupervised, supervised, validation = dataloaders
     num_labelled = len(supervised.dataset)
+    lr = 1e-3
 
     f = open('./results/simple/{}_{}labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
     writer = csv.writer(f)
 
-    for lr in learning_rates:
-        for h in hidden_layers:
-            model = SimpleNetwork(input_size, [hidden_layer_size] * h, output_size, lr, dataset_name, device)
-            model.train_model(100, (supervised, validation), False)
-            test_result = model.test_model(test)
+    accuracies = []
+    parameters = []
 
-            writer.writerow([lr, hidden_layer_size, h, test_result])
+    for h in hidden_layers:
+        model = SimpleNetwork(input_size, [hidden_layer_size] * h, output_size, lr, dataset_name, device)
+        model.train_model(100, dataloaders, False)
+        validation_result = model.test_model(validation)
+
+        writer.writerow([lr, hidden_layer_size, h, validation_result])
+
+        accuracies.append(validation_result)
+        parameters.append({'num_hidden_layers': h, 'hidden_layer_size': hidden_layer_size, 'lr': lr})
 
     f.close()
+
+    return accuracies, parameters
+
+
+def construct_from_parameter_dict(parameters, input_size, num_classes, datatset_name, device):
+    hidden_layers = parameters['num_hidden_layers'] * [parameters['hidden_layer_size']]
+    lr = parameters['lr']
+
+    return SimpleNetwork(input_size, hidden_layers, num_classes, lr, datatset_name, device)
