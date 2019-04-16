@@ -30,7 +30,7 @@ def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, u
         model = M1(784, [256, 128], 32, [32], 10, lambda x: x, dataset_name, device)
 
     elif model_name == 'm2':
-        model = M2Runner(784, [256, 128], [256], 32, 10, lambda x: x, dataset_name, device)
+        model = M2Runner(784, [256, 128], [256], 32, 10, lambda x: x, 1e-3, dataset_name, device)
 
         unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
         train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)

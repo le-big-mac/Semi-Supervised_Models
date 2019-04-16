@@ -313,4 +313,3 @@ def construct_from_parameter_dict(parameters):
     return LadderNetwork(parameters['input_size'], parameters['hidden_layers'], parameters['num_classes'],
                          parameters['denoising_cost'], parameters['lr'], parameters['datatset_name'],
                          parameters['device'])
-

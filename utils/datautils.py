@@ -10,7 +10,7 @@ from math import ceil
 from sklearn.model_selection import StratifiedKFold
 
 
-class NormalizeTensors:
+class GaussianNormalizeTensors:
     def __init__(self):
         self.means = None
         self.stds = None
@@ -25,6 +25,26 @@ class NormalizeTensors:
 
     def apply_test(self, data):
         norm_data = (data - self.means) / (1e-7 + self.stds)
+
+        return norm_data
+
+
+class RangeNormalizeTensors:
+    def __init__(self):
+        self.maxs = None
+        self.mins = None
+
+    def apply_train(self, data):
+        self.maxs = data.max(dim=0)[0]
+        self.mins = data.min(dim=0)[0]
+
+        norm_data = (data - self.mins) / (self.maxs - self.mins)
+
+        return norm_data
+
+    def apply_test(self, data):
+        norm_data = (data - self.mins) / (self.maxs - self.mins)
+        norm_data = torch.clamp(norm_data, min=0, max=1)
 
         return norm_data
 
