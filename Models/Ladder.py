@@ -150,7 +150,7 @@ class Ladder(nn.Module):
 
 
 class LadderNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, lr, denoising_cost, dataset_name, device):
+    def __init__(self, input_size, hidden_dimensions, num_classes, denoising_cost, lr, dataset_name, device):
         super(LadderNetwork, self).__init__(dataset_name, device)
 
         layer_sizes = [input_size] + hidden_dimensions + [num_classes]
@@ -276,25 +276,41 @@ class LadderNetwork(Model):
         return y
 
 
-def hyperparameter_loop(dataset_name, dataloaders, input_size, output_size, device):
-    learning_rates = [0.1, 0.01, 0.001]
-    hidden_layer_size = max(1024, (input_size + output_size)//2)
+def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, device):
+    hidden_layer_size = max(1024, (input_size + num_classes) // 2)
     hidden_layers = range(1, 4)
-    unsupervised, supervised, validation, test = dataloaders
+    unsupervised, supervised, validation = dataloaders
     num_labelled = len(supervised.dataset)
+    lr = 1e-3
 
     f = open('./results/ladder/{}_{}labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
     writer = csv.writer(f)
 
-    for lr in learning_rates:
-        for h in hidden_layers:
-            denoising_cost = [1000.0, 10.0] + ([0.1] * h)
+    accuracies = []
+    parameters = []
 
-            model = LadderNetwork(input_size, [hidden_layer_size] * h, output_size, lr, denoising_cost, dataset_name,
-                                  device)
-            model.train_model(100, (unsupervised, supervised, validation), False)
-            test_result = model.test_model(test)
+    for h in hidden_layers:
+        denoising_cost = [1000.0, 10.0] + ([0.1] * h)
 
-            writer.writerow([lr, hidden_layer_size, h, test_result])
+        model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr, dataset_name,
+                              device)
+        model.train_model(100, (unsupervised, supervised, validation), False)
+        test_result = model.test_model(validation)
+
+        writer.writerow([lr, hidden_layer_size, h, test_result])
+
+        accuracies.append(test_result)
+        parameters.append({'input_size': input_size, 'hidden_layers': [hidden_layer_size] * h,
+                           'num_classes': num_classes, 'denoising_cost': denoising_cost, 'lr': lr,
+                           'dataset_name': dataset_name, 'device': device})
 
     f.close()
+
+    return accuracies, parameters
+
+
+def construct_from_parameter_dict(parameters):
+    return LadderNetwork(parameters['input_size'], parameters['hidden_layers'], parameters['num_classes'],
+                         parameters['denoising_cost'], parameters['lr'], parameters['datatset_name'],
+                         parameters['device'])
+

@@ -79,8 +79,8 @@ class SimpleNetwork(Model):
         return self.Classifier(data.to(self.device))
 
 
-def hyperparameter_loop(dataset_name, dataloaders, input_size, output_size, device):
-    hidden_layer_size = max(1024, (input_size + output_size)//2)
+def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, device):
+    hidden_layer_size = max(1024, (input_size + num_classes) // 2)
     hidden_layers = range(1, 4)
     unsupervised, supervised, validation = dataloaders
     num_labelled = len(supervised.dataset)
@@ -93,22 +93,21 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, output_size, devi
     parameters = []
 
     for h in hidden_layers:
-        model = SimpleNetwork(input_size, [hidden_layer_size] * h, output_size, lr, dataset_name, device)
+        model = SimpleNetwork(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device)
         model.train_model(100, dataloaders, False)
         validation_result = model.test_model(validation)
 
         writer.writerow([lr, hidden_layer_size, h, validation_result])
 
         accuracies.append(validation_result)
-        parameters.append({'num_hidden_layers': h, 'hidden_layer_size': hidden_layer_size, 'lr': lr})
+        parameters.append({'input_size': input_size, 'hidden_layers': [hidden_layer_size] * h,
+                           'num_classes': num_classes, 'lr': lr, 'dataset_name': dataset_name, 'device': device})
 
     f.close()
 
     return accuracies, parameters
 
 
-def construct_from_parameter_dict(parameters, input_size, num_classes, datatset_name, device):
-    hidden_layers = parameters['num_hidden_layers'] * [parameters['hidden_layer_size']]
-    lr = parameters['lr']
-
-    return SimpleNetwork(input_size, hidden_layers, num_classes, lr, datatset_name, device)
+def construct_from_parameter_dict(parameters):
+    return SimpleNetwork(parameters['input_size'], parameters['hidden_layers'], parameters['num_classes'],
+                         parameters['lr'], parameters['datatset_name'], parameters['device'])

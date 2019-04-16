@@ -11,11 +11,12 @@ results_path = './results'
 
 hyperparameter_fns = {
     'simple': simple_hyperparameter_loop,
-    'ladder': ladder_hyperparameter_loop
+    'ladder': ladder_hyperparameter_loop,
 }
 
 construction_fns = {
-    'simple': simple_constructor
+    'simple': simple_constructor,
+    'ladder': ladder_constructor,
 }
 
 
@@ -64,7 +65,7 @@ def main():
 
             index = accuracies.index(max(accuracies))
 
-            model = constructor(parameter_dict[index], 784, 100, dataset_name, device)
+            model = constructor(parameter_dict[index])
 
             model.train_model(100, (u_dl, s_dl, v_dl), False)
 
@@ -97,7 +98,7 @@ def main():
 
             index = accuracies.index(max(accuracies))
 
-            model = constructor(parameter_dict[index], input_size, num_classes, dataset_name, device)
+            model = constructor(parameter_dict[index])
 
             model.train_model(100, (u_dl, s_dl, v_dl), False)
 

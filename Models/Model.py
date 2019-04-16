@@ -17,8 +17,5 @@ class Model(nn.Module):
         # TODO: implement this so that it saves to a file in the models
         raise NotImplementedError
 
-    def eval(self):
-        raise NotImplementedError
-
     def forward(self, data):
         raise NotImplementedError
