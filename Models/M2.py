@@ -267,4 +267,4 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
 def construct_from_parameter_dict(parameters):
     return M2Runner(parameters['input_size'], parameters['hidden_layers_autoencoder'],
                     parameters['hidden_layers_classifier'], parameters['latent_size'], parameters['num_classes'],
-                    lambda x: x, parameters['lr'], parameters['datatset_name'], parameters['device'])
+                    lambda x: x, parameters['lr'], parameters['dataset_name'], parameters['device'])

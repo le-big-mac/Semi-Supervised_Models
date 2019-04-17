@@ -167,4 +167,4 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
 
 def construct_from_parameter_dict(parameters):
     return SDAE(parameters['input_size'], parameters['hidden_layers'], parameters['num_classes'], parameters['lr'],
-                parameters['datatset_name'], parameters['device'])
+                parameters['dataset_name'], parameters['device'])
