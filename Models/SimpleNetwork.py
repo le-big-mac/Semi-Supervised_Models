@@ -81,7 +81,7 @@ class SimpleNetwork(Model):
 
 
 def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, device):
-    hidden_layer_size = max(1024, (input_size + num_classes) // 2)
+    hidden_layer_size = min(1024, (input_size + num_classes) // 2)
     hidden_layers = range(1, 4)
     unsupervised, supervised, validation = dataloaders
     num_labelled = len(supervised.dataset)
@@ -121,4 +121,4 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
 
 def construct_from_parameter_dict(parameters):
     return SimpleNetwork(parameters['input_size'], parameters['hidden_layers'], parameters['num_classes'],
-                         parameters['lr'], parameters['datatset_name'], parameters['device'])
+                         parameters['lr'], parameters['dataset_name'], parameters['device'])
