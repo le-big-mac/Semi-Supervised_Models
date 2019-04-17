@@ -75,7 +75,7 @@ def main():
 
             model = constructor(parameter_dict[index])
 
-            epochs, losses, accuracies = model.train_model(100, (u_dl, s_dl, v_dl), False)
+            epochs, losses, accuracies = model.train_model(100, (u_dl, s_dl, v_dl), True)
 
             fold_test_accuracies.append(model.test_model(t_dl))
             iteration_epochs.append(epochs)
@@ -114,7 +114,7 @@ def main():
 
             model = constructor(parameter_dict[index])
 
-            epochs, losses, accuracies = model.train_model(100, (u_dl, s_dl, v_dl), False)
+            epochs, losses, accuracies = model.train_model(100, (u_dl, s_dl, v_dl), True)
 
             fold_test_accuracies.append(model.test_model(t_dl))
             iteration_epochs.append(epochs)

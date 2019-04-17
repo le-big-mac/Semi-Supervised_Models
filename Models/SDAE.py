@@ -132,13 +132,13 @@ class SDAE(Model):
 
 
 def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, device):
-    hidden_layer_size = max(1024, (input_size + num_classes) // 2)
+    hidden_layer_size = min(1024, (input_size + num_classes) // 2)
     hidden_layers = range(1, 4)
     unsupervised, supervised, validation = dataloaders
     num_labelled = len(supervised.dataset)
     lr = 1e-3
 
-    f = open('./results/sdae/{}_{}labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
+    f = open('./results/{}/sdae/{}_labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
     writer = csv.writer(f)
 
     accuracies = []

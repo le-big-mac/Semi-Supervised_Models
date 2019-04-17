@@ -87,7 +87,7 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
     num_labelled = len(supervised.dataset)
     lr = 1e-3
 
-    f = open('./results/simple/{}_{}labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
+    f = open('./results/{}/simple/{}_labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
     writer = csv.writer(f)
 
     accuracies = []
