@@ -175,7 +175,7 @@ class M2Runner(Model):
 
             val = self.accuracy(validation_loader)
 
-            print('Epoch: {} Validation acc: {}'.format(epoch, val))
+#            print('Epoch: {} Validation acc: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.M2)
 
@@ -239,8 +239,10 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
     parameters = []
 
     for l in latent_sizes:
-        for h_v in hidden_layers_classifier:
-            for h_c in hidden_layers_vae:
+        for h_c in hidden_layers_classifier:
+            for h_v in hidden_layers_vae:
+                print('M2 latent {} classifier layers {} vae layers {}'.format(l, h_c, h_v))
+
                 model = M2Runner(input_size, [hidden_layer_size] * h_v, [hidden_layer_size] * h_c, l, num_classes,
                                  lambda x: x, lr, dataset_name, device)
                 model.train_model(100, (unsupervised, supervised, validation), False)
@@ -253,6 +255,9 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
                                    'hidden_layers_classifier': [hidden_layer_size] * h_c, 'latent_size': l,
                                    'num_classes': num_classes, 'lr': lr,
                                    'dataset_name': dataset_name, 'device': device})
+
+                if device == 'cuda':
+                    torch.cuda.empty_cache()
 
     f.close()
 

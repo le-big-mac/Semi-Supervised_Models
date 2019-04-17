@@ -51,7 +51,7 @@ class SimpleNetwork(Model):
 
             val = accuracy(self.Classifier, validation_dataloader, self.device)
 
-            print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
+            # print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.Classifier)
 
@@ -94,6 +94,8 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
     parameters = []
 
     for h in hidden_layers:
+        print('Simple hidden layers {}'.format(h))
+
         model = SimpleNetwork(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device)
         model.train_model(100, dataloaders, False)
         validation_result = model.test_model(validation)
@@ -103,13 +105,6 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
         accuracies.append(validation_result)
         parameters.append({'input_size': input_size, 'hidden_layers': [hidden_layer_size] * h,
                            'num_classes': num_classes, 'lr': lr, 'dataset_name': dataset_name, 'device': device})
-
-        for obj in gc.get_objects():
-            try:
-                if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
-                    print(type(obj), obj.size())
-            except:
-                pass
 
         if device == 'cuda':
             torch.cuda.empty_cache()

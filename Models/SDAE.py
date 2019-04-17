@@ -65,7 +65,7 @@ class SDAE(Model):
                     loss.backward()
                     optimizer.step()
 
-                    print('Unsupervised Layer: {} Epoch: {} Loss: {}'.format(i, epoch, loss.item()))
+                    # print('Unsupervised Layer: {} Epoch: {} Loss: {}'.format(i, epoch, loss.item()))
 
     def train_classifier(self, max_epochs, test_dataloader, validation_dataloader, comparison):
         epochs = []
@@ -100,7 +100,7 @@ class SDAE(Model):
 
             val = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
 
-            print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
+            # print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.SDAEClassifier)
 
@@ -145,6 +145,8 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
     parameters = []
 
     for h in hidden_layers:
+        print('SDAE hidden layers {}'.format(h))
+
         model = SDAE(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device)
         model.train_model(100, dataloaders, False)
         validation_result = model.test_model(validation)
@@ -154,6 +156,9 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
         accuracies.append(validation_result)
         parameters.append({'input_size': input_size, 'hidden_layers': [hidden_layer_size] * h,
                            'num_classes': num_classes, 'lr': lr, 'dataset_name': dataset_name, 'device': device})
+
+        if device == 'cuda':
+            torch.cuda.empty_cache()
 
     f.close()
 

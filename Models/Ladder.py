@@ -245,7 +245,7 @@ class LadderNetwork(Model):
 
             val = self.accuracy(validation_dataloader, 0)
 
-            print('Epoch: {} Validation Accuracy: {}'.format(epoch, val))
+            # print('Epoch: {} Validation Accuracy: {}'.format(epoch, val))
 
             early_stopping(1 - val, self.ladder)
 
@@ -290,6 +290,8 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
     parameters = []
 
     for h in hidden_layers:
+        print('Ladder hidden layers {}'.format(h))
+
         denoising_cost = [1000.0, 10.0] + ([0.1] * h)
 
         model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr, dataset_name,
@@ -303,6 +305,9 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
         parameters.append({'input_size': input_size, 'hidden_layers': [hidden_layer_size] * h,
                            'num_classes': num_classes, 'denoising_cost': denoising_cost, 'lr': lr,
                            'dataset_name': dataset_name, 'device': device})
+
+        if device == 'cuda':
+            torch.cuda.empty_cache()
 
     f.close()
 
