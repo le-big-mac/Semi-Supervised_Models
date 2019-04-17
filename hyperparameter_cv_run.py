@@ -37,6 +37,7 @@ def main():
     args = parser.parse_args()
 
     model_name = args.model
+    dataset_name = args.dataset
     hyperparameter_optimizer = hyperparameter_fns[model_name]
     constructor = construction_fns[model_name]
 
@@ -46,10 +47,11 @@ def main():
         os.mkdir('{}/{}'.format(state_path, model_name))
     if not os.path.exists(results_path):
         os.mkdir(results_path)
-    if not os.path.exists('{}/{}'.format(results_path, model_name)):
-        os.mkdir('{}/{}'.format(results_path, model_name))
+    if not os.path.exists('{}/{}'.format(results_path, dataset_name)):
+        os.mkdir('{}/{}'.format(results_path, dataset_name))
+    if not os.path.exists('{}/{}/{}'.format(results_path, dataset_name, model_name)):
+        os.mkdir('{}/{}/{}'.format(results_path, dataset_name, model_name))
 
-    dataset_name = args.dataset
     num_folds = args.num_folds
     num_labelled = args.num_labelled
     fold_test_accuracies = []
@@ -57,10 +59,10 @@ def main():
     iteration_train_losses = []
     iteration_validation_accuracies = []
 
-    if dataset_name == 'mnist':
-        open('./results/{}/{}_{}labelled_hyperparameter_train.csv'.format(model_name, dataset_name, args.num_labelled),
-             'w').close()
+    open('./results/{}/{}/{}_labelled_hyperparameter_train.csv'.format(dataset_name, model_name, args.num_labelled),
+         'w').close()
 
+    if dataset_name == 'mnist':
         for i in range(num_folds):
             u_d, s_d, v_d, t_d = load_MNIST_data(num_labelled, 50000, True, True)
 
@@ -84,9 +86,6 @@ def main():
 
     elif dataset_name == 'tcga':
         (data, labels), input_size, num_classes = load_tcga_data()
-
-        open('./results/{}/{}_{}labelled_hyperparameter_train.csv'.format(model_name, dataset_name, num_labelled),
-             'w').close()
 
         for train_indices, val_and_test_indices in stratified_k_fold(data, labels, num_folds=num_folds):
             normalizer = GaussianNormalizeTensors()
