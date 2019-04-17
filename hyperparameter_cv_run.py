@@ -51,14 +51,18 @@ def main():
 
     dataset_name = args.dataset
     num_folds = args.num_folds
-    fold_accuracies = []
+    num_labelled = args.num_labelled
+    fold_test_accuracies = []
+    iteration_epochs = []
+    iteration_train_losses = []
+    iteration_validation_accuracies = []
 
     if dataset_name == 'mnist':
         open('./results/{}/{}_{}labelled_hyperparameter_train.csv'.format(model_name, dataset_name, args.num_labelled),
              'w').close()
 
         for i in range(num_folds):
-            u_d, s_d, v_d, t_d = load_MNIST_data(args.num_labelled, 50000, True, True)
+            u_d, s_d, v_d, t_d = load_MNIST_data(num_labelled, 50000, True, True)
 
             u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
             s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
@@ -71,14 +75,17 @@ def main():
 
             model = constructor(parameter_dict[index])
 
-            model.train_model(100, (u_dl, s_dl, v_dl), False)
+            epochs, losses, accuracies = model.train_model(100, (u_dl, s_dl, v_dl), False)
 
-            fold_accuracies.append(model.test_model(t_dl))
+            fold_test_accuracies.append(model.test_model(t_dl))
+            iteration_epochs.append(epochs)
+            iteration_train_losses.append(losses)
+            iteration_validation_accuracies.append(accuracies)
 
     elif dataset_name == 'tcga':
         (data, labels), input_size, num_classes = load_tcga_data()
 
-        open('./results/{}/{}_{}labelled_hyperparameter_train.csv'.format(model_name, dataset_name, args.num_labelled),
+        open('./results/{}/{}_{}labelled_hyperparameter_train.csv'.format(model_name, dataset_name, num_labelled),
              'w').close()
 
         for train_indices, val_and_test_indices in stratified_k_fold(data, labels, num_folds=num_folds):
@@ -107,11 +114,21 @@ def main():
 
             model = constructor(parameter_dict[index])
 
-            model.train_model(100, (u_dl, s_dl, v_dl), False)
+            epochs, losses, accuracies = model.train_model(100, (u_dl, s_dl, v_dl), False)
 
-            fold_accuracies.append(model.test_model(t_dl))
+            fold_test_accuracies.append(model.test_model(t_dl))
+            iteration_epochs.append(epochs)
+            iteration_train_losses.append(losses)
+            iteration_validation_accuracies.append(accuracies)
 
-    save_results(fold_accuracies, dataset_name, model_name, '{}_fold_accuracies'.format(num_folds))
+    save_results(fold_test_accuracies, dataset_name, model_name,
+                 '{}_fold_{}_labelled_test_accuracies'.format(num_folds, num_labelled))
+    save_results(iteration_epochs, dataset_name, model_name,
+                 '{}_fold_{}_labelled_epochs'.format(num_folds, num_labelled))
+    save_results(iteration_train_losses, dataset_name, model_name,
+                 '{}_fold_{}_labelled_train_losses'.format(num_folds, num_labelled))
+    save_results(iteration_validation_accuracies, dataset_name, model_name,
+                 '{}_fold_{}_labelled_validation_accuracies'.format(num_folds, num_labelled))
 
 
 if __name__ == '__main__':
