@@ -21,12 +21,7 @@ if not os.path.exists('{}/{}/{}'.format(results_path, dataset_name, model_name))
     os.mkdir('{}/{}/{}'.format(results_path, dataset_name, model_name))
 
 print('===Loading Data===')
-# (data, labels), input_size, num_classes = load_tcga_data()
-
-data = torch.randn((500, 100))
-labels = torch.LongTensor(500).random_(0, 10)
-input_size = 100
-num_classes = 10
+(data, labels), input_size, num_classes = load_tcga_data()
 
 test_accuracies = []
 validation_accuracies = []
