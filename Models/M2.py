@@ -138,8 +138,8 @@ class M2Runner(Model):
         early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
 
         for epoch in range(max_epochs):
-            if early_stopping.early_stop:
-                break
+            # if early_stopping.early_stop:
+            #     break
 
             for batch_idx, (labelled_data, unlabelled_data) in enumerate(zip(cycle(labelled_loader), unlabelled_loader)):
                 self.M2.train()
@@ -166,18 +166,22 @@ class M2Runner(Model):
                 self.optimizer.step()
 
                 if comparison:
+                    validation_acc = self.accuracy(validation_loader)
                     epochs.append(epoch)
                     train_losses.append(loss.item())
-                    validation_accs.append(self.accuracy(validation_loader))
+                    validation_accs.append(validation_acc)
 
-                # print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
-                #       .format(epoch, labelled_loss.item(), U.item(), L.item(), validation_acc))
+                    print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
+                          .format(epoch, labelled_loss.item(), U.item(), L.item(), validation_acc))
+
+                    early_stopping(1 - validation_acc, self.M2)
 
             val = self.accuracy(validation_loader)
 
 #            print('Epoch: {} Validation acc: {}'.format(epoch, val))
 
-            early_stopping(1 - val, self.M2)
+            if not comparison:
+                early_stopping(1 - val, self.M2)
 
         if early_stopping.early_stop:
             early_stopping.load_checkpoint(self.M2)

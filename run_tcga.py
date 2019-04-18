@@ -35,7 +35,7 @@ for train_indices, val_and_test_indices in (stratified_k_fold(data, labels, num_
     v_dl = DataLoader(v_d, batch_size=v_d.__len__())
     t_dl = DataLoader(t_d, batch_size=t_d.__len__())
 
-    epochs, losses, accuracies = model.train_model(100, (u_dl, s_dl, v_dl), True)
+    epochs, losses, accuracies = model.train_model(300, (u_dl, s_dl, v_dl), True)
     test_accuracy = model.test_model(t_dl)
 
     train_epochs.append(epochs)
