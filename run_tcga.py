@@ -7,16 +7,20 @@ dataset_name = 'tcga'
 num_labelled = 100
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+print('===Loading Data===')
 (data, labels), input_size, num_classes = load_tcga_data()
-
-model = M2Runner(input_size, [1024, 1024], [1024], 32, num_classes, lambda x: x, 1e-3, dataset_name, device)
 
 test_accuracies = []
 validation_accuracies = []
 train_losses = []
 train_epochs = []
 
-for train_indices, val_and_test_indices in (stratified_k_fold(data, labels, num_folds=5)):
+for i, train_indices, val_and_test_indices in enumerate(stratified_k_fold(data, labels, num_folds=5)):
+    print('Fold {}'.format(i))
+
+    print('===Making Model===')
+    model = M2Runner(input_size, [1024, 1024], [1024], 32, num_classes, lambda x: x, 1e-3, dataset_name, device)
+
     normalizer = GaussianNormalizeTensors()
     train_data = normalizer.apply_train(data[train_indices])
 
@@ -38,11 +42,14 @@ for train_indices, val_and_test_indices in (stratified_k_fold(data, labels, num_
     epochs, losses, accuracies = model.train_model(300, (u_dl, s_dl, v_dl), True)
     test_accuracy = model.test_model(t_dl)
 
+    print('Test accuracy: {}'.format(test_accuracy))
+
     train_epochs.append(epochs)
     train_losses.append(losses)
     validation_accuracies.append(accuracies)
     test_accuracies.append(test_accuracy)
 
+print('===Saving Results===')
 save_results(test_accuracies, dataset_name, model_name,
              '{}_labelled_test_accuracies'.format(num_labelled))
 save_results(train_epochs, dataset_name, model_name,
