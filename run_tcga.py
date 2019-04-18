@@ -6,16 +6,34 @@ model_name = 'm2'
 dataset_name = 'tcga'
 num_labelled = 100
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+state_path = './Models/state'
+results_path = './results'
+
+if not os.path.exists(state_path):
+    os.mkdir(state_path)
+if not os.path.exists('{}/{}'.format(state_path, model_name)):
+    os.mkdir('{}/{}'.format(state_path, model_name))
+if not os.path.exists(results_path):
+    os.mkdir(results_path)
+if not os.path.exists('{}/{}'.format(results_path, dataset_name)):
+    os.mkdir('{}/{}'.format(results_path, dataset_name))
+if not os.path.exists('{}/{}/{}'.format(results_path, dataset_name, model_name)):
+    os.mkdir('{}/{}/{}'.format(results_path, dataset_name, model_name))
 
 print('===Loading Data===')
-(data, labels), input_size, num_classes = load_tcga_data()
+# (data, labels), input_size, num_classes = load_tcga_data()
+
+data = torch.randn((500, 100))
+labels = torch.LongTensor(500).random_(0, 10)
+input_size = 100
+num_classes = 10
 
 test_accuracies = []
 validation_accuracies = []
 train_losses = []
 train_epochs = []
 
-for i, train_indices, val_and_test_indices in enumerate(stratified_k_fold(data, labels, num_folds=5)):
+for i, (train_indices, val_and_test_indices) in enumerate(stratified_k_fold(data, labels, num_folds=5)):
     print('Fold {}'.format(i))
 
     print('===Making Model===')
