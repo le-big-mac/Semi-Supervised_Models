@@ -312,9 +312,3 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, devi
     f.close()
 
     return accuracies, parameters
-
-
-def construct_from_parameter_dict(parameters):
-    return LadderNetwork(parameters['input_size'], parameters['hidden_layers'], parameters['num_classes'],
-                         parameters['denoising_cost'], parameters['lr'], parameters['datatset_name'],
-                         parameters['device'])

@@ -82,7 +82,7 @@ class SDAE(Model):
 
                     # print('Unsupervised Layer: {} Epoch: {} Loss: {}'.format(i, epoch, loss.item()))
 
-    def train_classifier(self, max_epochs, test_dataloader, validation_dataloader, comparison):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader, comparison):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -93,7 +93,8 @@ class SDAE(Model):
             if early_stopping.early_stop:
                 break
 
-            for batch_idx, (data, labels) in enumerate(test_dataloader):
+            train_loss = 0
+            for batch_idx, (data, labels) in enumerate(train_dataloader):
                 self.SDAEClassifier.train()
 
                 data = data.to(self.device)
@@ -108,16 +109,25 @@ class SDAE(Model):
                 loss.backward()
                 self.optimizer.step()
 
-            if comparison:
+                if comparison:
+                    acc = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
+
+                    epochs.append(epoch)
+                    train_losses.append(loss.item())
+                    validation_accs.append(acc)
+
+                    early_stopping(1 - acc, self.SDAEClassifier)
+                else:
+                    train_loss += loss.item()
+
+            if not comparison:
+                acc = accuracy(self.Classifier, validation_dataloader, self.device)
+
                 epochs.append(epoch)
-                train_losses.append(loss.item())
-                validation_accs.append(accuracy(self.SDAEClassifier, validation_dataloader, self.device))
+                train_losses.append(train_loss/len(train_dataloader))
+                validation_accs.append(acc)
 
-            val = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
-
-            # print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
-
-            early_stopping(1 - val, self.SDAEClassifier)
+                early_stopping(1 - acc, self.Classifier)
 
         if early_stopping.early_stop:
             early_stopping.load_checkpoint(self.SDAEClassifier)
@@ -190,36 +200,3 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     test_acc = model.test_model(test)
 
     return test_acc
-
-def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_epochs, device):
-    hidden_layer_size = min(1024, (input_size + num_classes) // 2)
-    hidden_layers = range(1, 4)
-    unsupervised, supervised, validation = dataloaders
-    num_labelled = len(supervised.dataset)
-    lr = 1e-3
-
-    f = open('./results/{}/sdae/{}_labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
-    writer = csv.writer(f)
-
-    accuracies = []
-    parameters = []
-
-    for h in hidden_layers:
-        print('SDAE hidden layers {}'.format(h))
-
-        model = SDAE(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device)
-        model.train_model(100, dataloaders, False)
-        validation_result = model.test_model(validation)
-
-        writer.writerow([lr, hidden_layer_size, h, validation_result])
-
-        accuracies.append(validation_result)
-        parameters.append({'input_size': input_size, 'hidden_layers': [hidden_layer_size] * h,
-                           'num_classes': num_classes, 'lr': lr, 'dataset_name': dataset_name, 'device': device})
-
-        if device == 'cuda':
-            torch.cuda.empty_cache()
-
-    f.close()
-
-    return accuracies, parameters
