@@ -131,7 +131,7 @@ class SDAE(Model):
         return self.SDAEClassifier(data)
 
 
-def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, device):
+def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_epochs, device):
     hidden_layer_size = min(1024, (input_size + num_classes) // 2)
     hidden_layers = range(1, 4)
     unsupervised, supervised, validation = dataloaders

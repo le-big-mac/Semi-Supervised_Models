@@ -225,7 +225,7 @@ class M2Runner(Model):
         return self.M2.classify(data)
 
 
-def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, device):
+def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_epochs, device):
     hidden_layer_size = min(1024, (input_size + num_classes) // 2)
     hidden_layers_classifier = range(1, 3)
     hidden_layers_vae = range(1, 3)
