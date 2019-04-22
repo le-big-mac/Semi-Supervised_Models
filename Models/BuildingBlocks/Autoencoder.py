@@ -64,17 +64,3 @@ class Autoencoder(nn.Module):
         y = self.decoder(z)
 
         return y
-
-
-class AutoencoderSDAE(nn.Module):
-    def __init__(self, encoder):
-        super(AutoencoderSDAE, self).__init__()
-
-        self.encoder = encoder
-        self.decoder = Decoder(encoder.latent.in_features, [], encoder.latent.out_features, lambda x: x)
-
-    def forward(self, x):
-        z = self.encoder(x)
-        y = self.decoder(z)
-
-        return y

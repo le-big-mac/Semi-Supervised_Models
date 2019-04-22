@@ -2,9 +2,24 @@ import torch
 import csv
 from torch import nn
 from utils.trainingutils import accuracy
-from Models.BuildingBlocks import Encoder, AutoencoderSDAE
+from Models.BuildingBlocks import Encoder, Decoder
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping
+import pickle
+
+
+class AutoencoderSDAE(nn.Module):
+    def __init__(self, encoder):
+        super(AutoencoderSDAE, self).__init__()
+
+        self.encoder = encoder
+        self.decoder = Decoder(encoder.latent.in_features, [], encoder.latent.out_features, lambda x: x)
+
+    def forward(self, x):
+        z = self.encoder(x)
+        y = self.decoder(z)
+
+        return y
 
 
 class SDAEClassifier(nn.Module):
@@ -132,6 +147,51 @@ class SDAE(Model):
 
 
 def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_epochs, device):
+    hidden_layer_size = min(500, (input_size + num_classes) // 2)
+    hidden_layers = range(1, 5)
+    unsupervised, supervised, validation, test = dataloaders
+    train_dataloaders = (unsupervised, supervised, validation)
+    num_labelled = len(supervised.dataset)
+    lr = 1e-3
+
+    best_acc = 0
+    best_path = None
+    best_params = None
+
+    f = open('./results/{}/sdae_{}_labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'ab')
+    for h in hidden_layers:
+        print('SDAE hidden layers {}'.format(h))
+
+        model = SDAE(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device)
+        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
+        validation_result = model.test_model(validation)
+
+        model_path = './state/sdae/{}_{}_{}'.format(dataset_name, num_labelled, h)
+        torch.save(model.state_dict(), model_path)
+
+        params = {'input size': input_size, 'hidden layers': h * [hidden_layer_size], 'num classes': num_classes}
+        logging = {'accuracy': validation_result, 'epochs': epochs, 'losses': losses, 'accuracies': validation_result,
+                   'params': params, 'filepath': model_path}
+
+        pickle.dump(logging, f)
+
+        if validation_result > best_acc:
+            best_acc = validation_result
+            best_path = model_path
+            best_params = params
+
+        if device == 'cuda':
+            torch.cuda.empty_cache()
+
+    f.close()
+
+    model = SDAE(input_size, best_params['hidden layers'], num_classes, lr, dataset_name, device)
+    model.load_state_dict(torch.load(best_path))
+    test_acc = model.test_model(test)
+
+    return test_acc
+
+def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_epochs, device):
     hidden_layer_size = min(1024, (input_size + num_classes) // 2)
     hidden_layers = range(1, 4)
     unsupervised, supervised, validation = dataloaders
@@ -163,8 +223,3 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     f.close()
 
     return accuracies, parameters
-
-
-def construct_from_parameter_dict(parameters):
-    return SDAE(parameters['input_size'], parameters['hidden_layers'], parameters['num_classes'], parameters['lr'],
-                parameters['dataset_name'], parameters['device'])
