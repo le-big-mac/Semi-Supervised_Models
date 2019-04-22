@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from itertools import cycle
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping
-import csv
+import pickle
 
 
 def bi(inits, size):
@@ -195,6 +195,7 @@ class LadderNetwork(Model):
             if early_stopping.early_stop:
                 break
 
+            train_loss = 0
             for batch_idx, (labelled_data, unlabelled_data) in enumerate(
                     zip(cycle(supervised_dataloader), unsupervised_dataloader)):
                 self.ladder.train()
@@ -234,20 +235,26 @@ class LadderNetwork(Model):
                 self.optimizer.step()
 
                 if comparison:
-                    val_acc = self.accuracy(validation_dataloader, 0)
+                    acc = self.accuracy(validation_dataloader, 0)
 
                     epochs.append(epoch)
                     train_losses.append(loss.item())
-                    validation_accs.append(val_acc)
+                    validation_accs.append(acc)
 
-                    print('Epoch: {} Supervised Loss: {} Unsupervised Loss: {} Validation Accuracy: {}'
-                          .format(epoch, cost.item(), u_cost.item(), val_acc))
+                    early_stopping(1 - acc, self.ladder)
 
-            val = self.accuracy(validation_dataloader, 0)
+                    # print('Epoch: {} Supervised Loss: {} Unsupervised Loss: {} Validation Accuracy: {}'
+                    #       .format(epoch, cost.item(), u_cost.item(), acc))
 
-            # print('Epoch: {} Validation Accuracy: {}'.format(epoch, val))
+            if not comparison:
+                acc = self.accuracy(validation_dataloader, 0)
 
-            early_stopping(1 - val, self.ladder)
+                epochs.append(epoch)
+                train_losses.append(train_loss/len(unsupervised_dataloader))
+                validation_accs.append(acc)
+
+                early_stopping(1 - acc, self.ladder)
+                # print('Epoch: {} Validation Accuracy: {}'.format(epoch, val))
 
         if early_stopping.early_stop:
             early_stopping.load_checkpoint(self.ladder)
@@ -276,39 +283,52 @@ class LadderNetwork(Model):
         return y
 
 
-def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, device):
-    hidden_layer_size = min(1024, (input_size + num_classes) // 2)
-    hidden_layers = range(1, 4)
-    unsupervised, supervised, validation = dataloaders
+def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_epochs, device):
+    hidden_layer_size = min(500, (input_size + num_classes) // 2)
+    hidden_layers = range(1, 5)
+    unsupervised, supervised, validation, test = dataloaders
+    train_dataloaders = (unsupervised, supervised, validation)
     num_labelled = len(supervised.dataset)
     lr = 1e-3
 
-    f = open('./results/{}/ladder/{}_labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'a')
-    writer = csv.writer(f)
+    best_acc = 0
+    best_path = None
+    best_params = None
 
-    accuracies = []
-    parameters = []
-
+    f = open('./results/{}/ladder_{}_labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'ab')
     for h in hidden_layers:
         print('Ladder hidden layers {}'.format(h))
 
         denoising_cost = [1000.0, 10.0] + ([0.1] * h)
-
         model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr, dataset_name,
                               device)
-        model.train_model(100, (unsupervised, supervised, validation), False)
-        test_result = model.test_model(validation)
 
-        writer.writerow([lr, hidden_layer_size, h, test_result])
+        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
+        validation_result = model.test_model(validation)
 
-        accuracies.append(test_result)
-        parameters.append({'input_size': input_size, 'hidden_layers': [hidden_layer_size] * h,
-                           'num_classes': num_classes, 'denoising_cost': denoising_cost, 'lr': lr,
-                           'dataset_name': dataset_name, 'device': device})
+        model_path = './state/ladder/{}_{}_{}'.format(dataset_name, num_labelled, h)
+        torch.save(model.state_dict(), model_path)
+
+        params = {'input size': input_size, 'hidden layers': h * [hidden_layer_size], 'num classes': num_classes}
+        logging = {'accuracy': validation_result, 'epochs': epochs, 'losses': losses, 'accuracies': validation_result,
+                   'params': params, 'filepath': model_path}
+
+        pickle.dump(logging, f)
+
+        if validation_result > best_acc:
+            best_acc = validation_result
+            best_path = model_path
+            best_params = params
 
         if device == 'cuda':
             torch.cuda.empty_cache()
 
     f.close()
 
-    return accuracies, parameters
+    hidden_layers = best_params['hidden layers']
+    denoising_cost = [1000.0, 10.0] + ([0.1] * len(hidden_layers))
+    model = LadderNetwork(input_size, hidden_layers, num_classes, denoising_cost, lr, dataset_name, device)
+    model.load_state_dict(torch.load(best_path))
+    test_acc = model.test_model(test)
+
+    return test_acc
