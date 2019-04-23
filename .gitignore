@@ -3,6 +3,7 @@ data/
 .idea/
 results/
 Models/state/
+mnist_compare.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

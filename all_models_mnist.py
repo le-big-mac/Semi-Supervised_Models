@@ -52,7 +52,7 @@ for i, (train_indices, val_indices) in enumerate(stratified_k_fold(train_data, t
     dataloaders = (u_dl, s_dl, v_dl, t_dl)
 
     simple_result = simple_hyperparameter_loop(dataset_name, dataloaders, 784, 10, max_epochs, device)
-    # m1_result =
+    m1_result = m1_hyperparameter_loop(dataset_name, dataloaders, 784, 10, max_epochs, device)
     sdae_result = sdae_hyperparameter_loop(dataset_name, dataloaders, 784, 10, max_epochs, device)
     m2_result = m2_hyperparameter_loop(dataset_name, dataloaders, 784, 10, max_epochs, device)
 
