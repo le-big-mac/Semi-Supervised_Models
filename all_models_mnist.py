@@ -36,10 +36,14 @@ print('===Loading Data===')
 (train_data, train_labels), (test_data, test_labels) = load_tcga_data()
 t_d = TensorDataset(test_data, test_labels)
 
+run = False
 results_dict = defaultdict(list)
 
 for i, (train_indices, val_indices) in enumerate(stratified_k_fold(train_data, train_labels, num_folds=5)):
     print('Validation Fold {}'.format(i))
+
+    if run:
+        results_dict = pickle.load(open('./results/mnist/{}_test_results'.format(num_labelled)))
 
     s_d, u_d = labelled_split(train_data[train_indices], train_labels[train_indices], num_labelled=num_labelled)
     v_d = TensorDataset(train_data[val_indices], train_labels[val_indices])
@@ -65,11 +69,12 @@ for i, (train_indices, val_indices) in enumerate(stratified_k_fold(train_data, t
     ladder_result = ladder.test_model(t_dl)
 
     results_dict['simple'].append(simple_result)
-    # results_dict['m1'].append(m1_result)
+    results_dict['m1'].append(m1_result)
     results_dict['sdae'].append(sdae_result)
     results_dict['m2'].append(m2_result)
     results_dict['ladder'].append(ladder_result)
 
-print('===Saving Results===')
-with open('./results/mnist/{}_test_results'.format(num_labelled), 'wb') as test_file:
-    pickle.dump(results_dict, test_file)
+    print('===Saving Results===')
+    run = True
+    with open('./results/mnist/{}_test_results'.format(num_labelled), 'wb') as test_file:
+        pickle.dump(results_dict, test_file)

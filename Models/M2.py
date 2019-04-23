@@ -188,7 +188,7 @@ class M2Runner(Model):
 
                 early_stopping(1 - acc, self.M2)
 
-                # print('Epoch: {} Validation acc: {}'.format(epoch, val))
+                print('Epoch: {} Validation acc: {}'.format(epoch, val))
 
         early_stopping.load_checkpoint(self.M2)
 
