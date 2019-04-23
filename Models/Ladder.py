@@ -294,7 +294,7 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     best_path = None
     best_params = None
 
-    f = open('./results/{}/ladder_{}_labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'ab')
+    f = open('./results/{}/ladder_{}_labelled_hyperparameter_train.p'.format(dataset_name, num_labelled), 'ab')
     for h in hidden_layers:
         print('Ladder hidden layers {}'.format(h))
 
@@ -331,3 +331,18 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     test_acc = model.test_model(test)
 
     return test_acc
+
+
+def ladder_mnist(dataset_name, dataloaders, input_size, num_classes, max_epochs, device):
+    u_dl, s_dl, v_dl, t_dl = dataloaders
+    num_labelled = len(s_dl.dataset)
+
+    ladder = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, [1000.0, 10.0, 0.10, 0.10, 0.10, 0.10, 0.10],
+                           1e-3, dataset_name, device)
+    ladder_epochs, ladder_loss, ladder_acc = ladder.train_model(max_epochs, (u_dl, s_dl, v_dl), False)
+    logging = {'epochs': ladder_epochs, 'losses': ladder_loss, 'accuracies': ladder_acc}
+    pickle.dump(logging, open('./results/{}/simple_{}_labelled_hyperparameter_train.csv'
+                              .format(dataset_name, num_labelled)))
+    ladder_result = ladder.test_model(t_dl)
+
+    return ladder_result

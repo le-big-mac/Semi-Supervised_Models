@@ -167,7 +167,7 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     best_path = None
     best_params = None
 
-    f = open('./results/{}/sdae_{}_labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'ab')
+    f = open('./results/{}/sdae_{}_labelled_hyperparameter_train.p'.format(dataset_name, num_labelled), 'ab')
     for h in hidden_layers:
         print('SDAE hidden layers {}'.format(h))
 
@@ -175,7 +175,7 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
-        model_path = './state/sdae/{}_{}_{}'.format(dataset_name, num_labelled, h)
+        model_path = './Models/state/sdae/{}_{}_{}.pt'.format(dataset_name, num_labelled, h)
         torch.save(model.state_dict(), model_path)
 
         params = {'input size': input_size, 'hidden layers': h * [hidden_layer_size], 'num classes': num_classes}

@@ -247,7 +247,7 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     best_path = None
     best_params = None
 
-    f = open('./results/{}/m2_{}_labelled_hyperparameter_train.csv'.format(dataset_name, num_labelled), 'ab')
+    f = open('./results/{}/m2_{}_labelled_hyperparameter_train.p'.format(dataset_name, num_labelled), 'ab')
     for p in param_combinations:
         print('M2 params {}'.format(p))
 
@@ -258,7 +258,7 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
-        model_path = './state/m2/{}_{}_{}_{}_{}'.format(dataset_name, num_labelled, h_v, h_c, z)
+        model_path = './Models/state/m2/{}_{}_{}_{}_{}.pt'.format(dataset_name, num_labelled, h_v, h_c, z)
         torch.save(model.state_dict(), model_path)
 
         params = {'input size': input_size, 'hidden layers vae': h_v * [hidden_layer_size],

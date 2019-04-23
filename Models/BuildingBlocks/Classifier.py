@@ -17,7 +17,7 @@ class Classifier(nn.Module):
 
         self.hidden_layers = nn.ModuleList(layers)
 
-        self.out = nn.Linear(hidden_dimensions[-1], num_classes)
+        self.out = nn.Linear(dims[-1], num_classes)
 
     def forward(self, x):
         for layer in self.hidden_layers:

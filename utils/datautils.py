@@ -60,12 +60,7 @@ def labelled_split(data, labels, num_labelled, stratified=True):
     total_samples = labels.size(0)
     num_classes = len(unique_labels)
 
-    assert (num_labelled > num_classes)
-
-    # shuffle tensors
-    # shuffled = torch.randperm(total_samples)
-    # data = data[shuffled]
-    # labels = labels[shuffled]
+    assert(num_labelled > num_classes)
 
     label_index_dict = {}
 
@@ -86,13 +81,8 @@ def labelled_split(data, labels, num_labelled, stratified=True):
 
     labelled_indices = torch.cat(list(label_index_dict.values()))
     np.random.shuffle(labelled_indices.numpy())
-    labelled_data = data[labelled_indices]
-    labelled_labels = labels[labelled_indices]
 
-    supervised_dataset = TensorDataset(labelled_data, labelled_labels)
-    unsupervised_dataset = TensorDataset(data, -1 * torch.ones(labels.size(0)))
-
-    return supervised_dataset, unsupervised_dataset
+    return labelled_indices
 
 
 class ImputationType(Enum):
