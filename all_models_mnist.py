@@ -40,12 +40,12 @@ if not os.path.exists('{}/{}'.format(state_path, model_name)):
 if not os.path.exists('{}/{}/{}'.format(results_path, dataset_name, model_name)):
     os.mkdir('{}/{}/{}'.format(results_path, dataset_name, model_name))
     # clear files
-open('./results/{}/{}_{}_labelled_hyperparameter_train.csv'.format(dataset_name, model_name, num_labelled),
+open('./results/{}/{}_{}_labelled_hyperparameter_train.p'.format(dataset_name, model_name, num_labelled),
      'wb').close()
 
 print('===Loading Data===')
 (train_and_val_data, train_and_val_labels), (test_data, test_labels) = load_MNIST_data()
-folds, label_indices = pickle.load(open('./data/MNIST/{}_labelled_{}_folds.p.'.format(num_labelled, num_folds), 'rb'))
+folds, label_indices = pickle.load(open('./data/MNIST/{}_labelled_{}_folds.p'.format(num_labelled, num_folds), 'rb'))
 t_d = TensorDataset(test_data, test_labels)
 
 results_list = []
