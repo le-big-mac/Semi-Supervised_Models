@@ -17,7 +17,7 @@ class M1(Model):
         self.Encoder = self.VAE.encoder
 
         self.Classifier = Classifier(latent_size, hidden_dimensions_classifier, num_classes).to(device)
-        self.Classifier_criterion = nn.CrossEntropyLoss(reduction='sum')
+        self.Classifier_criterion = nn.CrossEntropyLoss()
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=lr)
 
         self.model_name = 'm1'
@@ -65,7 +65,7 @@ class M1(Model):
 
             early_stopping(validation_loss, self.VAE)
 
-            print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
+            # print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
 
         if early_stopping.early_stop:
             early_stopping.load_checkpoint(self.VAE)
@@ -81,6 +81,7 @@ class M1(Model):
             if early_stopping.early_stop:
                 break
 
+            train_loss = 0
             for batch_idx, (data, labels) in enumerate(train_dataloader):
                 self.Classifier.train()
 
@@ -100,18 +101,27 @@ class M1(Model):
                 self.Classifier_optim.step()
 
                 if comparison:
+                    acc = self.accuracy(validation_dataloader)
+
                     epochs.append(epoch)
                     train_losses.append(loss.item())
-                    validation_accs.append(self.accuracy(validation_dataloader))
+                    validation_accs.append(acc)
 
-            val = self.accuracy(validation_dataloader)
+                    early_stopping(1 - acc, self.Classifier)
+                else:
+                    train_loss += loss.item()
 
-            print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
+            if not comparison:
+                acc = self.accuracy(validation_dataloader)
 
-            early_stopping(1 - val, self.Classifier)
+                epochs.append(epoch)
+                train_losses.append(train_loss/len(train_dataloader))
+                validation_accs.append(acc)
 
-        if early_stopping.early_stop:
-            early_stopping.load_checkpoint(self.Classifier)
+                early_stopping(1 - acc, self.Classifier)
+                # print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
+
+        early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 
