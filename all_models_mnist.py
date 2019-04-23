@@ -16,12 +16,14 @@ parser = argparse.ArgumentParser(description='Take arguments to construct model'
 parser.add_argument('model', type=str, choices=['simple', 'm1', 'sdae', 'm2', 'ladder'],
                     help="Choose which model to run")
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
+parser.add_argument('num_folds', type=int, help='Number of folds')
 args = parser.parse_args()
 
 model_name = args.model
 model_func = model_func_dict[model_name]
 dataset_name = 'mnist'
 num_labelled = args.num_labelled
+num_folds = args.num_folds
 max_epochs = 100
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 state_path = './Models/state'
@@ -43,7 +45,7 @@ open('./results/{}/{}_{}_labelled_hyperparameter_train.csv'.format(dataset_name,
 
 print('===Loading Data===')
 (train_and_val_data, train_and_val_labels), (test_data, test_labels) = load_MNIST_data()
-folds, label_indices = pickle.load(open('./data/MNIST/folds.p', 'rb'))
+folds, label_indices = pickle.load(open('./data/MNIST/{}_labelled_{}_folds.p.'.format(num_labelled, num_folds), 'rb'))
 t_d = TensorDataset(test_data, test_labels)
 
 results_list = []
