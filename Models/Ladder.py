@@ -256,8 +256,7 @@ class LadderNetwork(Model):
                 early_stopping(1 - acc, self.ladder)
                 # print('Epoch: {} Validation Accuracy: {}'.format(epoch, val))
 
-        if early_stopping.early_stop:
-            early_stopping.load_checkpoint(self.ladder)
+        early_stopping.load_checkpoint(self.ladder)
 
         return epochs, train_losses, validation_accs
 

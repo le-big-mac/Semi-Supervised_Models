@@ -129,8 +129,7 @@ class SDAE(Model):
 
                 early_stopping(1 - acc, self.Classifier)
 
-        if early_stopping.early_stop:
-            early_stopping.load_checkpoint(self.SDAEClassifier)
+        early_stopping.load_checkpoint(self.SDAEClassifier)
 
         return epochs, train_losses, validation_accs
 
