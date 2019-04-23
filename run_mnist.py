@@ -40,12 +40,7 @@ for i, (train_indices, val_indices) in enumerate(stratified_k_fold(train_data, t
     s_d, u_d = \
         labelled_split(train_data[train_indices], train_labels[train_indices], num_labelled=num_labelled)
 
-    print(len(s_d))
-    print(len(u_d))
-
     v_d = TensorDataset(train_data[val_indices], train_labels[val_indices])
-    print(len(v_d))
-    print(len(t_d))
 
     u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
     s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
