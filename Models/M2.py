@@ -70,13 +70,13 @@ class M2Runner(Model):
         KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1, dim=1)
 
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
-        # likelihood = -F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
-        likelihood = -F.mse_loss(recons, x, reduction='none').sum(dim=1)
+        # accuracy = -F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
+        accuracy = -F.mse_loss(recons, x, reduction='none').sum(dim=1)
 
         # prior over y (commented out because a uniform prior results in a constant for all labels)
         # prior_y = log_standard_categorical(y)
 
-        return likelihood - KLD
+        return accuracy - KLD
 
     def log_standard_categorical(self, y):
         # this is useless when the data is uniformly distributed as it returns a constant

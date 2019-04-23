@@ -136,10 +136,7 @@ def load_tcga_data(imputation_type=ImputationType.DROP_SAMPLES):
     return (data, labels), input_size, num_classes
 
 
-def load_MNIST_data(num_labelled, num_unlabelled=0, validation=True, test=True):
-    assert num_unlabelled > num_labelled or num_unlabelled == 0
-    assert num_labelled % 10 == 0
-
+def load_MNIST_data():
     mnist_train = datasets.MNIST(root='data/MNIST', train=True, download=True, transform=None)
     mnist_test = datasets.MNIST(root='data/MNIST', train=False, download=True, transform=None)
 
