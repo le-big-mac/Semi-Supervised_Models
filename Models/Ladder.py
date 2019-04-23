@@ -305,7 +305,7 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
-        model_path = './state/ladder/{}_{}_{}'.format(dataset_name, num_labelled, h)
+        model_path = './Models/state/ladder/{}_{}_{}.pt'.format(dataset_name, num_labelled, h)
         torch.save(model.state_dict(), model_path)
 
         params = {'input size': input_size, 'hidden layers': h * [hidden_layer_size], 'num classes': num_classes}

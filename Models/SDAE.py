@@ -121,13 +121,13 @@ class SDAE(Model):
                     train_loss += loss.item()
 
             if not comparison:
-                acc = accuracy(self.Classifier, validation_dataloader, self.device)
+                acc = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
 
                 epochs.append(epoch)
                 train_losses.append(train_loss/len(train_dataloader))
                 validation_accs.append(acc)
 
-                early_stopping(1 - acc, self.Classifier)
+                early_stopping(1 - acc, self.SDAEClassifier)
 
         early_stopping.load_checkpoint(self.SDAEClassifier)
 
