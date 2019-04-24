@@ -345,8 +345,8 @@ def ladder_mnist(dataset_name, dataloaders, input_size, num_classes, max_epochs,
                            1e-3, dataset_name, device, model_name)
     ladder_epochs, ladder_loss, ladder_acc = ladder.train_model(max_epochs, (u_dl, s_dl, v_dl), False)
     logging = {'epochs': ladder_epochs, 'losses': ladder_loss, 'accuracies': ladder_acc}
-    pickle.dump(logging, open('./results/{}/simple_{}_labelled_hyperparameter_train.csv'
-                              .format(dataset_name, num_labelled)))
+    pickle.dump(logging, open('./results/{}/ladder_{}_labelled_hyperparameter_train.p'
+                              .format(dataset_name, num_labelled), 'ab'))
     ladder_result = ladder.test_model(t_dl)
 
     return ladder_result

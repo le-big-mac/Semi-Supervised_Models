@@ -123,7 +123,7 @@ def load_tcga_data(imputation_type=ImputationType.DROP_SAMPLES):
     num_classes = len(unique_labels)
     input_size = data.size(1)
 
-    return (data, labels), input_size, num_classes
+    return (data, labels), (input_size, num_classes)
 
 
 def load_MNIST_data():

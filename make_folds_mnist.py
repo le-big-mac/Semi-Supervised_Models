@@ -1,9 +1,14 @@
 from utils.datautils import *
-import sys
 import pickle
+import argparse
 
-num_labelled = int(sys.argv[1])
-num_folds = int(sys.argv[2])
+
+parser = argparse.ArgumentParser(description='Take arguments to construct model')
+parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
+parser.add_argument('num_folds', type=int, help='Number of folds')
+args = parser.parse_args()
+num_labelled = args.num_labelled
+num_folds = args.num_folds
 (train_data, train_labels), (test_data, test_labels) = load_MNIST_data()
 
 folds = list(stratified_k_fold(train_data, train_labels, num_folds))
