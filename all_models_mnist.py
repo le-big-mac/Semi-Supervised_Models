@@ -49,8 +49,11 @@ folds, label_indices = pickle.load(open('./data/MNIST/{}_labelled_{}_folds.p'.fo
 t_d = TensorDataset(test_data, test_labels)
 
 results_list = []
+pickle.dump(results_list, open('./results/mnist/{}_{}_test_results.p'.format(model_name, num_labelled), 'wb'))
 
 for i, (train_indices, val_indices) in enumerate(folds):
+    results_list = pickle.load(open('./results/mnist/{}_{}_test_results.p'.format(model_name, num_labelled), 'rb'))
+
     print('Validation Fold {}'.format(i))
     train_data = train_and_val_data[train_indices]
     train_labels = train_and_val_labels[train_indices]
@@ -71,6 +74,6 @@ for i, (train_indices, val_indices) in enumerate(folds):
 
     results_list.append(result)
 
-print('===Saving Results===')
-with open('./results/mnist/{}_{}_test_results.p'.format(model_name, num_labelled), 'wb') as test_file:
-    pickle.dump(results_list, test_file)
+    print('===Saving Results===')
+    with open('./results/mnist/{}_{}_test_results.p'.format(model_name, num_labelled), 'wb') as test_file:
+        pickle.dump(results_list, test_file)
