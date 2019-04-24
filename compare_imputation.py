@@ -33,7 +33,7 @@ open('./results/{}/{}_logging.p'.format(dataset_name, model_name), 'ab').close()
 
 print('===Loading Data===')
 (data, labels), (input_size, num_classes) = load_tcga_data()
-str_drop = 'drop_samples' if imputation_type == ImputationType.DROP_SAMPLES else 'nodrop'
+str_drop = True if imputation_type == ImputationType.DROP_SAMPLES else False
 folds, _, val_test_split = pickle.load(open('./data/tcga/{}_labelled_{}_folds_{}.p'.format(num_labelled, num_folds,
                                                                                            str_drop)))
 
