@@ -5,11 +5,10 @@ import argparse
 import pickle
 
 parser = argparse.ArgumentParser(description='Take arguments to construct model')
-parser.add_argument('imputation_type', type=ImputationType, choices=list(ImputationType),
-                    help='Number of labelled examples to use')
+parser.add_argument('imputation_type', type=str, choices=[i.name.lower() for i in ImputationType])
 args = parser.parse_args()
 
-imputation_type = args.imputation_type
+imputation_type = ImputationType[args.imputation_type.upper()]
 num_labelled = 100000
 num_folds = 5
 model_name = 'simple_{}'.format(str(imputation_type))
