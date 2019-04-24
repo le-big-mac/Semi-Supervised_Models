@@ -244,7 +244,6 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     num_labelled = len(supervised.dataset)
 
     best_acc = 0
-    best_path = None
     best_params = None
 
     f = open('./results/{}/m2_{}_labelled_hyperparameter_train.p'.format(dataset_name, num_labelled), 'ab')
@@ -262,7 +261,7 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
         model_path = './Models/state/m2/{}.pt'.format(model_name)
         torch.save(model.state_dict(), model_path)
 
-        params = {'input size': input_size, 'hidden layers vae': h_v * [hidden_layer_size],
+        params = {'model name': model_name, 'input size': input_size, 'hidden layers vae': h_v * [hidden_layer_size],
                   'hidden layers classifier': h_c * [hidden_layer_size], 'latent dim': z, 'num classes': num_classes}
         logging = {'accuracy': validation_result, 'epochs': epochs, 'losses': losses, 'accuracies': validation_result,
                    'params': params, 'filepath': model_path}
@@ -271,7 +270,6 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
 
         if validation_result > best_acc:
             best_acc = validation_result
-            best_path = model_path
             best_params = params
 
         if device == 'cuda':
@@ -279,11 +277,13 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
 
     f.close()
 
+    model_name = best_params['model name']
     hidden_v = best_params['hidden layers vae']
     hidden_c = best_params['hidden layers classifier']
     latent = best_params['latent dim']
-    model = M2Runner(input_size, hidden_v, hidden_c, latent, num_classes, lambda x: x, lr, dataset_name, device)
-    model.load_state_dict(torch.load(best_path))
+    model = M2Runner(input_size, hidden_v, hidden_c, latent, num_classes, lambda x: x, lr, dataset_name, device,
+                     model_name)
+    model.load_state_dict(torch.load('./Models/state/m2/{}.pt'.format(model_name)))
     test_acc = model.test_model(test)
 
     return test_acc

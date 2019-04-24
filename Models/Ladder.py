@@ -292,7 +292,6 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     lr = 1e-3
 
     best_acc = 0
-    best_path = None
     best_params = None
 
     f = open('./results/{}/ladder_{}_labelled_hyperparameter_train.p'.format(dataset_name, num_labelled), 'ab')
@@ -311,15 +310,15 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
         model_path = './Models/state/ladder/{}.pt'.format(model_name)
         torch.save(model.state_dict(), model_path)
 
-        params = {'input size': input_size, 'hidden layers': h * [hidden_layer_size], 'num classes': num_classes}
+        params = {'model name': model_name, 'input size': input_size, 'hidden layers': h * [hidden_layer_size],
+                  'num classes': num_classes}
         logging = {'accuracy': validation_result, 'epochs': epochs, 'losses': losses, 'accuracies': validation_result,
-                   'params': params, 'filepath': model_path}
+                   'params': params, 'model name': model_name}
 
         pickle.dump(logging, f)
 
         if validation_result > best_acc:
             best_acc = validation_result
-            best_path = model_path
             best_params = params
 
         if device == 'cuda':
@@ -327,10 +326,11 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
 
     f.close()
 
+    model_name = best_params['model name']
     hidden_layers = best_params['hidden layers']
     denoising_cost = [1000.0, 10.0] + ([0.1] * len(hidden_layers))
-    model = LadderNetwork(input_size, hidden_layers, num_classes, denoising_cost, lr, dataset_name, device)
-    model.load_state_dict(torch.load(best_path))
+    model = LadderNetwork(input_size, hidden_layers, num_classes, denoising_cost, lr, dataset_name, device, model_name)
+    model.load_state_dict(torch.load('./Models/state/ladder/{}.pt'.format(model_name)))
     test_acc = model.test_model(test)
 
     return test_acc
