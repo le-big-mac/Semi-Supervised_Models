@@ -7,21 +7,21 @@ import pickle
 
 
 class SimpleNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, lr, dataset_name, device):
+    def __init__(self, input_size, hidden_dimensions, num_classes, lr, dataset_name, device, model_name):
         super(SimpleNetwork, self).__init__(dataset_name, device)
 
         self.Classifier = Classifier(input_size, hidden_dimensions, num_classes).to(device)
         self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=lr)
         self.criterion = nn.CrossEntropyLoss()
 
-        self.model_name = 'simple'
+        self.model_name = model_name
 
     def train_classifier(self, max_epochs, train_dataloader, validation_dataloader, comparison):
         epochs = []
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
+        early_stopping = EarlyStopping('simple/{}_inner.pt'.format(self.model_name))
 
         print(accuracy(self.Classifier, validation_dataloader, self.device))
         for epoch in range(max_epochs):
@@ -104,11 +104,12 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     for h in hidden_layers:
         print('Simple hidden layers {}'.format(h))
 
-        model = SimpleNetwork(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device)
+        model_name = '{}_{}_{}'.format(dataset_name, num_labelled, h)
+        model = SimpleNetwork(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device, model_name)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
-        model_path = './Models/state/simple/{}_{}_{}.pt'.format(dataset_name, num_labelled, h)
+        model_path = './Models/state/simple/{}.pt'.format(model_name)
         torch.save(model.state_dict(), model_path)
 
         params = {'input size': input_size, 'hidden layers': h * [hidden_layer_size], 'num classes': num_classes}

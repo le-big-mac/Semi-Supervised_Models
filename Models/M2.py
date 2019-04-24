@@ -46,7 +46,7 @@ class M2(nn.Module):
 
 class M2Runner(Model):
     def __init__(self, input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim, num_classes, activation,
-                 lr, dataset_name, device):
+                 lr, dataset_name, device, model_name):
         super(M2Runner, self).__init__(dataset_name, device)
 
         self.M2 = M2(input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim,
@@ -55,7 +55,7 @@ class M2Runner(Model):
         self.optimizer = torch.optim.Adam(self.M2.parameters(), lr=lr)
         self.num_classes = num_classes
 
-        self.model_name = 'm2'
+        self.model_name = model_name
 
     def onehot(self, labels):
         labels = labels.unsqueeze(1)
@@ -135,7 +135,7 @@ class M2Runner(Model):
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
+        early_stopping = EarlyStopping('m2/{}_inner.pt'.format(self.model_name))
 
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
@@ -253,12 +253,13 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
 
         h_v, h_c, z = p
 
+        model_name = '{}_{}_{}_{}_{}'.format(dataset_name, num_labelled, h_v, h_c, z)
         model = M2Runner(input_size, [hidden_layer_size] * h_v, [hidden_layer_size] * h_c, z, num_classes,
-                         lambda x: x, lr, dataset_name, device)
+                         lambda x: x, lr, dataset_name, device, model_name)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
-        model_path = './Models/state/m2/{}_{}_{}_{}_{}.pt'.format(dataset_name, num_labelled, h_v, h_c, z)
+        model_path = './Models/state/m2/{}.pt'.format(model_name)
         torch.save(model.state_dict(), model_path)
 
         params = {'input size': input_size, 'hidden layers vae': h_v * [hidden_layer_size],

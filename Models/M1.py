@@ -9,7 +9,7 @@ import pickle
 
 class M1(Model):
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
-                 num_classes, output_activation, lr, dataset_name, device):
+                 num_classes, output_activation, lr, dataset_name, device, model_name):
         super(M1, self).__init__(dataset_name, device)
 
         self.VAE = VAE(input_size, hidden_dimensions_encoder, latent_size, output_activation).to(device)
@@ -20,7 +20,7 @@ class M1(Model):
         self.Classifier_criterion = nn.CrossEntropyLoss()
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=lr)
 
-        self.model_name = 'm1'
+        self.model_name = model_name
 
     def VAE_criterion(self, batch_params, x):
         # KL divergence between two normal distributions (N(0, 1) and parameterized)
@@ -37,7 +37,7 @@ class M1(Model):
         return (KLD + recons).mean()
 
     def train_VAE(self, max_epochs, train_dataloader, validation_dataloader):
-        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.model_name, self.dataset_name), patience=10)
+        early_stopping = EarlyStopping('m1/{}_autoencoder.pt'.format(self.model_name), patience=10)
 
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
@@ -75,7 +75,7 @@ class M1(Model):
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}_classifier.pt'.format(self.model_name, self.dataset_name))
+        early_stopping = EarlyStopping('m1/{}_classifier.pt'.format(self.model_name))
 
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
@@ -191,12 +191,13 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
 
         h_v, h_c, z = p
 
+        model_name = '{}_{}_{}_{}_{}'.format(dataset_name, num_labelled, h_v, h_c, z)
         model = M1(input_size, h_v * [hidden_layer_vae_size], z, h_c * [hidden_layer_classifier_size], num_classes,
-                   lambda x: x, lr, dataset_name, device)
+                   lambda x: x, lr, dataset_name, device, model_name)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
-        model_path = './Models/state/m1/{}_{}_{}_{}_{}.pt'.format(dataset_name, num_labelled, h_v, h_c, z)
+        model_path = './Models/state/m1/{}.pt'.format(model_name)
         torch.save(model.state_dict(), model_path)
 
         params = {'input size': input_size, 'hidden layers vae': h_v * [hidden_layer_vae_size],

@@ -42,14 +42,14 @@ class SDAEClassifier(nn.Module):
 
 
 class SDAE(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, lr, dataset_name, device):
+    def __init__(self, input_size, hidden_dimensions, num_classes, lr, dataset_name, device, model_name):
         super(SDAE, self).__init__(dataset_name, device)
 
         self.SDAEClassifier = SDAEClassifier(input_size, hidden_dimensions, num_classes).to(device)
         self.optimizer = torch.optim.Adam(self.SDAEClassifier.parameters(), lr=lr)
         self.criterion = nn.CrossEntropyLoss()
 
-        self.model_name = 'sdae'
+        self.model_name = model_name
 
     def pretrain_hidden_layers(self, max_epochs, pretraining_dataloader):
         for i in range(len(self.SDAEClassifier.hidden_layers)):
@@ -87,7 +87,7 @@ class SDAE(Model):
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('{}/{}.pt'.format(self.model_name, self.dataset_name))
+        early_stopping = EarlyStopping('sdae/{}_inner.pt'.format(self.model_name))
 
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
@@ -171,11 +171,12 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     for h in hidden_layers:
         print('SDAE hidden layers {}'.format(h))
 
-        model = SDAE(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device)
+        model_name = '{}_{}_{}'.format(dataset_name, num_labelled, h)
+        model = SDAE(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device, model_name)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
-        model_path = './Models/state/sdae/{}_{}_{}.pt'.format(dataset_name, num_labelled, h)
+        model_path = './Models/state/sdae/{}.pt'.format(model_name)
         torch.save(model.state_dict(), model_path)
 
         params = {'input size': input_size, 'hidden layers': h * [hidden_layer_size], 'num classes': num_classes}
