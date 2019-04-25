@@ -28,11 +28,11 @@ class M1(Model):
         recons, mu, logvar = batch_params
 
         KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1, dim=1)
-        print(KLD.data)
+        # print(KLD.data)
 
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
         recons = F.mse_loss(recons, x, reduction='none').sum(dim=1)
-        print(recons.data)
+        # print(recons.data)
 
         # BCE used for mnist in original, removed here to allow for non-constrained input
         # recons = F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
@@ -61,7 +61,7 @@ class M1(Model):
                 train_loss += loss.item()
 
                 loss.backward()
-                print(loss.item())
+                # print(loss.item())
                 self.VAE_optim.step()
 
             validation_loss = unsupervised_validation_loss(self.VAE, validation_dataloader, self.VAE_criterion,

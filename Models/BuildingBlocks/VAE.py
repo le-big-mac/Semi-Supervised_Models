@@ -22,11 +22,11 @@ class VariationalEncoder(nn.Module):
         self.mu = nn.Linear(dims[-1], latent_dim)
         # ReLU as variance has to be greater than 0
         # TODO: this is not true, check results without
-        # self.logvar = nn.Sequential(
-        #     nn.Linear(dims[-1], latent_dim),
-        #     nn.Softplus(),
-        # )
-        self.logvar = nn.Linear(dims[-1], latent_dim)
+        self.logvar = nn.Sequential(
+            nn.Linear(dims[-1], latent_dim),
+            nn.Softplus(),
+        )
+        # self.logvar = nn.Linear(dims[-1], latent_dim)
 
     def encode(self, x):
         for layer in self.hidden_layers:
