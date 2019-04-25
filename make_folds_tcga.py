@@ -17,7 +17,7 @@ num_folds = args.num_folds
 
 train_test_folds = list(stratified_k_fold(data, labels, num_folds))
 label_indices_list = []
-val_train_splits = []
+val_test_splits = []
 
 for train_index, test_index in train_test_folds:
     train_data = data[train_index]
@@ -32,12 +32,12 @@ for train_index, test_index in train_test_folds:
     train_lab, train_count = np.unique(train_labels.numpy(), return_counts=True)
     print(dict(zip(train_lab, train_count)))
 
-    test_val_data = data[train_index]
-    test_val_labels = labels[train_index]
+    test_val_data = data[test_index]
+    test_val_labels = labels[test_index]
 
-    val_train_splits.append(next(stratified_k_fold(test_val_data, test_val_labels, 2)))
+    val_test_splits.append(next(stratified_k_fold(test_val_data, test_val_labels, 2)))
 
-folds_and_labels = [train_test_folds, label_indices_list, val_train_splits]
+folds_and_labels = [train_test_folds, label_indices_list, val_test_splits]
 
 str_drop = 'drop_samples' if drop_samples else 'no_drop'
 filename = './data/tcga/{}_labelled_{}_folds_{}.p'.format(num_labelled, num_folds, str_drop)
