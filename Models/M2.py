@@ -287,7 +287,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
     hidden_c = best_params['hidden layers classifier']
     latent = best_params['latent dim']
     model = M2Runner(input_size, hidden_v, hidden_c, latent, num_classes, lambda x: x, lr, dataset_name, device,
-                     model_name)
+                     model_name, state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
 

@@ -334,7 +334,8 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
     model_name = best_params['model name']
     hidden_layers = best_params['hidden layers']
     denoising_cost = [1000.0, 10.0] + ([0.1] * len(hidden_layers))
-    model = LadderNetwork(input_size, hidden_layers, num_classes, denoising_cost, lr, dataset_name, device, model_name)
+    model = LadderNetwork(input_size, hidden_layers, num_classes, denoising_cost, lr, dataset_name, device, model_name,
+                          state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
 

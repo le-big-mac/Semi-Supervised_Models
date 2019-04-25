@@ -200,7 +200,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
             torch.cuda.empty_cache()
 
     model_name = best_params['model name']
-    model = SDAE(input_size, best_params['hidden layers'], num_classes, lr, dataset_name, device, model_name)
+    model = SDAE(input_size, best_params['hidden layers'], num_classes, lr, dataset_name, device, model_name, state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
 
