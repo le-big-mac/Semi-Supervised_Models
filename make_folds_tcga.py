@@ -23,11 +23,14 @@ for train_index, test_index in train_test_folds:
     train_data = data[train_index]
     train_labels = labels[train_index]
 
-    label_indices_list.append(labelled_split(train_data, train_labels, num_labelled, True))
+    label_indices = labelled_split(train_data, train_labels, num_labelled, True)
+    label_indices_list.append(label_indices)
 
-    label_labels = train_labels[label_indices_list]
+    label_labels = train_labels[label_indices]
     lab, count = np.unique(label_labels.numpy(), return_counts=True)
     print(dict(zip(lab, count)))
+    train_lab, train_count = np.unique(train_labels.numpy(), return_counts=True)
+    print(dict(zip(train_lab, train_count)))
 
     test_val_data = data[train_index]
     test_val_labels = labels[train_index]
