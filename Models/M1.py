@@ -3,7 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from Models.BuildingBlocks import VAE, Classifier
 from Models.Model import Model
-from utils.trainingutils import EarlyStopping, unsupervised_validation_loss
+from utils.trainingutils import EarlyStopping
 import pickle
 
 
@@ -39,6 +39,22 @@ class M1(Model):
 
         return (KLD + recons).mean()
 
+    def unsupervised_validation_loss(self, dataloader):
+        self.VAE.eval()
+
+        validation_loss = 0
+        with torch.no_grad():
+            for batch_idx, (data, _) in enumerate(dataloader):
+                data = data.to(self.device)
+
+                params = self.VAE(data)
+
+                loss = self.VAE_criterion(params, data)
+
+                validation_loss += loss.item()
+
+        return validation_loss / len(dataloader)
+
     def train_VAE(self, max_epochs, train_dataloader, validation_dataloader):
         early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.state_path, self.model_name), patience=10)
 
@@ -64,8 +80,7 @@ class M1(Model):
                 # print(loss.item())
                 self.VAE_optim.step()
 
-            validation_loss = unsupervised_validation_loss(self.VAE, validation_dataloader, self.VAE_criterion,
-                                                           self.device)
+            validation_loss = self.unsupervised_validation_loss(validation_dataloader)
 
             early_stopping(validation_loss, self.VAE)
 
