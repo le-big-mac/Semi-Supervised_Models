@@ -319,7 +319,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
         params = {'model name': model_name, 'input size': input_size, 'hidden layers': h * [hidden_layer_size],
                   'num classes': num_classes}
         logging = {'params': params, 'model name': model_name, 'accuracy': validation_result, 'epochs': epochs,
-                   'losses': losses, 'accuracies': validation_result}
+                   'losses': losses, 'accuracies': val_accs}
 
         logging_list.append(logging)
         pickle.dump(logging_list, open(hyperparameter_file, 'wb'))

@@ -4,6 +4,7 @@ data/
 results/
 Models/state/
 mnist_compare.py
+outputs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

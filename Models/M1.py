@@ -59,6 +59,7 @@ class M1(Model):
                 train_loss += loss.item()
 
                 loss.backward()
+                print(loss.item())
                 self.VAE_optim.step()
 
             validation_loss = unsupervised_validation_loss(self.VAE, validation_dataloader, self.VAE_criterion,
@@ -209,7 +210,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
                   'hidden layers classifier': h_c * [hidden_layer_classifier_size], 'latent dim': z,
                   'num classes': num_classes}
         logging = {'params': params, 'filepath': model_path, 'accuracy': validation_result, 'epochs': epochs,
-                   'losses': losses, 'accuracies': validation_result}
+                   'losses': losses, 'accuracies': val_accs}
 
         logging_list.append(logging)
         pickle.dump(logging_list, open(hyperparameter_file, 'wb'))
