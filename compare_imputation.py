@@ -8,48 +8,49 @@ parser = argparse.ArgumentParser(description='Take arguments to construct model'
 parser.add_argument('imputation_type', type=str, choices=[i.name.lower() for i in ImputationType])
 args = parser.parse_args()
 
-imputation_type = ImputationType[args.imputation_type.upper()]
+imputation_string = args.imputation_type.upper()
+imputation_type = ImputationType[imputation_string]
 num_labelled = 100000
 num_folds = 5
-model_name = 'simple_{}'.format(str(imputation_type))
+model_name = 'simple_{}'.format(str(imputation_string))
 dataset_name = 'tcga_imputations'
 max_epochs = 100
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-state_path = './Models/state'
-results_path = './results'
+output_path = './outputs'
+results_path = '{}/{}/{}/results'.format(output_path, dataset_name, model_name)
+state_path = '{}/{}/{}/state'.format(output_path, dataset_name, model_name)
 
-if not os.path.exists(state_path):
-    os.mkdir(state_path)
+if not os.path.exists(output_path):
+    os.mkdir(output_path)
+if not os.path.exists('{}/{}'.format(output_path, dataset_name)):
+    os.mkdir('{}/{}'.format(output_path, dataset_name))
+if not os.path.exists('{}/{}/{}'.format(output_path, dataset_name, model_name)):
+    os.mkdir('{}/{}/{}'.format(output_path, dataset_name, model_name))
 if not os.path.exists(results_path):
     os.mkdir(results_path)
-if not os.path.exists('{}/{}'.format(results_path, dataset_name)):
-    os.mkdir('{}/{}'.format(results_path, dataset_name))
-if not os.path.exists('{}/{}'.format(state_path, model_name)):
-    os.mkdir('{}/{}'.format(state_path, model_name))
-if not os.path.exists('{}/{}/{}'.format(results_path, dataset_name, model_name)):
-    os.mkdir('{}/{}/{}'.format(results_path, dataset_name, model_name))
-    # clear files
-open('./results/{}/{}_logging.p'.format(dataset_name, model_name), 'ab').close()
+if not os.path.exists(state_path):
+    os.mkdir(state_path)
 
 print('===Loading Data===')
-(data, labels), (input_size, num_classes) = load_tcga_data()
+(data, labels), (input_size, num_classes) = load_tcga_data(imputation_type)
 str_drop = 'drop_samples' if imputation_type == ImputationType.DROP_SAMPLES else 'no_drop'
 folds, _, val_test_split = pickle.load(open('./data/tcga/{}_labelled_{}_folds_{}.p'.format(num_labelled, num_folds,
                                                                                            str_drop), 'rb'))
 
 results_list = []
-pickle.dump(results_list, open('./results/{}/{}_test_results.p'.format(dataset_name, model_name), 'wb'))
+pickle.dump(results_list, open('{}/test_results.p'.format(results_path), 'wb'))
 
 for i, (train_indices, val_test_indices) in enumerate(folds):
-    results_list = pickle.load(open('./results/mnist/{}_{}_test_results.p'.format(model_name, num_labelled), 'rb'))
+    results_list = pickle.load(open('{}/test_results.p'.format(results_path), 'rb'))
 
     print('Validation Fold {}'.format(i))
-    train_data = data[train_indices]
+    normalizer = GaussianNormalizeTensors()
+    train_data = normalizer.apply_train(data[train_indices])
     train_labels = labels[train_indices]
 
     s_d = TensorDataset(train_data, train_labels)
     u_d = None
-    val_test_data = data[val_test_indices]
+    val_test_data = normalizer.apply_test(data[val_test_indices])
     val_test_labels = labels[val_test_indices]
     val_indices, test_indices = val_test_split[i]
     v_d = TensorDataset(val_test_data[val_indices], val_test_labels[val_indices])
@@ -71,6 +72,5 @@ for i, (train_indices, val_test_indices) in enumerate(folds):
     results_list.append(result)
 
     print('===Saving Results===')
-    pickle.dump(logging, open('./results/{}/{}_logging.p'.format(dataset_name, model_name), 'ab'))
-    with open('./results/{}/{}_test_results.p'.format(dataset_name, model_name), 'wb') as test_file:
-        pickle.dump(results_list, test_file)
+    pickle.dump(logging, open('{}/{}_logging.p'.format(results_path, i), 'ab'))
+    pickle.dump(results_list, open('{}/test_results.p'.format(results_path), 'wb'))
