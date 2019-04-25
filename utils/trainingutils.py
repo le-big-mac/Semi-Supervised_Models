@@ -43,7 +43,7 @@ class EarlyStopping:
             verbose (bool): If True, prints a message for each validation loss improvement.
                             Default: False
         """
-        self.filename = './Models/state/{}'.format(checkpoint_filename)
+        self.filename = checkpoint_filename
         self.patience = patience
         self.delta = abs(delta)
         self.verbose = verbose

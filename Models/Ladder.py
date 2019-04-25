@@ -151,7 +151,7 @@ class Ladder(nn.Module):
 
 class LadderNetwork(Model):
     def __init__(self, input_size, hidden_dimensions, num_classes, denoising_cost, lr, dataset_name, device,
-                 model_name):
+                 model_name, state_path):
         super(LadderNetwork, self).__init__(dataset_name, device)
 
         layer_sizes = [input_size] + hidden_dimensions + [num_classes]
@@ -165,6 +165,7 @@ class LadderNetwork(Model):
         self.denoising_cost = denoising_cost
         self.noise_std = 0.3
 
+        self.state_path = state_path
         self.model_name = model_name
 
     def accuracy(self, dataloader, batch_size):
@@ -190,7 +191,7 @@ class LadderNetwork(Model):
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('ladder/{}_inner.pt'.format(self.model_name))
+        early_stopping = EarlyStopping('{}/{}_inner.pt'.format(self.state_path, self.model_name))
 
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
@@ -307,7 +308,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
 
         model_name = '{}_{}_{}'.format(fold, num_labelled, h)
         model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr, dataset_name,
-                              device, model_name)
+                              device, model_name, state_path)
 
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)

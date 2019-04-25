@@ -7,13 +7,14 @@ import pickle
 
 
 class SimpleNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, lr, dataset_name, device, model_name):
+    def __init__(self, input_size, hidden_dimensions, num_classes, lr, dataset_name, device, model_name, state_path):
         super(SimpleNetwork, self).__init__(dataset_name, device)
 
         self.Classifier = Classifier(input_size, hidden_dimensions, num_classes).to(device)
         self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=lr)
         self.criterion = nn.CrossEntropyLoss()
 
+        self.state_path = state_path
         self.model_name = model_name
 
     def train_classifier(self, max_epochs, train_dataloader, validation_dataloader, comparison):
@@ -21,7 +22,7 @@ class SimpleNetwork(Model):
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('simple/{}_inner.pt'.format(self.model_name))
+        early_stopping = EarlyStopping('{}/{}_inner.pt'.format(self.state_path, self.model_name))
 
         print(accuracy(self.Classifier, validation_dataloader, self.device))
         for epoch in range(max_epochs):
@@ -109,7 +110,8 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
         logging_list = pickle.load(open(hyperparameter_file, 'rb'))
 
         model_name = '{}_{}_{}'.format(fold, num_labelled, h)
-        model = SimpleNetwork(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device, model_name)
+        model = SimpleNetwork(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device, model_name,
+                              state_path)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 

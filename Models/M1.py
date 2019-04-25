@@ -9,7 +9,7 @@ import pickle
 
 class M1(Model):
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
-                 num_classes, output_activation, lr, dataset_name, device, model_name):
+                 num_classes, output_activation, lr, dataset_name, device, model_name, state_path):
         super(M1, self).__init__(dataset_name, device)
 
         self.VAE = VAE(input_size, hidden_dimensions_encoder, latent_size, output_activation).to(device)
@@ -20,6 +20,7 @@ class M1(Model):
         self.Classifier_criterion = nn.CrossEntropyLoss()
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=lr)
 
+        self.state_path = state_path
         self.model_name = model_name
 
     def VAE_criterion(self, batch_params, x):
@@ -37,7 +38,7 @@ class M1(Model):
         return (KLD + recons).mean()
 
     def train_VAE(self, max_epochs, train_dataloader, validation_dataloader):
-        early_stopping = EarlyStopping('m1/{}_autoencoder.pt'.format(self.model_name), patience=10)
+        early_stopping = EarlyStopping('{}/{}_autoencoder.pt'.format(self.state_path, self.model_name), patience=10)
 
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
@@ -75,7 +76,7 @@ class M1(Model):
         train_losses = []
         validation_accs = []
 
-        early_stopping = EarlyStopping('m1/{}_classifier.pt'.format(self.model_name))
+        early_stopping = EarlyStopping('{}/{}_classifier.pt'.format(self.state_path, self.model_name))
 
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
@@ -197,7 +198,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
 
         model_name = '{}_{}_{}_{}_{}'.format(fold, num_labelled, h_v, h_c, z)
         model = M1(input_size, h_v * [hidden_layer_vae_size], z, h_c * [hidden_layer_classifier_size], num_classes,
-                   lambda x: x, lr, dataset_name, device, model_name)
+                   lambda x: x, lr, dataset_name, device, model_name, state_path)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
