@@ -79,5 +79,5 @@ for i, (train_indices, val_test_indices) in enumerate(folds):
     results_list.append(result)
 
     print('===Saving Results===')
-    pickle.dump(logging, open('{}/{}_logging.p'.format(results_path, i), 'ab'))
+    pickle.dump(logging, open('{}/{}_logging.p'.format(results_path, i), 'wb'))
     pickle.dump(results_list, open('{}/test_results.p'.format(results_path), 'wb'))
