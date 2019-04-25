@@ -1,14 +1,15 @@
 from utils.datautils import *
 import pickle
 import argparse
-
+import numpy as np
 
 parser = argparse.ArgumentParser(description='Take arguments to construct model')
-parser.add_argument('drop_samples', type=bool, help='Get indexes for data with samples with missing genes dropped')
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
 parser.add_argument('num_folds', type=int, help='Number of folds')
+parser.add_argument('--drop_samples', default=False, action='store_true', help='Drop samples')
 args = parser.parse_args()
 drop_samples = args.drop_samples
+print(drop_samples)
 num_labelled = args.num_labelled
 num_folds = args.num_folds
 (data, labels), (input_size, num_classes) = load_tcga_data(ImputationType.DROP_SAMPLES) if drop_samples else \
@@ -24,6 +25,10 @@ for train_index, test_index in train_test_folds:
 
     label_indices_list.append(labelled_split(train_data, train_labels, num_labelled, True))
 
+    label_labels = train_labels[label_indices_list]
+    lab, count = np.unique(label_labels.numpy(), return_counts=True)
+    print(dict(zip(lab, count)))
+
     test_val_data = data[train_index]
     test_val_labels = labels[train_index]
 
@@ -32,5 +37,6 @@ for train_index, test_index in train_test_folds:
 folds_and_labels = [train_test_folds, label_indices_list, val_train_splits]
 
 str_drop = 'drop_samples' if drop_samples else 'no_drop'
-pickle.dump(folds_and_labels, open('./data/tcga/{}_labelled_{}_folds_{}.p'.format(num_labelled, num_folds,
-                                                                                  str_drop), 'wb'))
+filename = './data/tcga/{}_labelled_{}_folds_{}.p'.format(num_labelled, num_folds, str_drop)
+print(filename)
+pickle.dump(folds_and_labels, open(filename, 'wb'))
