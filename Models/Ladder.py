@@ -297,7 +297,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
     best_params = None
 
     logging_list = []
-    hyperparameter_file = '{}/{}_{}_hyperparameters.p'.format(fold, results_path, num_labelled)
+    hyperparameter_file = '{}/{}_{}_hyperparameters.p'.format(results_path, fold, num_labelled)
     pickle.dump(logging_list, open(hyperparameter_file, 'wb'))
 
     for h in hidden_layers:
