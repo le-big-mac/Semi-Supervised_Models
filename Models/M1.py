@@ -168,7 +168,8 @@ class M1(Model):
         return self.Classifier(z)
 
 
-def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_epochs, device):
+def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloaders, input_size, num_classes, max_epochs,
+                        device):
     hidden_layer_vae_size = min(500, (input_size + num_classes) // 2)
     hidden_layer_classifier_size = 50
     hidden_layers_vae = range(1, 3)
@@ -184,28 +185,33 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
     best_acc = 0
     best_params = None
 
-    f = open('./results/{}/m1_{}_labelled_hyperparameter_train.p'.format(dataset_name, num_labelled), 'ab')
+    logging_list = []
+    hyperparameter_file = '{}/{}_{}_hyperparameters.p'.format(results_path, fold, num_labelled)
+    pickle.dump(logging_list, open(hyperparameter_file, 'wb'))
+
     for p in param_combinations:
         print('M1 params {}'.format(p))
+        logging_list = pickle.load(open(hyperparameter_file, 'rb'))
 
         h_v, h_c, z = p
 
-        model_name = '{}_{}_{}_{}_{}'.format(dataset_name, num_labelled, h_v, h_c, z)
+        model_name = '{}_{}_{}_{}_{}'.format(fold, num_labelled, h_v, h_c, z)
         model = M1(input_size, h_v * [hidden_layer_vae_size], z, h_c * [hidden_layer_classifier_size], num_classes,
                    lambda x: x, lr, dataset_name, device, model_name)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
-        model_path = './Models/state/m1/{}.pt'.format(model_name)
+        model_path = '{}/{}.pt'.format(state_path, model_name)
         torch.save(model.state_dict(), model_path)
 
         params = {'model name': model_name, 'input size': input_size, 'hidden layers vae': h_v * [hidden_layer_vae_size],
                   'hidden layers classifier': h_c * [hidden_layer_classifier_size], 'latent dim': z,
                   'num classes': num_classes}
-        logging = {'accuracy': validation_result, 'epochs': epochs, 'losses': losses, 'accuracies': validation_result,
-                   'params': params, 'filepath': model_path}
+        logging = {'params': params, 'filepath': model_path, 'accuracy': validation_result, 'epochs': epochs,
+                   'losses': losses, 'accuracies': validation_result}
 
-        pickle.dump(logging, f)
+        logging_list.append(logging)
+        pickle.dump(logging_list, open(hyperparameter_file, 'wb'))
 
         if validation_result > best_acc:
             best_acc = validation_result
@@ -214,14 +220,12 @@ def hyperparameter_loop(dataset_name, dataloaders, input_size, num_classes, max_
         if device == 'cuda':
             torch.cuda.empty_cache()
 
-    f.close()
-
     model_name = best_params['model name']
     hidden_v = best_params['hidden layers vae']
     hidden_c = best_params['hidden layers classifier']
     latent = best_params['latent dim']
     model = M1(input_size, hidden_v, latent, hidden_c, num_classes, lambda x: x, lr, dataset_name, device, model_name)
-    model.load_state_dict(torch.load('./Models/state/m1/{}.pt'.format(model_name)))
+    model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
 
-    return test_acc
+    return model_name, test_acc

@@ -26,33 +26,31 @@ num_labelled = args.num_labelled
 num_folds = args.num_folds
 max_epochs = 100
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-state_path = './Models/state'
-results_path = './results'
+output_path = './outputs'
+results_path = '{}/{}/{}/results'.format(output_path, dataset_name, model_name)
+state_path = '{}/{}/{}/state'.format(output_path, dataset_name, model_name)
 
-if not os.path.exists(state_path):
-    os.mkdir(state_path)
+if not os.path.exists(output_path):
+    os.mkdir(output_path)
+if not os.path.exists('{}/{}'.format(output_path, dataset_name)):
+    os.mkdir('{}/{}'.format(output_path, dataset_name))
+if not os.path.exists('{}/{}/{}'.format(output_path, dataset_name, model_name)):
+    os.mkdir('{}/{}/{}'.format(output_path, dataset_name, model_name))
 if not os.path.exists(results_path):
     os.mkdir(results_path)
-if not os.path.exists('{}/{}'.format(results_path, dataset_name)):
-    os.mkdir('{}/{}'.format(results_path, dataset_name))
-if not os.path.exists('{}/{}'.format(state_path, model_name)):
-    os.mkdir('{}/{}'.format(state_path, model_name))
-if not os.path.exists('{}/{}/{}'.format(results_path, dataset_name, model_name)):
-    os.mkdir('{}/{}/{}'.format(results_path, dataset_name, model_name))
-    # clear files
-open('./results/{}/{}_{}_labelled_hyperparameter_train.p'.format(dataset_name, model_name, num_labelled),
-     'wb').close()
+if not os.path.exists(state_path):
+    os.mkdir(state_path)
 
 print('===Loading Data===')
 (train_and_val_data, train_and_val_labels), (test_data, test_labels) = load_MNIST_data()
 folds, label_indices = pickle.load(open('./data/MNIST/{}_labelled_{}_folds.p'.format(num_labelled, num_folds), 'rb'))
 t_d = TensorDataset(test_data, test_labels)
 
-results_list = []
-pickle.dump(results_list, open('./results/{}/{}_{}_test_results.p'.format(dataset_name, model_name, num_labelled), 'wb'))
+results_dict = {}
+pickle.dump(results_dict, open('{}/{}_test_results.p'.format(results_path, num_labelled), 'wb'))
 
 for i, (train_indices, val_indices) in enumerate(folds):
-    results_list = pickle.load(open('./results/{}/{}_{}_test_results.p'.format(dataset_name, model_name, num_labelled), 'rb'))
+    results_dict = pickle.load(open('{}/{}_test_results.p'.format(results_path, num_labelled), 'rb'))
 
     print('Validation Fold {}'.format(i))
     train_data = train_and_val_data[train_indices]
@@ -70,10 +68,9 @@ for i, (train_indices, val_indices) in enumerate(folds):
 
     dataloaders = (u_dl, s_dl, v_dl, t_dl)
 
-    result = model_func(dataset_name, dataloaders, 784, 10, max_epochs, device)
+    model_name, result = model_func(i, state_path, results_path, dataset_name, dataloaders, 784, 10, max_epochs, device)
 
-    results_list.append(result)
+    results_dict[model_name] = result
 
     print('===Saving Results===')
-    with open('./results/{}/{}_{}_test_results.p'.format(dataset_name, model_name, num_labelled), 'wb') as test_file:
-        pickle.dump(results_list, test_file)
+    pickle.dump(results_dict, open('{}/{}_test_results.p'.format(results_path, num_labelled), 'wb'))
