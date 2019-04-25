@@ -9,12 +9,12 @@ parser.add_argument('num_folds', type=int, help='Number of folds')
 args = parser.parse_args()
 num_labelled = args.num_labelled
 num_folds = args.num_folds
-(train_data, train_labels), (test_data, test_labels) = load_MNIST_data()
+(train_data, train_labels), _ = load_MNIST_data()
 
 folds = list(stratified_k_fold(train_data, train_labels, num_folds))
 label_indices_list = []
 
-for train_index, test_index in folds:
+for train_index, val_index in folds:
     data = train_data[train_index]
     labels = train_labels[train_index]
 

@@ -52,7 +52,7 @@ for i, (train_indices, val_test_indices) in enumerate(folds):
     print('Train size: {}'.format(len(train_indices)))
 
     s_d = TensorDataset(train_data, train_labels)
-    u_d = None
+    u_d = TensorDataset(train_data, train_labels)
     val_test_data = normalizer.apply_test(data[val_test_indices])
     val_test_labels = labels[val_test_indices]
     val_indices, test_indices = val_test_split[i]

@@ -2,51 +2,79 @@ from utils.datautils import *
 from torch.utils.data import DataLoader
 from Models import *
 import argparse
-from collections import defaultdict
 import pickle
 
+model_func_dict = {
+    'simple': simple_hyperparameter_loop,
+    'm1': m1_hyperparameter_loop,
+    'sdae': sdae_hyperparameter_loop,
+    'm2': m2_hyperparameter_loop,
+    'ladder': ladder_hyperparameter_loop,
+}
+
 parser = argparse.ArgumentParser(description='Take arguments to construct model')
+parser.add_argument('model', type=str, choices=['simple', 'm1', 'sdae', 'm2', 'ladder'],
+                    help="Choose which model to run")
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
+parser.add_argument('num_folds', type=int, help='Number of folds')
+parser.add_argument('--imputation_type', type=str, choices=[i.name.lower() for i in ImputationType],
+                    default='drop_samples')
 args = parser.parse_args()
 
-dataset_name = 'mnist'
+model_name = args.model
+model_func = model_func_dict[model_name]
+imputation_string = args.imputation_type.upper()
+imputation_type = ImputationType[imputation_string]
+dataset_name = 'tcga'
 num_labelled = args.num_labelled
+num_folds = args.num_folds
 max_epochs = 100
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-state_path = './Models/state'
-results_path = './results'
-model_folders = ['simple', 'm1', 'sdae', 'm2', 'ladder']
+output_path = './outputs'
+results_path = '{}/{}/{}/results'.format(output_path, dataset_name, model_name)
+state_path = '{}/{}/{}/state'.format(output_path, dataset_name, model_name)
 
-if not os.path.exists(state_path):
-    os.mkdir(state_path)
+if not os.path.exists(output_path):
+    os.mkdir(output_path)
+if not os.path.exists('{}/{}'.format(output_path, dataset_name)):
+    os.mkdir('{}/{}'.format(output_path, dataset_name))
+if not os.path.exists('{}/{}/{}'.format(output_path, dataset_name, model_name)):
+    os.mkdir('{}/{}/{}'.format(output_path, dataset_name, model_name))
 if not os.path.exists(results_path):
     os.mkdir(results_path)
-if not os.path.exists('{}/{}'.format(results_path, dataset_name)):
-    os.mkdir('{}/{}'.format(results_path, dataset_name))
-
-for name in model_folders:
-    if not os.path.exists('{}/{}'.format(state_path, name)):
-        os.mkdir('{}/{}'.format(state_path, name))
-    if not os.path.exists('{}/{}/{}'.format(results_path, dataset_name, name)):
-        os.mkdir('{}/{}/{}'.format(results_path, dataset_name, name))
-    # clear files
-    open('./results/{}/{}_{}_labelled_hyperparameter_train.csv'.format(dataset_name, name, num_labelled), 'wb').close()
+if not os.path.exists(state_path):
+    os.mkdir(state_path)
 
 print('===Loading Data===')
-(data, labels), input_size = load_tcga_data()
-t_d = TensorDataset(test_data, test_labels)
+(data, labels), (input_size, num_classes) = load_tcga_data(imputation_type)
+str_drop = 'drop_samples' if imputation_type == ImputationType.DROP_SAMPLES else 'no_drop'
+folds, labelled_indices, val_test_split = pickle.load(open('./data/tcga/{}_labelled_{}_folds_{}.p'
+                                                           .format(num_labelled, num_folds, str_drop), 'rb'))
 
-run = False
-results_dict = defaultdict(list)
+results_dict = {}
+pickle.dump(results_dict, open('{}/{}_{}_test_results.p'.format(results_path, imputation_string, num_labelled), 'wb'))
 
-for i, (train_indices, val_indices) in enumerate(stratified_k_fold(train_data, train_labels, num_folds=5)):
+for i, (train_indices, test_val_indices) in enumerate(folds):
     print('Validation Fold {}'.format(i))
+    results_dict = pickle.load(open('{}/{}_{}_test_results.p'.format(results_path, imputation_string, num_labelled),
+                                    'rb'))
 
-    if run:
-        results_dict = pickle.load(open('./results/mnist/{}_test_results'.format(num_labelled)))
+    normalizer = GaussianNormalizeTensors()
+    train_data = normalizer.apply_train(data[train_indices])
+    train_labels = labels[train_indices]
+    labelled_data = train_data[labelled_indices[i]]
+    labelled_labels = train_labels[labelled_indices[i]]
 
-    s_d, u_d = labelled_split(train_data[train_indices], train_labels[train_indices], num_labelled=num_labelled)
-    v_d = TensorDataset(train_data[val_indices], train_labels[val_indices])
+    s_d = TensorDataset(labelled_data, labelled_labels)
+    u_d = TensorDataset(train_data, -1 * torch.ones(train_labels.size(0)))
+
+    test_val_data = normalizer.apply_test(data[test_val_indices])
+    test_val_labels = labels[test_val_indices]
+
+    val_indices, test_indices = val_test_split[i]
+
+    v_d = TensorDataset(test_val_data[val_indices], test_val_labels[val_indices])
+    t_d = TensorDataset(test_val_data[test_indices], test_val_labels[test_indices])
 
     u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
     s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
@@ -55,25 +83,10 @@ for i, (train_indices, val_indices) in enumerate(stratified_k_fold(train_data, t
 
     dataloaders = (u_dl, s_dl, v_dl, t_dl)
 
-    simple_result = simple_hyperparameter_loop(dataset_name, dataloaders, 784, 10, max_epochs, device)
-    m1_result = m1_hyperparameter_loop(dataset_name, dataloaders, 784, 10, max_epochs, device)
-    sdae_result = sdae_hyperparameter_loop(dataset_name, dataloaders, 784, 10, max_epochs, device)
-    m2_result = m2_hyperparameter_loop(dataset_name, dataloaders, 784, 10, max_epochs, device)
-    ladder = ladder_hyperparameter_loop(dataset_name, dataloaders)
+    model_name, result = model_func(i, state_path, results_path, dataset_name, dataloaders, input_size, num_classes,
+                                    max_epochs, device)
 
-    ladder_epochs, ladder_loss, ladder_acc = ladder.train_model(100, (u_dl, s_dl, v_dl), False)
-    logging = {'epochs': ladder_epochs, 'losses': ladder_loss, 'accuracies': ladder_acc}
-    pickle = pickle.dump(logging, open('./results/{}/simple_{}_labelled_hyperparameter_train.csv'
-                                       .format(dataset_name, num_labelled)))
-    ladder_result = ladder.test_model(t_dl)
-
-    results_dict['simple'].append(simple_result)
-    results_dict['m1'].append(m1_result)
-    results_dict['sdae'].append(sdae_result)
-    results_dict['m2'].append(m2_result)
-    results_dict['ladder'].append(ladder_result)
+    results_dict[model_name] = result
 
     print('===Saving Results===')
-    run = True
-    with open('./results/mnist/{}_test_results'.format(num_labelled), 'wb') as test_file:
-        pickle.dump(results_dict, test_file)
+    pickle.dump(results_dict, open('{}/{}_{}_test_results.p'.format(results_path, imputation_string, num_labelled), 'wb'))
