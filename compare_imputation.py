@@ -10,6 +10,7 @@ args = parser.parse_args()
 
 imputation_string = args.imputation_type.upper()
 imputation_type = ImputationType[imputation_string]
+print(ImputationType)
 num_labelled = 100000
 num_folds = 5
 model_name = 'simple_{}'.format(str(imputation_string))
@@ -48,11 +49,17 @@ for i, (train_indices, val_test_indices) in enumerate(folds):
     train_data = normalizer.apply_train(data[train_indices])
     train_labels = labels[train_indices]
 
+    print('Train size: {}'.format(len(train_indices)))
+
     s_d = TensorDataset(train_data, train_labels)
     u_d = None
     val_test_data = normalizer.apply_test(data[val_test_indices])
     val_test_labels = labels[val_test_indices]
     val_indices, test_indices = val_test_split[i]
+
+    print('Val size: {}'.format(len(val_indices)))
+    print('Test size: {}'.format(len(test_indices)))
+
     v_d = TensorDataset(val_test_data[val_indices], val_test_labels[val_indices])
     t_d = TensorDataset(val_test_data[test_indices], val_test_labels[test_indices])
 
