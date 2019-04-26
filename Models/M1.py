@@ -31,11 +31,11 @@ class M1(Model):
         # print(KLD.data)
 
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
-        recons = F.mse_loss(recons, x, reduction='none').sum(dim=1)
+        # recons = F.mse_loss(recons, x, reduction='none').sum(dim=1)
         # print(recons.data)
 
         # BCE used for mnist in original, removed here to allow for non-constrained input
-        # recons = F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
+        recons = F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
 
         return (KLD + recons).mean()
 
@@ -243,7 +243,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
     hidden_v = best_params['hidden layers vae']
     hidden_c = best_params['hidden layers classifier']
     latent = best_params['latent dim']
-    model = M1(input_size, hidden_v, latent, hidden_c, num_classes, lambda x: x, lr, dataset_name, device, model_name,
+    model = M1(input_size, hidden_v, latent, hidden_c, num_classes, nn.Sigmoid(), lr, dataset_name, device, model_name,
                state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)

@@ -17,11 +17,12 @@ parser.add_argument('model', type=str, choices=['simple', 'm1', 'sdae', 'm2', 'l
                     help="Choose which model to run")
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
 parser.add_argument('num_folds', type=int, help='Number of folds')
+parser.add_argument('mnist_name', type=str, help='Folder name output file')
 args = parser.parse_args()
 
 model_name = args.model
 model_func = model_func_dict[model_name]
-dataset_name = 'mnist'
+dataset_name = args.mnist_name
 num_labelled = args.num_labelled
 num_folds = args.num_folds
 max_epochs = 100
