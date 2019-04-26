@@ -75,7 +75,7 @@ def train(epoch, model, optimizer, train_loader):
 
 
 (data, labels), (input_size, num_classes) = load_tcga_data(ImputationType.DROP_SAMPLES)
-folds, labelled_indices, val_test_split = pickle.load(open('./data/tcga/10000_labelled_5_folds_drop_samples.p'))
+folds, labelled_indices, val_test_split = pickle.load(open('./data/tcga/100000_labelled_5_folds_drop_samples.p', 'rb'))
 
 for i, (train_indices, test_val_indices) in enumerate(folds):
     normalizer = GaussianNormalizeTensors()
