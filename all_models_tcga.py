@@ -59,7 +59,7 @@ for i, (train_indices, test_val_indices) in enumerate(folds):
     results_dict = pickle.load(open('{}/{}_{}_test_results.p'.format(results_path, imputation_string, num_labelled),
                                     'rb'))
 
-    normalizer = GaussianNormalizeTensors()
+    normalizer = RangeNormalizeTensors()
     train_data = normalizer.apply_train(data[train_indices])
     train_labels = labels[train_indices]
     labelled_data = train_data[labelled_indices[i]]
