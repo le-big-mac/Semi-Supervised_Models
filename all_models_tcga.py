@@ -17,6 +17,7 @@ parser.add_argument('model', type=str, choices=['simple', 'm1', 'sdae', 'm2', 'l
                     help="Choose which model to run")
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
 parser.add_argument('num_folds', type=int, help='Number of folds')
+parser.add_argument('tcga_name', type=str, help='Directory to save')
 parser.add_argument('--imputation_type', type=str, choices=[i.name.lower() for i in ImputationType],
                     default='drop_samples')
 args = parser.parse_args()
@@ -25,7 +26,7 @@ model_name = args.model
 model_func = model_func_dict[model_name]
 imputation_string = args.imputation_type.upper()
 imputation_type = ImputationType[imputation_string]
-dataset_name = 'tcga'
+dataset_name = args.tcga_name
 num_labelled = args.num_labelled
 num_folds = args.num_folds
 max_epochs = 200
@@ -59,8 +60,8 @@ for i, (train_indices, test_val_indices) in enumerate(folds):
     results_dict = pickle.load(open('{}/{}_{}_test_results.p'.format(results_path, imputation_string, num_labelled),
                                     'rb'))
 
-    normalizer = RangeNormalizeTensors()
-    train_data = normalizer.apply_train(data[train_indices])
+    normalizer = MinMaxScaler()
+    train_data = torch.tensor(normalizer.fit_transform(data[train_indices].numpy()))
     train_labels = labels[train_indices]
     labelled_data = train_data[labelled_indices[i]]
     labelled_labels = train_labels[labelled_indices[i]]
@@ -68,7 +69,7 @@ for i, (train_indices, test_val_indices) in enumerate(folds):
     s_d = TensorDataset(labelled_data, labelled_labels)
     u_d = TensorDataset(train_data, -1 * torch.ones(train_labels.size(0)))
 
-    test_val_data = normalizer.apply_test(data[test_val_indices])
+    test_val_data = torch.tensor(normalizer.transform(data[test_val_indices].numpy()))
     test_val_labels = labels[test_val_indices]
 
     val_indices, test_indices = val_test_split[i]
