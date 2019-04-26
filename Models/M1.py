@@ -216,7 +216,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
 
         model_name = '{}_{}_{}_{}_{}'.format(fold, num_labelled, h_v, h_c, z)
         model = M1(input_size, h_v * [hidden_layer_vae_size], z, h_c * [hidden_layer_classifier_size], num_classes,
-                   lambda x: x, lr, dataset_name, device, model_name, state_path)
+                   nn.Sigmoid(), lr, dataset_name, device, model_name, state_path)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
