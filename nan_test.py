@@ -2,6 +2,7 @@ from utils.datautils import *
 import pickle
 import torch
 from torch import nn
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -28,8 +29,8 @@ class VAE(nn.Module):
 
     def decode(self, z):
         h3 = F.relu(self.fc3(z))
-        # return torch.sigmoid(self.fc4(h3))
-        return self.fc4(h3)
+        return torch.sigmoid(self.fc4(h3))
+        # return self.fc4(h3)
 
     def forward(self, x):
         mu, logvar = self.encode(x)
@@ -40,8 +41,8 @@ class VAE(nn.Module):
 def loss_function(recon_x, x, mu, logvar):
     print('Logvar:')
     print(logvar)
-    # BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
-    BCE = F.mse_loss(recon_x, x, reduction='sum')
+    BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
+    # BCE = F.mse_loss(recon_x, x, reduction='sum')
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
@@ -80,12 +81,12 @@ def train(epoch, model, optimizer, train_loader):
 folds, labelled_indices, val_test_split = pickle.load(open('./data/tcga/100000_labelled_5_folds_drop_samples.p', 'rb'))
 
 for i, (train_indices, test_val_indices) in enumerate(folds):
-    normalizer = GaussianNormalizeTensors()
+    normalizer = MinMaxScaler()
 
-    train_data = normalizer.apply_train(data[train_indices])
+    train_data = normalizer.fit_transform(data[train_indices], labels[train_indices])
     u_d = TensorDataset(train_data, -1 * torch.ones(train_data.size(0)))
     u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
-    test_val_data = normalizer.apply_test(data[test_val_indices])
+    test_val_data = normalizer.transform(data[test_val_indices])
 
     model = VAE(input_size, 100).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
