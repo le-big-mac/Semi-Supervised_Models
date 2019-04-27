@@ -29,8 +29,8 @@ class VAE(nn.Module):
 
     def decode(self, z):
         h3 = F.relu(self.fc3(z))
-        return torch.sigmoid(self.fc4(h3))
-        # return self.fc4(h3)
+        # return torch.sigmoid(self.fc4(h3))
+        return self.fc4(h3)
 
     def forward(self, x):
         mu, logvar = self.encode(x)
@@ -41,8 +41,8 @@ class VAE(nn.Module):
 def loss_function(recon_x, x, mu, logvar):
     print('Logvar:')
     print(logvar)
-    BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
-    # BCE = F.mse_loss(recon_x, x, reduction='sum')
+    # BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
+    BCE = F.mse_loss(recon_x, x, reduction='sum')
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
@@ -81,7 +81,7 @@ def train(epoch, model, optimizer, train_loader):
 folds, labelled_indices, val_test_split = pickle.load(open('./data/tcga/100000_labelled_5_folds_drop_samples.p', 'rb'))
 
 for i, (train_indices, test_val_indices) in enumerate(folds):
-    normalizer = MinMaxScaler()
+    normalizer = StandardScaler()
 
     train_data = normalizer.fit_transform(data[train_indices], labels[train_indices])
     u_d = TensorDataset(train_data, -1 * torch.ones(train_data.size(0)))

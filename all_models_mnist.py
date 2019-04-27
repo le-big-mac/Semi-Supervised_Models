@@ -59,7 +59,7 @@ for i, (train_indices, val_indices) in enumerate(folds):
     labelled_indices = label_indices[i]
 
     s_d = TensorDataset(train_data[labelled_indices], train_labels[labelled_indices])
-    u_d = TensorDataset(train_data, train_labels)
+    u_d = TensorDataset(train_data, -1 * torch.ones(train_labels.size(0)))
     v_d = TensorDataset(train_and_val_data[val_indices], train_and_val_labels[val_indices])
 
     u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
