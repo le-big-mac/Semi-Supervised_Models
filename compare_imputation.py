@@ -45,15 +45,15 @@ for i, (train_indices, val_test_indices) in enumerate(folds):
     results_list = pickle.load(open('{}/test_results.p'.format(results_path), 'rb'))
 
     print('Validation Fold {}'.format(i))
-    normalizer = GaussianNormalizeTensors()
-    train_data = normalizer.apply_train(data[train_indices])
+    normalizer = MinMaxScaler()
+    train_data = torch.tensor(normalizer.fit_transform(data[train_indices].numpy()))
     train_labels = labels[train_indices]
 
     print('Train size: {}'.format(len(train_indices)))
 
     s_d = TensorDataset(train_data, train_labels)
     u_d = TensorDataset(train_data, train_labels)
-    val_test_data = normalizer.apply_test(data[val_test_indices])
+    val_test_data = torch.tensor(normalizer.transform(data[val_test_indices].numpy()))
     val_test_labels = labels[val_test_indices]
     val_indices, test_indices = val_test_split[i]
 
