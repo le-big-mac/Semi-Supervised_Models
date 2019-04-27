@@ -71,8 +71,8 @@ class M2Runner(Model):
         KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1, dim=1)
 
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
-        accuracy = -F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
-        # accuracy = -F.mse_loss(recons, x, reduction='none').sum(dim=1)
+        # accuracy = -F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
+        accuracy = -F.mse_loss(recons, x, reduction='none').sum(dim=1)
 
         # prior over y (commented out because a uniform prior results in a constant for all labels)
         # prior_y = log_standard_categorical(y)
@@ -260,7 +260,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
 
         model_name = '{}_{}_{}_{}_{}'.format(fold, num_labelled, h_v, h_c, z)
         model = M2Runner(input_size, [hidden_layer_size] * h_v, [hidden_layer_size] * h_c, z, num_classes,
-                         nn.Sigmoid(), lr, dataset_name, device, model_name, state_path)
+                         lambda x: x, lr, dataset_name, device, model_name, state_path)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
@@ -286,7 +286,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
     hidden_v = best_params['hidden layers vae']
     hidden_c = best_params['hidden layers classifier']
     latent = best_params['latent dim']
-    model = M2Runner(input_size, hidden_v, hidden_c, latent, num_classes, nn.Sigmoid(), lr, dataset_name, device,
+    model = M2Runner(input_size, hidden_v, hidden_c, latent, num_classes, lambda x: x, lr, dataset_name, device,
                      model_name, state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
