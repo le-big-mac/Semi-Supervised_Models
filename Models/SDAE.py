@@ -61,7 +61,7 @@ class SDAE(Model):
             previous_layers = self.SDAEClassifier.hidden_layers[0:i]
 
             # TODO: think about implementing early stopping
-            for epoch in range(max_epochs):
+            for epoch in range(50):
                 for batch_idx, (data, _) in enumerate(pretraining_dataloader):
                     dae.train()
                     data = data.to(self.device)
@@ -77,6 +77,7 @@ class SDAE(Model):
                     predictions = dae(noisy_data)
 
                     loss = criterion(predictions, data)
+                    print(loss.item())
 
                     loss.backward()
                     optimizer.step()
@@ -112,6 +113,7 @@ class SDAE(Model):
 
                 if comparison:
                     acc = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
+                    print(acc)
 
                     epochs.append(epoch)
                     train_losses.append(loss.item())
