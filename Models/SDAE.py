@@ -77,7 +77,7 @@ class SDAE(Model):
                     predictions = dae(noisy_data)
 
                     loss = criterion(predictions, data)
-                    print(loss.item())
+                    # print(loss.item())
 
                     loss.backward()
                     optimizer.step()
