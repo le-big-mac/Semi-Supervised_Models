@@ -67,10 +67,10 @@ def load_tcga_data(imputation_type=ImputationType.DROP_SAMPLES):
     else:
         rnaseq_df = rnaseq_df.fillna(0)
 
-    label_count_map = dict(rnaseq_df['DISEASE'].value_counts())
-    remove_labels = [k for k, v in label_count_map.items() if v < 50]
-
-    rnaseq_df = rnaseq_df[~rnaseq_df['DISEASE'].isin(remove_labels)]
+    # label_count_map = dict(rnaseq_df['DISEASE'].value_counts())
+    # remove_labels = [k for k, v in label_count_map.items() if v < 50]
+    #
+    # rnaseq_df = rnaseq_df[~rnaseq_df['DISEASE'].isin(remove_labels)]
 
     unique_labels = rnaseq_df['DISEASE'].unique()
     string_int_label_map = dict(zip(unique_labels, range(len(unique_labels))))
