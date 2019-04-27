@@ -61,7 +61,7 @@ class SDAE(Model):
             previous_layers = self.SDAEClassifier.hidden_layers[0:i]
 
             # TODO: think about implementing early stopping
-            for epoch in range(0):
+            for epoch in range(10):
                 for batch_idx, (data, _) in enumerate(pretraining_dataloader):
                     dae.train()
                     data = data.to(self.device)
