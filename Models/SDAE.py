@@ -113,7 +113,6 @@ class SDAE(Model):
 
                 if comparison:
                     acc = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
-                    print(acc)
 
                     epochs.append(epoch)
                     train_losses.append(loss.item())
@@ -125,6 +124,7 @@ class SDAE(Model):
 
             if not comparison:
                 acc = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
+                print(acc)
 
                 epochs.append(epoch)
                 train_losses.append(train_loss/len(train_dataloader))
