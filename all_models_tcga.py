@@ -60,7 +60,7 @@ for i, (train_indices, test_val_indices) in enumerate(folds):
     results_dict = pickle.load(open('{}/{}_{}_test_results.p'.format(results_path, imputation_string, num_labelled),
                                     'rb'))
 
-    normalizer = StandardScaler()
+    normalizer = MinMaxScaler()
     train_data = torch.tensor(normalizer.fit_transform(data[train_indices].numpy()))
     train_labels = labels[train_indices]
     labelled_data = train_data[labelled_indices[i]]
