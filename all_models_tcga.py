@@ -95,5 +95,5 @@ for i, (val_indices, test_indices) in enumerate(val_test_split):
 
     results_dict[model_name] = result
 
-print('===Saving Results===')
-pickle.dump(results_dict, open('{}/{}_{}_{}_test_results.p'.format(results_path, fold_i, imputation_string, num_labelled), 'wb'))
+    print('===Saving Results===')
+    pickle.dump(results_dict, open('{}/{}_{}_{}_test_results.p'.format(results_path, fold_i, imputation_string, num_labelled), 'wb'))
