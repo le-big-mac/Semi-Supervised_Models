@@ -13,9 +13,11 @@ class VAE(nn.Module):
         super(VAE, self).__init__()
 
         self.fc1 = nn.Linear(input_size, 500)
+        self.bn1 = nn.BatchNorm1d(500)
         self.fc21 = nn.Linear(500, latent_size)
         self.fc22 = nn.Linear(500, latent_size)
         self.fc3 = nn.Linear(latent_size, 500)
+        self.bn3 = nn.BatchNorm1d(500)
         self.fc4 = nn.Linear(500, input_size)
 
     def encode(self, x):
