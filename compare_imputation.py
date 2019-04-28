@@ -55,29 +55,30 @@ for i, (train_indices, val_test_indices) in enumerate(folds):
     u_d = TensorDataset(train_data, train_labels)
     val_test_data = torch.tensor(normalizer.transform(data[val_test_indices].numpy()))
     val_test_labels = labels[val_test_indices]
-    val_indices, test_indices = val_test_split[i]
 
-    print('Val size: {}'.format(len(val_indices)))
-    print('Test size: {}'.format(len(test_indices)))
+    logging_list = []
 
-    v_d = TensorDataset(val_test_data[val_indices], val_test_labels[val_indices])
-    t_d = TensorDataset(val_test_data[test_indices], val_test_labels[test_indices])
+    for j, (val_indices, test_indices) in enumerate(val_test_split[i]):
+        print('Val size: {}'.format(len(val_indices)))
+        print('Test size: {}'.format(len(test_indices)))
 
-    u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
-    s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
-    v_dl = DataLoader(v_d, batch_size=v_d.__len__())
-    t_dl = DataLoader(t_d, batch_size=t_d.__len__())
+        v_d = TensorDataset(val_test_data[val_indices], val_test_labels[val_indices])
+        t_d = TensorDataset(val_test_data[test_indices], val_test_labels[test_indices])
 
-    dataloaders = (u_dl, s_dl, v_dl)
+        u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+        s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
+        v_dl = DataLoader(v_d, batch_size=v_d.__len__())
+        t_dl = DataLoader(t_d, batch_size=t_d.__len__())
 
-    model = SimpleNetwork(input_size, [500, 500], num_classes, 1e-3, dataset_name, device, model_name, state_path)
-    epochs, losses, validation_accs = model.train_model(max_epochs, dataloaders, False)
-    result = model.test_model(t_dl)
+        dataloaders = (u_dl, s_dl, v_dl)
 
-    logging = {'test accuracy': result, 'epochs': epochs, 'losses': losses, 'accuracies': validation_accs}
+        model = SimpleNetwork(input_size, [500, 500], num_classes, 1e-3, dataset_name, device, model_name, state_path)
+        epochs, losses, validation_accs = model.train_model(max_epochs, dataloaders, False)
+        result = model.test_model(t_dl)
 
-    results_list.append(result)
+        logging_list.append({'test accuracy': result, 'epochs': epochs, 'losses': losses, 'accuracies': validation_accs})
+        results_list.append(result)
 
     print('===Saving Results===')
-    pickle.dump(logging, open('{}/{}_logging.p'.format(results_path, i), 'wb'))
+    pickle.dump(logging_list, open('{}/{}_logging.p'.format(results_path, i), 'wb'))
     pickle.dump(results_list, open('{}/test_results.p'.format(results_path), 'wb'))
