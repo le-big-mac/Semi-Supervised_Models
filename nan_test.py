@@ -88,7 +88,7 @@ for i, (train_indices, test_val_indices) in enumerate(folds):
     train_data = torch.tensor(normalizer.fit_transform(data[train_indices], labels[train_indices])).float()
     u_d = TensorDataset(train_data, -1 * torch.ones(train_data.size(0)))
     u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
-    test_val_data = torch.tensor(normalizer.transform(data[test_val_indices])).foat()
+    test_val_data = torch.tensor(normalizer.transform(data[test_val_indices])).float()
 
     model = VAE(input_size, 100).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
