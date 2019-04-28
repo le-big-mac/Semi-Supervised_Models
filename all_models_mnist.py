@@ -17,11 +17,13 @@ parser.add_argument('model', type=str, choices=['simple', 'm1', 'sdae', 'm2', 'l
                     help="Choose which model to run")
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
 parser.add_argument('num_folds', type=int, help='Number of folds')
+parser.add_argument('fold', type=int, help='Fold to run')
 parser.add_argument('mnist_name', type=str, help='Folder name output file')
 args = parser.parse_args()
 
 model_name = args.model
 model_func = model_func_dict[model_name]
+fold_i = args.fold
 dataset_name = args.mnist_name
 num_labelled = args.num_labelled
 num_folds = args.num_folds
@@ -48,30 +50,28 @@ folds, label_indices = pickle.load(open('./data/MNIST/{}_labelled_{}_folds.p'.fo
 t_d = TensorDataset(test_data, test_labels)
 
 results_dict = {}
-pickle.dump(results_dict, open('{}/{}_test_results.p'.format(results_path, num_labelled), 'wb'))
 
-for i, (train_indices, val_indices) in enumerate(folds):
-    results_dict = pickle.load(open('{}/{}_test_results.p'.format(results_path, num_labelled), 'rb'))
+train_indices, val_indices = folds[fold_i]
+labelled_indices = label_indices[fold_i]
 
-    print('Validation Fold {}'.format(i))
-    train_data = train_and_val_data[train_indices]
-    train_labels = train_and_val_labels[train_indices]
-    labelled_indices = label_indices[i]
+print('Validation Fold {}'.format(fold_i))
+train_data = train_and_val_data[train_indices]
+train_labels = train_and_val_labels[train_indices]
 
-    s_d = TensorDataset(train_data[labelled_indices], train_labels[labelled_indices])
-    u_d = TensorDataset(train_data, -1 * torch.ones(train_labels.size(0)))
-    v_d = TensorDataset(train_and_val_data[val_indices], train_and_val_labels[val_indices])
+s_d = TensorDataset(train_data[labelled_indices], train_labels[labelled_indices])
+u_d = TensorDataset(train_data, -1 * torch.ones(train_labels.size(0)))
+v_d = TensorDataset(train_and_val_data[val_indices], train_and_val_labels[val_indices])
 
-    u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
-    s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
-    v_dl = DataLoader(v_d, batch_size=v_d.__len__())
-    t_dl = DataLoader(t_d, batch_size=t_d.__len__())
+u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
+v_dl = DataLoader(v_d, batch_size=v_d.__len__())
+t_dl = DataLoader(t_d, batch_size=t_d.__len__())
 
-    dataloaders = (u_dl, s_dl, v_dl, t_dl)
+dataloaders = (u_dl, s_dl, v_dl, t_dl)
 
-    model_name, result = model_func(i, state_path, results_path, dataset_name, dataloaders, 784, 10, max_epochs, device)
+model_name, result = model_func(fold_i, 0, state_path, results_path, dataset_name, dataloaders, 784, 10, max_epochs, device)
 
-    results_dict[model_name] = result
+results_dict[model_name] = result
 
-    print('===Saving Results===')
-    pickle.dump(results_dict, open('{}/{}_test_results.p'.format(results_path, num_labelled), 'wb'))
+print('===Saving Results===')
+pickle.dump(results_dict, open('{}/{}_{}_test_results.p'.format(results_path, fold_i, num_labelled), 'wb'))

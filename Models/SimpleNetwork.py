@@ -89,8 +89,8 @@ class SimpleNetwork(Model):
         return self.Classifier(data.to(self.device))
 
 
-def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloaders, input_size, num_classes, max_epochs,
-                        device):
+def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset_name, dataloaders, input_size,
+                        num_classes, max_epochs, device):
     hidden_layer_size = min(500, (input_size + num_classes) // 2)
     hidden_layers = range(1, 5)
     unsupervised, supervised, validation, test = dataloaders
@@ -102,14 +102,14 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
     best_params = None
 
     logging_list = []
-    hyperparameter_file = '{}/{}_{}_hyperparameters.p'.format(results_path, fold, num_labelled)
+    hyperparameter_file = '{}/{}_{}_{}_hyperparameters.p'.format(results_path, fold, validation_fold, num_labelled)
     pickle.dump(logging_list, open(hyperparameter_file, 'wb'))
 
     for h in hidden_layers:
         print('Simple hidden layers {}'.format(h))
         logging_list = pickle.load(open(hyperparameter_file, 'rb'))
 
-        model_name = '{}_{}_{}'.format(fold, num_labelled, h)
+        model_name = '{}_{}_{}_{}'.format(fold, validation_fold, num_labelled, h)
         model = SimpleNetwork(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device, model_name,
                               state_path)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)

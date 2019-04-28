@@ -17,13 +17,17 @@ parser.add_argument('model', type=str, choices=['simple', 'm1', 'sdae', 'm2', 'l
                     help="Choose which model to run")
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
 parser.add_argument('num_folds', type=int, help='Number of folds')
+parser.add_argument('fold', type=int, help='Fold to run')
 parser.add_argument('tcga_name', type=str, help='Directory to save')
+parser.add_argument('scaler', type=str, choices=['standard', 'minmax'])
 parser.add_argument('--imputation_type', type=str, choices=[i.name.lower() for i in ImputationType],
                     default='drop_samples')
 args = parser.parse_args()
 
 model_name = args.model
 model_func = model_func_dict[model_name]
+scaler_string = args.scale
+fold_i = args.fold
 imputation_string = args.imputation_type.upper()
 imputation_type = ImputationType[imputation_string]
 dataset_name = args.tcga_name
@@ -53,26 +57,27 @@ folds, labelled_indices, val_test_split = pickle.load(open('./data/tcga/{}_label
                                                            .format(num_labelled, num_folds, str_drop), 'rb'))
 
 results_dict = {}
-pickle.dump(results_dict, open('{}/{}_{}_test_results.p'.format(results_path, imputation_string, num_labelled), 'wb'))
+pickle.dump(results_dict, open('{}/{}_{}_{}_test_results.p'.format(results_path, fold_i, imputation_string, num_labelled), 'wb'))
 
-for i, (train_indices, test_val_indices) in enumerate(folds):
-    print('Validation Fold {}'.format(i))
-    results_dict = pickle.load(open('{}/{}_{}_test_results.p'.format(results_path, imputation_string, num_labelled),
+train_indices, test_val_indices = folds[fold_i]
+labelled_indices = labelled_indices[fold_i]
+val_test_split = val_test_split[fold_i]
+
+normalizer = StandardScaler if scaler_string == 'standard' else MinMaxScaler()
+train_data = torch.tensor(normalizer.fit_transform(data[train_indices].numpy()))
+train_labels = labels[train_indices]
+labelled_data = train_data[labelled_indices]
+labelled_labels = train_labels[labelled_indices]
+
+s_d = TensorDataset(labelled_data, labelled_labels)
+u_d = TensorDataset(train_data, -1 * torch.ones(train_labels.size(0)))
+
+test_val_data = torch.tensor(normalizer.transform(data[test_val_indices].numpy()))
+test_val_labels = labels[test_val_indices]
+
+for i, (val_indices, test_indices) in enumerate(val_test_split):
+    results_dict = pickle.load(open('{}/{}_{}_{}_test_results.p'.format(results_path, fold_i, imputation_string, num_labelled),
                                     'rb'))
-
-    normalizer = MinMaxScaler()
-    train_data = torch.tensor(normalizer.fit_transform(data[train_indices].numpy()))
-    train_labels = labels[train_indices]
-    labelled_data = train_data[labelled_indices[i]]
-    labelled_labels = train_labels[labelled_indices[i]]
-
-    s_d = TensorDataset(labelled_data, labelled_labels)
-    u_d = TensorDataset(train_data, -1 * torch.ones(train_labels.size(0)))
-
-    test_val_data = torch.tensor(normalizer.transform(data[test_val_indices].numpy()))
-    test_val_labels = labels[test_val_indices]
-
-    val_indices, test_indices = val_test_split[i]
 
     v_d = TensorDataset(test_val_data[val_indices], test_val_labels[val_indices])
     t_d = TensorDataset(test_val_data[test_indices], test_val_labels[test_indices])
@@ -84,10 +89,10 @@ for i, (train_indices, test_val_indices) in enumerate(folds):
 
     dataloaders = (u_dl, s_dl, v_dl, t_dl)
 
-    model_name, result = model_func(i, state_path, results_path, dataset_name, dataloaders, input_size, num_classes,
+    model_name, result = model_func(fold_i, i, state_path, results_path, dataset_name, dataloaders, input_size, num_classes,
                                     max_epochs, device)
 
     results_dict[model_name] = result
 
-    print('===Saving Results===')
-    pickle.dump(results_dict, open('{}/{}_{}_test_results.p'.format(results_path, imputation_string, num_labelled), 'wb'))
+print('===Saving Results===')
+pickle.dump(results_dict, open('{}/{}_{}_{}_test_results.p'.format(results_path, fold_i, imputation_string, num_labelled), 'wb'))

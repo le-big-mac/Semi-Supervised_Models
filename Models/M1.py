@@ -31,11 +31,11 @@ class M1(Model):
         # print(KLD.data)
 
         # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
-        recons = F.mse_loss(recons, x, reduction='none').sum(dim=1)
+        # recons = F.mse_loss(recons, x, reduction='none').sum(dim=1)
         # print(recons.data)
 
         # BCE used for mnist in original, removed here to allow for non-constrained input
-        # recons = F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
+        recons = F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
 
         return (KLD + recons).mean()
 
@@ -187,8 +187,8 @@ class M1(Model):
         return self.Classifier(z)
 
 
-def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloaders, input_size, num_classes, max_epochs,
-                        device):
+def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset_name, dataloaders, input_size,
+                        num_classes, max_epochs, device):
     hidden_layer_vae_size = min(500, (input_size + num_classes) // 2)
     hidden_layer_classifier_size = 50
     hidden_layers_vae = range(1, 3)
@@ -205,7 +205,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
     best_params = None
 
     logging_list = []
-    hyperparameter_file = '{}/{}_{}_hyperparameters.p'.format(results_path, fold, num_labelled)
+    hyperparameter_file = '{}/{}_{}_{}_hyperparameters.p'.format(results_path, fold, validation_fold, num_labelled)
     pickle.dump(logging_list, open(hyperparameter_file, 'wb'))
 
     for p in param_combinations:
@@ -214,9 +214,9 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
 
         h_v, h_c, z = p
 
-        model_name = '{}_{}_{}_{}_{}'.format(fold, num_labelled, h_v, h_c, z)
+        model_name = '{}_{}_{}_{}_{}_{}'.format(fold, validation_fold, num_labelled, h_v, h_c, z)
         model = M1(input_size, h_v * [hidden_layer_vae_size], z, h_c * [hidden_layer_classifier_size], num_classes,
-                   lambda x: x, lr, dataset_name, device, model_name, state_path)
+                   nn.Sigmoid(), lr, dataset_name, device, model_name, state_path)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
         validation_result = model.test_model(validation)
 
@@ -243,7 +243,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
     hidden_v = best_params['hidden layers vae']
     hidden_c = best_params['hidden layers classifier']
     latent = best_params['latent dim']
-    model = M1(input_size, hidden_v, latent, hidden_c, num_classes, lambda x: x, lr, dataset_name, device, model_name,
+    model = M1(input_size, hidden_v, latent, hidden_c, num_classes, nn.Sigmoid(), lr, dataset_name, device, model_name,
                state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)

@@ -284,8 +284,8 @@ class LadderNetwork(Model):
         return y
 
 
-def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloaders, input_size, num_classes, max_epochs,
-                        device):
+def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset_name, dataloaders, input_size,
+                        num_classes, max_epochs, device):
     hidden_layer_size = min(500, (input_size + num_classes) // 2)
     hidden_layers = range(1, 5)
     unsupervised, supervised, validation, test = dataloaders
@@ -297,7 +297,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
     best_params = None
 
     logging_list = []
-    hyperparameter_file = '{}/{}_{}_hyperparameters.p'.format(results_path, fold, num_labelled)
+    hyperparameter_file = '{}/{}_{}_{}_hyperparameters.p'.format(results_path, fold, validation_fold, num_labelled)
     pickle.dump(logging_list, open(hyperparameter_file, 'wb'))
 
     for h in hidden_layers:
@@ -306,7 +306,7 @@ def hyperparameter_loop(fold, state_path, results_path, dataset_name, dataloader
 
         denoising_cost = [1000.0, 10.0] + ([0.1] * h)
 
-        model_name = '{}_{}_{}'.format(fold, num_labelled, h)
+        model_name = '{}_{}_{}_{}'.format(fold, validation_fold, num_labelled, h)
         model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr, dataset_name,
                               device, model_name, state_path)
 
