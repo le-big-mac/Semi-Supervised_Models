@@ -64,7 +64,7 @@ class SDAE(Model):
             for epoch in range(50):
                 for batch_idx, (data, _) in enumerate(pretraining_dataloader):
                     dae.train()
-                    print(dae.encoder.)
+                    print(dae.encoder.hidden_layers[0].weight)
                     data = data.to(self.device)
 
                     with torch.no_grad():
