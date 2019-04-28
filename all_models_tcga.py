@@ -89,6 +89,7 @@ for i, (val_indices, test_indices) in enumerate(val_test_split):
 
     dataloaders = (u_dl, s_dl, v_dl, t_dl)
 
+    print('Data loaded correctly')
     model_name, result = model_func(fold_i, i, state_path, results_path, dataset_name, dataloaders, input_size, num_classes,
                                     max_epochs, device)
 
