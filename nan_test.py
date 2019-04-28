@@ -85,10 +85,10 @@ folds, labelled_indices, val_test_split = pickle.load(open('./data/tcga/100000_l
 for i, (train_indices, test_val_indices) in enumerate(folds):
     normalizer = StandardScaler()
 
-    train_data = torch.tensor(normalizer.fit_transform(data[train_indices], labels[train_indices]))
+    train_data = torch.tensor(normalizer.fit_transform(data[train_indices], labels[train_indices])).float()
     u_d = TensorDataset(train_data, -1 * torch.ones(train_data.size(0)))
     u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
-    test_val_data = torch.tensor(normalizer.transform(data[test_val_indices]))
+    test_val_data = torch.tensor(normalizer.transform(data[test_val_indices])).foat()
 
     model = VAE(input_size, 100).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
