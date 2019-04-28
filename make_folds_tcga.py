@@ -35,7 +35,7 @@ for train_index, test_index in train_test_folds:
     test_val_data = data[test_index]
     test_val_labels = labels[test_index]
 
-    val_test_splits.append(next(stratified_k_fold(test_val_data, test_val_labels, 2)))
+    val_test_splits.append(list(stratified_k_fold(test_val_data, test_val_labels, 2)))
 
 folds_and_labels = [train_test_folds, label_indices_list, val_test_splits]
 
