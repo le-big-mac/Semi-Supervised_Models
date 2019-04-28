@@ -58,6 +58,8 @@ folds, labelled_indices, val_test_split = pickle.load(open('./data/tcga/{}_label
 
 results_dict = {}
 pickle.dump(results_dict, open('{}/{}_{}_{}_test_results.p'.format(results_path, fold_i, imputation_string, num_labelled), 'wb'))
+classify_dict = {}
+pickle.dump(classify_dict, open('{}/{}_{}_{}_classification.p'.format(results_path, fold_i, imputation_string, num_labelled), 'wb'))
 
 train_indices, test_val_indices = folds[fold_i]
 labelled_indices = labelled_indices[fold_i]
@@ -78,6 +80,8 @@ test_val_labels = labels[test_val_indices]
 for i, (val_indices, test_indices) in enumerate(val_test_split):
     results_dict = pickle.load(open('{}/{}_{}_{}_test_results.p'.format(results_path, fold_i, imputation_string, num_labelled),
                                     'rb'))
+    classify_dict = pickle.load(open('{}/{}_{}_{}_classification.p'.format(results_path, fold_i, imputation_string, num_labelled),
+                                     'rb'))
 
     v_d = TensorDataset(test_val_data[val_indices], test_val_labels[val_indices])
     t_d = TensorDataset(test_val_data[test_indices], test_val_labels[test_indices])
@@ -90,10 +94,11 @@ for i, (val_indices, test_indices) in enumerate(val_test_split):
     dataloaders = (u_dl, s_dl, v_dl, t_dl)
 
     print('Data loaded correctly')
-    model_name, result = model_func(fold_i, i, state_path, results_path, dataset_name, dataloaders, input_size, num_classes,
-                                    max_epochs, device)
+    model_name, result, classify = model_func(fold_i, i, state_path, results_path, dataset_name, dataloaders,
+                                              input_size, num_classes, max_epochs, device)
 
     results_dict[model_name] = result
 
     print('===Saving Results===')
     pickle.dump(results_dict, open('{}/{}_{}_{}_test_results.p'.format(results_path, fold_i, imputation_string, num_labelled), 'wb'))
+    pickle.dump(classify_dict, open('{}/{}_{}_{}_classification.p'.format(results_path, fold_i, imputation_string, num_labelled),'wb'))

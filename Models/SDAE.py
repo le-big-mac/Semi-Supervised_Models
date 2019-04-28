@@ -205,5 +205,6 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
     model = SDAE(input_size, best_params['hidden layers'], num_classes, lr, dataset_name, device, model_name, state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
+    classify = model.classify(test.dataset.tensors[0])
 
-    return model_name, test_acc
+    return model_name, test_acc, classify
