@@ -26,7 +26,7 @@ args = parser.parse_args()
 
 model_name = args.model
 model_func = model_func_dict[model_name]
-scaler_string = args.scale
+scaler_string = args.scaler
 fold_i = args.fold
 imputation_string = args.imputation_type.upper()
 imputation_type = ImputationType[imputation_string]
