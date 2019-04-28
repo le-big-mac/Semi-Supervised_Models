@@ -98,6 +98,7 @@ for i, (val_indices, test_indices) in enumerate(val_test_split):
                                               input_size, num_classes, max_epochs, device)
 
     results_dict[model_name] = result
+    classify_dict[model_name] = (classify, test_val_labels[test_indices])
 
     print('===Saving Results===')
     pickle.dump(results_dict, open('{}/{}_{}_{}_test_results.p'.format(results_path, fold_i, imputation_string, num_labelled), 'wb'))
