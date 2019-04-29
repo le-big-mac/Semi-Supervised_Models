@@ -229,7 +229,7 @@ class M2Runner(Model):
         return self.forward(data)
 
     def forward(self, data):
-        return self.M2.classify(data)
+        return self.M2.classify(data.to(self.device))
 
 
 def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset_name, dataloaders, input_size,

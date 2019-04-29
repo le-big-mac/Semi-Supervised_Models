@@ -182,7 +182,7 @@ class M1(Model):
         return self.forward(data)
 
     def forward(self, data):
-        z, _, _ = self.Encoder(data)
+        z, _, _ = self.Encoder(data.to(self.device))
 
         return self.Classifier(z)
 

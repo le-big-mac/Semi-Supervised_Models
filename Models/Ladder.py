@@ -279,7 +279,7 @@ class LadderNetwork(Model):
         return self.forward(data)
 
     def forward(self, data):
-        y, _ = self.ladder.forward_encoders(data, 0.0, False, 0)
+        y, _ = self.ladder.forward_encoders(data.to(self.device), 0.0, False, 0)
 
         return y
 

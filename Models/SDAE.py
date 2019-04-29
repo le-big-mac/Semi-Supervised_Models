@@ -155,7 +155,7 @@ class SDAE(Model):
         return self.forward(data)
 
     def forward(self, data):
-        return self.SDAEClassifier(data)
+        return self.SDAEClassifier(data.to(self.device))
 
 
 def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset_name, dataloaders, input_size,
