@@ -65,7 +65,7 @@ train_indices, test_val_indices = folds[fold_i]
 labelled_indices = labelled_indices[fold_i]
 val_test_split = val_test_split[fold_i]
 
-normalizer = StandardScaler if scaler_string == 'standard' else MinMaxScaler()
+normalizer = StandardScaler() if scaler_string == 'standard' else MinMaxScaler()
 train_data = torch.tensor(normalizer.fit_transform(data[train_indices].numpy()))
 train_labels = labels[train_indices]
 labelled_data = train_data[labelled_indices]
