@@ -20,17 +20,17 @@ predictions = []
 actual = []
 
 for i in range(args.num_folds):
-    prediction_dict = torch.load('{}/{}_{}_{}_classification.p'.format(results_path, i, args.imputation_type, args.num_labelled), map_location='cpu')
+    prediction_dict = pickle.load(open('{}/{}_{}_{}_classification.p'.format(results_path, i, args.imputation_type, args.num_labelled), 'rb'))
     for pred, real in prediction_dict.values():
         predictions.append(pred)
         actual.append(real)
 
-predictions = torch.stack(predictions)
-actual = torch.stack(actual)
+predictions = torch.cat(predictions)
+actual = torch.cat(actual)
 
 _, predictions = torch.max(predictions.data, 1)
 
-accuracy = (predictions == actual).sum().item()/len(actual)
+accuracy = (predictions.cpu() == actual).sum().item()/len(actual)
 confidence = 1.96*math.sqrt((accuracy*(1-accuracy))/len(actual))
 
 print('Accuracy: {} +- {}'.format(accuracy, confidence))
