@@ -40,6 +40,6 @@ for train_index, test_index in train_test_folds:
 folds_and_labels = [train_test_folds, label_indices_list, val_test_splits]
 
 str_drop = 'drop_samples' if drop_samples else 'no_drop'
-filename = './data/tcga/{}_labelled_{}_folds_{}.p'.format(num_labelled, num_folds, str_drop)
+filename = '../data/tcga/{}_labelled_{}_folds_{}.p'.format(num_labelled, num_folds, str_drop)
 print(filename)
 pickle.dump(folds_and_labels, open(filename, 'wb'))

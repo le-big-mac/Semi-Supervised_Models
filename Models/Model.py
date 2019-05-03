@@ -10,11 +10,10 @@ class Model(nn.Module):
     def train_model(self,  max_epochs, dataloaders, comparison):
         raise NotImplementedError
 
-    def test_model(self, test_dataset):
+    def test_model(self, test_dataloader):
         raise NotImplementedError
 
     def classify(self, data):
-        # TODO: implement this so that it saves to a file in the models
         raise NotImplementedError
 
     def forward(self, data):

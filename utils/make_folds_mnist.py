@@ -22,4 +22,4 @@ for train_index, val_index in folds:
 
 folds_and_labels = [folds, label_indices_list]
 
-pickle.dump(folds_and_labels, open('./data/MNIST/{}_labelled_{}_folds.p'.format(num_labelled, num_folds), 'wb'))
+pickle.dump(folds_and_labels, open('../data/MNIST/{}_labelled_{}_folds.p'.format(num_labelled, num_folds), 'wb'))
