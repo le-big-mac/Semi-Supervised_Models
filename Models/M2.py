@@ -196,7 +196,7 @@ class M2Runner(Model):
                 acc = self.accuracy(validation_loader)
 
                 epochs.append(epoch)
-                train_losses.append(train_loss/len(unlabelled_loader))
+                train_losses.append(train_loss)
                 validation_accs.append(acc)
 
                 early_stopping(1 - acc, self.M2)
