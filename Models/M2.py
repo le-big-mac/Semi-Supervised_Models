@@ -139,9 +139,9 @@ class M2Runner(Model):
         early_stopping = EarlyStopping('{}/{}_inner.pt'.format(self.state_path, self.model_name))
 
         if unlabelled_loader is not None:
-            data_iterator = enumerate(zip(cycle(labelled_loader), unlabelled_loader))
+            data_iterator = zip(cycle(labelled_loader), unlabelled_loader)
         else:
-            data_iterator = enumerate(zip(labelled_loader, cycle([None])))
+            data_iterator = zip(labelled_loader, cycle([None]))
 
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
