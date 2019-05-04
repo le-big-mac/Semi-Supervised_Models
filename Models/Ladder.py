@@ -341,19 +341,3 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
     classify = model.classify(test.dataset.tensors[0])
 
     return model_name, test_acc, classify
-
-
-def ladder_mnist(dataset_name, dataloaders, input_size, num_classes, max_epochs, device):
-    u_dl, s_dl, v_dl, t_dl = dataloaders
-    num_labelled = len(s_dl.dataset)
-
-    model_name = '{}_{}'.format(dataset_name, num_labelled)
-    ladder = LadderNetwork(784, [1000, 500, 250, 250, 250], 10, [1000.0, 10.0, 0.10, 0.10, 0.10, 0.10, 0.10],
-                           1e-3, dataset_name, device, model_name)
-    ladder_epochs, ladder_loss, ladder_acc = ladder.train_model(max_epochs, (u_dl, s_dl, v_dl), False)
-    logging = {'epochs': ladder_epochs, 'losses': ladder_loss, 'accuracies': ladder_acc}
-    pickle.dump(logging, open('./results/{}/ladder_{}_labelled_hyperparameter_train.p'
-                              .format(dataset_name, num_labelled), 'ab'))
-    ladder_result = ladder.test_model(t_dl)
-
-    return ladder_result
