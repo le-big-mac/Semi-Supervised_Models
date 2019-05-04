@@ -5,7 +5,7 @@ import torch
 import math
 import torch.nn.functional as F
 
-m2_path = '../outputs/tcga_minmax/m2/results'
+m2_path = '../outputs/tcga_minmax_m2/m2/results'
 ladder_path = '../outputs/tcga_standard/ladder/results'
 
 m2_predictions = []
@@ -26,7 +26,7 @@ for n in num_labelled:
 
     m2_predictions = torch.cat(m2_predictions)
     ladder_predictions = torch.cat(ladder_predictions)
-    actual = torch.stack(actual)
+    actual = torch.cat(actual)
 
     predictions = (F.softmax(m2_predictions) + F.softmax(ladder_predictions))/2
     _, predictions = torch.max(predictions.data, 1)
