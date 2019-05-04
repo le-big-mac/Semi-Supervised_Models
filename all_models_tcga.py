@@ -62,7 +62,7 @@ classify_dict = {}
 pickle.dump(classify_dict, open('{}/{}_{}_{}_classification.p'.format(results_path, fold_i, imputation_string, num_labelled), 'wb'))
 
 train_indices, test_val_indices = folds[fold_i]
-labelled_indices = labelled_indices[fold_i]
+labelled_indices = [ind.item() for ind in labelled_indices[fold_i]]
 val_test_split = val_test_split[fold_i]
 
 normalizer = StandardScaler() if scaler_string == 'standard' else MinMaxScaler()
