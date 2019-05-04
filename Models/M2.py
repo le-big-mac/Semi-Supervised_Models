@@ -130,7 +130,11 @@ class M2Runner(Model):
             return -self.minus_U(x, pred_y)
 
     def train_m2(self, max_epochs, labelled_loader, unlabelled_loader, validation_loader, comparison):
-        alpha = 0.1 * len(unlabelled_loader.dataset)/len(labelled_loader.dataset)
+
+        if unlabelled_loader is None:
+            alpha = 1
+        else:
+            alpha = 0.1 * len(unlabelled_loader.dataset)/len(labelled_loader.dataset)
 
         epochs = []
         train_losses = []
