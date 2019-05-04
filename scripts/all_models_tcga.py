@@ -18,7 +18,6 @@ parser.add_argument('model', type=str, choices=['simple', 'm1', 'sdae', 'm2', 'l
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
 parser.add_argument('num_folds', type=int, help='Number of folds')
 parser.add_argument('fold', type=int, help='Fold to run')
-parser.add_argument('tcga_name', type=str, help='Directory to save')
 parser.add_argument('scaler', type=str, choices=['standard', 'minmax'])
 parser.add_argument('--imputation_type', type=str, choices=[i.name.lower() for i in ImputationType],
                     default='drop_samples')
@@ -30,7 +29,7 @@ scaler_string = args.scaler
 fold_i = args.fold
 imputation_string = args.imputation_type.upper()
 imputation_type = ImputationType[imputation_string]
-dataset_name = args.tcga_name
+dataset_name = 'tcga'
 num_labelled = args.num_labelled
 num_folds = args.num_folds
 max_epochs = 100

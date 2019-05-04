@@ -8,7 +8,6 @@ parser = argparse.ArgumentParser(description='Take arguments to construct model'
 parser.add_argument('model', type=str, choices=['simple', 'm1', 'sdae', 'm2', 'ladder'],
                     help="Choose which model to run")
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
-parser.add_argument('num_folds', type=int, help='Number of folds')
 parser.add_argument('dataset_name', type=str, help='Folder name output file')
 parser.add_argument('--imputation_type', type=str, choices=[i.name.upper() for i in ImputationType],
                     default='DROP_SAMPLES')
@@ -19,11 +18,14 @@ results_path = '../outputs/{}/{}/results'.format(args.dataset_name, args.model)
 predictions = []
 actual = []
 
-for i in range(args.num_folds):
+for i in range(5):
     prediction_dict = pickle.load(open('{}/{}_{}_{}_classification.p'.format(results_path, i, args.imputation_type, args.num_labelled), 'rb'))
     for pred, real in prediction_dict.values():
         predictions.append(pred)
         actual.append(real)
+
+        print('Correct: ' + (pred.cpu() == real).sum())
+        print('Total: ' + len(real))
 
 predictions = torch.cat(predictions)
 actual = torch.cat(actual)
