@@ -24,7 +24,8 @@ for i in range(5):
         predictions.append(pred)
         actual.append(real)
 
-        print('Correct: ' + (pred.cpu() == real).sum())
+        _, p = torch.max(pred.data, 1)
+        print('Correct: ' + (p.cpu() == real).sum())
         print('Total: ' + len(real))
 
 predictions = torch.cat(predictions)
