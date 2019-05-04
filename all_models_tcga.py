@@ -78,7 +78,8 @@ s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
 
 if model_name == 'm2':
     unlabelled_ind = list(set(range(len(train_data))) - set(labelled_indices))
-    unlabelled_data = train_data[labelled_indices]
+    unlabelled_data = train_data[unlabelled_ind]
+    print(len(unlabelled_data))
     if len(unlabelled_data) == 0:
         u_d = None
         u_dl = None
