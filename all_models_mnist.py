@@ -57,6 +57,7 @@ labelled_indices = label_indices[fold_i]
 print('Validation Fold {}'.format(fold_i))
 train_data = train_and_val_data[train_indices]
 train_labels = train_and_val_labels[train_indices]
+print(len(train_data))
 
 s_d = TensorDataset(train_data[labelled_indices], train_labels[labelled_indices])
 u_d = TensorDataset(train_data, -1 * torch.ones(train_labels.size(0)))
