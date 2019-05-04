@@ -73,6 +73,18 @@ labelled_labels = train_labels[labelled_indices]
 
 s_d = TensorDataset(labelled_data, labelled_labels)
 u_d = TensorDataset(train_data, -1 * torch.ones(train_labels.size(0)))
+u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
+
+if model_name == 'm2':
+    unlabelled_ind = list(set(range(len(train_data))) - set(labelled_indices))
+    unlabelled_data = train_data[labelled_indices]
+    if len(unlabelled_data) == 0:
+        u_d = None
+        u_dl = None
+    else:
+        u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
+        u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
 
 test_val_data = torch.tensor(normalizer.transform(data[test_val_indices].numpy()))
 test_val_labels = labels[test_val_indices]
@@ -86,8 +98,6 @@ for i, (val_indices, test_indices) in enumerate(val_test_split):
     v_d = TensorDataset(test_val_data[val_indices], test_val_labels[val_indices])
     t_d = TensorDataset(test_val_data[test_indices], test_val_labels[test_indices])
 
-    u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
-    s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
     v_dl = DataLoader(v_d, batch_size=v_d.__len__())
     t_dl = DataLoader(t_d, batch_size=t_d.__len__())
 

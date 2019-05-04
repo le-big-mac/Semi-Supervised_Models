@@ -67,6 +67,16 @@ s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
 v_dl = DataLoader(v_d, batch_size=v_d.__len__())
 t_dl = DataLoader(t_d, batch_size=t_d.__len__())
 
+if model_name == 'm2':
+    unlabelled_ind = list(set(range(len(train_data))) - set(labelled_indices))
+    unlabelled_data = train_data[labelled_indices]
+    if len(unlabelled_data) == 0:
+        u_d = None
+        u_dl = None
+    else:
+        u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
+        u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+
 dataloaders = (u_dl, s_dl, v_dl, t_dl)
 
 model_name, result = model_func(fold_i, 0, state_path, results_path, dataset_name, dataloaders, 784, 10, max_epochs, device)

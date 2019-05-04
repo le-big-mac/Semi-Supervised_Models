@@ -138,6 +138,12 @@ class M2Runner(Model):
 
         early_stopping = EarlyStopping('{}/{}_inner.pt'.format(self.state_path, self.model_name))
 
+        data_iterator = None
+        if unlabelled_loader is not None:
+            data_iterator = enumerate(zip(cycle(labelled_loader), unlabelled_loader))
+        else:
+            data_iterator = enumerate(zip(labelled_loader, cycle([None])))
+
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
                 break
@@ -151,18 +157,21 @@ class M2Runner(Model):
                 labelled_images = labelled_images.float().to(self.device)
                 labels = labels.to(self.device)
 
-                unlabelled_images, _ = unlabelled_data
-                unlabelled_images = unlabelled_images.float().to(self.device)
-
                 labelled_predictions = self.M2.classify(labelled_images)
                 labelled_loss = F.cross_entropy(labelled_predictions, labels)
 
                 # labelled images ELBO
                 L = self.elbo(labelled_images, y=labels)
 
-                U = self.elbo(unlabelled_images)
+                loss = L + alpha*labelled_loss
 
-                loss = L + U + alpha*labelled_loss
+                if unlabelled_data is not None:
+                    unlabelled_images, _ = unlabelled_data
+                    unlabelled_images = unlabelled_images.float().to(self.device)
+
+                    U = self.elbo(unlabelled_images)
+
+                    loss += U
 
                 loss.backward()
                 self.optimizer.step()
