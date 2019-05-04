@@ -8,13 +8,13 @@ import torch.nn.functional as F
 m2_path = '../outputs/tcga_minmax_m2/m2/results'
 ladder_path = '../outputs/tcga_standard/ladder/results'
 
-m2_predictions = []
-ladder_predictions = []
-actual = []
-
 num_labelled = [100, 500, 1000, 100000]
 
 for n in num_labelled:
+    m2_predictions = []
+    ladder_predictions = []
+    actual = []
+
     for i in range(5):
         m2_dict = pickle.load(open('{}/{}_DROP_SAMPLES_{}_classification.p'.format(m2_path, i, n), 'rb'))
         for pred, real in m2_dict.values():
