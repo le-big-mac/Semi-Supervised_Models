@@ -23,4 +23,4 @@ for dataset_name in dataset_names:
 
                     prediction_dict_cpu = {k: (p.cpu(), r) for (k, (p, r)) in prediction_dict.items()}
 
-                    pickle.dump(open('{}/{}_DROP_SAMPLES_{}_classification.p'.format(results_path, i, n)), 'wb')
+                    pickle.dump(open('{}/{}_DROP_SAMPLES_{}_classification.p'.format(results_path, i, n), 'wb'))
