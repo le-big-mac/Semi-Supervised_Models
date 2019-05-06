@@ -13,7 +13,7 @@ for dataset_name in dataset_names:
     for model in models:
 
         if os.path.exists('./outputs/{}/{}'.format(dataset_name, model)):
-            results_path = '../outputs/{}/{}/results'.format(dataset_name, model)
+            results_path = './outputs/{}/{}/results'.format(dataset_name, model)
 
             prediction_dict_cpu = {}
 
