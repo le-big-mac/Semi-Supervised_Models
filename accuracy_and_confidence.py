@@ -13,7 +13,7 @@ parser.add_argument('--imputation_type', type=str, choices=[i.name.upper() for i
                     default='DROP_SAMPLES')
 args = parser.parse_args()
 
-results_path = '../outputs/{}/{}/results'.format(args.dataset_name, args.model)
+results_path = './outputs/{}/{}/results'.format(args.dataset_name, args.model)
 
 predictions = []
 actual = []

@@ -5,8 +5,8 @@ import torch
 import math
 import torch.nn.functional as F
 
-m2_path = '../outputs/tcga_minmax_m2/m2/results'
-ladder_path = '../outputs/tcga_standard/ladder/results'
+m2_path = './outputs/tcga_minmax_m2/m2/results'
+ladder_path = './outputs/tcga_standard/ladder/results'
 
 num_labelled = [100, 500, 1000, 100000]
 
