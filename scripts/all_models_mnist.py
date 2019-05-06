@@ -79,7 +79,7 @@ if model_name == 'm2':
 
 dataloaders = (u_dl, s_dl, v_dl, t_dl)
 
-model_name, result = model_func(fold_i, 0, state_path, results_path, dataset_name, dataloaders, 784, 10, max_epochs, device)
+model_name, result, _ = model_func(fold_i, 0, state_path, results_path, dataset_name, dataloaders, 784, 10, max_epochs, device)
 
 results_dict[model_name] = result
 
