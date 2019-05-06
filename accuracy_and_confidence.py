@@ -25,15 +25,15 @@ for i in range(5):
         actual.append(real)
 
         _, p = torch.max(pred.data, 1)
-        print('Correct: ' + (p.cpu() == real).sum())
-        print('Total: ' + len(real))
+        print('Correct: {}'.format((p.cpu() == real).sum()))
+        print('Total: {}'.format(len(real)))
 
 predictions = torch.cat(predictions)
 actual = torch.cat(actual)
 
 _, predictions = torch.max(predictions.data, 1)
 
-accuracy = (predictions.cpu() == actual).sum().item()/len(actual)
+accuracy = (predictions == actual).sum().item()/len(actual)
 confidence = 1.96*math.sqrt((accuracy*(1-accuracy))/len(actual))
 
 print('Accuracy: {} +- {}'.format(accuracy, confidence))
