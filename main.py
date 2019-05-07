@@ -27,7 +27,7 @@ if not os.path.exists(state_path):
     os.mkdir(state_path)
 else:
     print('WARNING: Possibly overriding previous data in {}'.format(output_folder))
-    press = input('Press Enter to continue, or \'e\' followed by Enter to exit')
+    press = input('Press Enter to continue, or \'e\' followed by Enter to exit:')
 
     if press == 'e':
         sys.exit()
@@ -68,7 +68,7 @@ if mode == 'classify':
 
     if class_file == 'outputs.csv':
         print('WARNING: Using default output file outputs.csv. This may override previous data')
-        press = input('Press Enter to continue, or \'e\' followed by Enter to exit')
+        press = input('Press Enter to continue, or \'e\' followed by Enter to exit:')
 
         if press == 'e':
             sys.exit()

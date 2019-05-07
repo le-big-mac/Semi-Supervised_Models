@@ -346,7 +346,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
     hidden_layers = range(1, 5)
     lr = 1e-3
 
-    best_accuracies = []
+    best_accuracies = [0, 0]
     best_params = None
 
     normalizer = StandardScaler()

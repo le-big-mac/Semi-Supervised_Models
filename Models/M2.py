@@ -309,7 +309,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
     param_combinations = [(i, j, k) for i in hidden_layers_vae for j in hidden_layers_classifier for k in z_size]
     lr = 1e-3
 
-    best_accuracies = []
+    best_accuracies = [0, 0]
     best_params = None
 
     normalizer = MinMaxScaler()
