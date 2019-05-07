@@ -140,29 +140,3 @@ def load_MNIST_data():
     test_data = 1./255. * test_data.float()
 
     return (train_data, train_labels), (test_data, test_labels)
-
-
-def save_results(results_list, dataset_directory, model_directory, filename):
-    if not os.path.exists('results'):
-        os.mkdir('results')
-    if not os.path.exists('results/{}'.format(dataset_directory)):
-        os.mkdir('results/{}'.format(dataset_directory))
-    if not os.path.exists('results/{}/{}'.format(dataset_directory, model_directory)):
-        os.mkdir('results/{}/{}'.format(dataset_directory, model_directory))
-
-    # if os.path.exists('results/{}/{}/{}.csv'.format(dataset_directory, model_directory, filename)):
-    #     os.remove('results/{}/{}/{}.csv'.format(dataset_directory, model_directory, filename))
-
-    file = open('results/{}/{}/{}.csv'.format(dataset_directory, model_directory, filename), 'w')
-    writer = csv.writer(file)
-
-    if not isinstance(results_list, list):
-        raise ValueError
-
-    if isinstance(results_list[0], list):
-        for row in results_list:
-            writer.writerow(row)
-    else:
-        writer.writerow(results_list)
-
-    file.close()

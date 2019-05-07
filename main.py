@@ -23,7 +23,14 @@ if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 
 state_path = '{}/state'.format(output_folder)
-os.mkdir(state_path)
+if not os.path.exists(state_path):
+    os.mkdir(state_path)
+else:
+    print('WARNING: Possibly overriding previous data')
+    press = input('Press Enter to continue, or e followed by Enter to exit')
+
+    if press == 'e':
+        sys.exit()
 
 if mode == 'train':
     (labelled_data, labels), unlabelled_data, label_map, col_means = load_train_data_from_file(args.data_filepath)
