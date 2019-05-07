@@ -350,7 +350,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
     best_params = None
 
     normalizer = StandardScaler()
-    all_data = normalizer.fit_transform(torch.cat(labelled_data, unlabelled_data).numpy())
+    all_data = normalizer.fit_transform(torch.cat((labelled_data, unlabelled_data)).numpy())
     labelled_data = all_data[:len(labels)]
 
     for h in hidden_layers:
@@ -366,7 +366,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
         for train_ind, val_ind in train_val_folds:
             s_d = TensorDataset(labelled_data[train_ind], labels[train_ind])
 
-            unlabelled_data = torch.cat(all_data[len(labels):], labelled_data[train_ind])
+            unlabelled_data = torch.cat((all_data[len(labels):], labelled_data[train_ind]))
             u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
             v_d = TensorDataset(labelled_data[val_ind], labels[val_ind])
 

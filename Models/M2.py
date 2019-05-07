@@ -313,7 +313,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
     best_params = None
 
     normalizer = MinMaxScaler()
-    data = normalizer.fit_transform(torch.cat(labelled_data, unlabelled_data).numpy())
+    data = normalizer.fit_transform(torch.cat((labelled_data, unlabelled_data)).numpy())
     labelled_data = data[:len(labels)]
     unlabelled_data = data[len(labels):]
 
