@@ -350,6 +350,8 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
             if device == 'cuda':
                 torch.cuda.empty_cache()
 
+        print(accuracies)
+        print(best_accuracies)
         if mean(accuracies) > mean(best_accuracies):
             best_accuracies = accuracies
             best_params = params
