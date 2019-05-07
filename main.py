@@ -95,13 +95,13 @@ if mode == 'classify':
     m2_normalizer = pickle.load(open('{}/m2_normalizer.p'.format(state_path), 'rb'))
     ladder_normalizer = pickle.load(open('{}/ladder_normalizer.p'.format(state_path), 'rb'))
 
-    m2_data = m2_normalizer.transform(data)
+    m2_data = torch.tensor(m2_normalizer.transform(data)).float()
     m2_results = m2.classify(data)
 
     ladder_data = torch.tensor(ladder_normalizer.transform(data)).float()
     ladder_results = ladder.classify(data)
 
-    predictions = (F.softmax(m2_data) + F.softmax(ladder_data))/2
+    predictions = (F.softmax(m2_results) + F.softmax(ladder_results))/2
 
     _, predictions = torch.max(predictions.data, 1)
 
