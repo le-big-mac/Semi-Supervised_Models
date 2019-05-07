@@ -37,7 +37,7 @@ if mode == 'train':
 
     (labelled_data, labels), unlabelled_data, label_map, col_means = load_train_data_from_file(args.data_filepath)
 
-    train_val_fold = stratified_k_fold(labelled_data, labels, 2)
+    train_val_fold = list(stratified_k_fold(labelled_data, labels, 2))
 
     print("==M2 optimisation==")
 
