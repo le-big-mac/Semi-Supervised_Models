@@ -82,7 +82,7 @@ def load_train_data_from_file(filepath):
 
 def load_data_to_classify_from_file(filepath, col_means):
     df = pd.read_csv(filepath, index_col=0)
-    df.fillna(col_means)
+    df = df.fillna(col_means)
     sample_names = df.index
 
     data = torch.tensor(df.values).float()
