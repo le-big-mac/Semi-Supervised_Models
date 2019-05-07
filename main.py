@@ -22,8 +22,9 @@ if not os.path.exists(output_folder):
     print('{} does not exist - making directories'.format(output_folder))
     os.makedirs(output_folder)
 
+state_path = '{}/state'.format(output_folder)
+
 if mode == 'train':
-    state_path = '{}/state'.format(output_folder)
     if not os.path.exists(state_path):
         os.mkdir(state_path)
     else:
