@@ -97,11 +97,14 @@ if mode == 'classify':
 
     m2_data = torch.tensor(m2_normalizer.transform(data)).float()
     m2_results = m2.classify(data)
+    print(m2_results)
 
     ladder_data = torch.tensor(ladder_normalizer.transform(data)).float()
     ladder_results = ladder.classify(data)
+    print(ladder_results)
 
     predictions = (F.softmax(m2_results) + F.softmax(ladder_results))/2
+    print(predictions)
 
     _, predictions = torch.max(predictions.data, 1)
 
