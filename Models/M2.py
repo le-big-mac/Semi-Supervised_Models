@@ -328,12 +328,16 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
 
         for train_ind, val_ind in train_val_folds:
             s_d = TensorDataset(labelled_data[train_ind], labels[train_ind])
-            u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
             v_d = TensorDataset(labelled_data[val_ind], labels[val_ind])
 
             s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
-            u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
             v_dl = DataLoader(v_d, batch_size=v_d.__len__())
+
+            if len(unlabelled_data) == 0:
+                u_dl = None
+            else:
+                u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
+                u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
 
             model = M2Runner(input_size, [hidden_layer_size] * h_v, [hidden_layer_size] * h_c, z, num_classes,
                              nn.Sigmoid(), lr, "", device, model_name, state_path)
@@ -350,10 +354,13 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
             best_params = params
 
     s_d = TensorDataset(labelled_data, labels)
-    u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
-
     s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
-    u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+
+    if len(unlabelled_data) == 0:
+        u_dl = None
+    else:
+        u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
+        u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
 
     final_model = M2Runner(best_params['input size'], best_params['hidden layers vae'], best_params['hidden layers classifier'],
                            best_params['z'], best_params['num_classes'], nn.Sigmoid(), lr, "", device, 'm2', state_path)
