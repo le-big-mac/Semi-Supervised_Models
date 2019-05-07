@@ -6,6 +6,9 @@ from itertools import cycle
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping
 import pickle
+from sklearn.preprocessing import StandardScaler
+from torch.utils.data import DataLoader, TensorDataset
+from statistics import mean
 
 
 def bi(inits, size):
@@ -236,29 +239,20 @@ class LadderNetwork(Model):
                 loss.backward()
                 self.optimizer.step()
 
-                if comparison:
-                    acc = self.accuracy(validation_dataloader, 0)
+                train_loss += loss.item()
 
-                    epochs.append(epoch)
-                    train_losses.append(loss.item())
-                    validation_accs.append(acc)
-
-                    early_stopping(1 - acc, self.ladder)
-
-                    # print('Epoch: {} Supervised Loss: {} Unsupervised Loss: {} Validation Accuracy: {}'
-                    #       .format(epoch, cost.item(), u_cost.item(), acc))
-
-            if not comparison:
+            if validation_dataloader is not None:
                 acc = self.accuracy(validation_dataloader, 0)
-
-                epochs.append(epoch)
-                train_losses.append(train_loss/len(unsupervised_dataloader))
                 validation_accs.append(acc)
-
                 early_stopping(1 - acc, self.ladder)
-                # print('Epoch: {} Validation Accuracy: {}'.format(epoch, val))
 
-        early_stopping.load_checkpoint(self.ladder)
+            epochs.append(epoch)
+            train_losses.append(train_loss/len(unsupervised_dataloader))
+
+            # print('Epoch: {} Validation Accuracy: {}'.format(epoch, val))
+
+        if validation_dataloader is not None:
+            early_stopping.load_checkpoint(self.ladder)
 
         return epochs, train_losses, validation_accs
 
@@ -341,3 +335,68 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
     classify = model.classify(test.dataset.tensors[0])
 
     return model_name, test_acc, classify
+
+
+def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, output_folder, device):
+    input_size = labelled_data.size(1)
+    num_classes = labels.unique().size(0)
+    state_path = '{}/state'.format(output_folder)
+
+    hidden_layer_size = min(500, (input_size + num_classes) // 2)
+    hidden_layers = range(1, 5)
+    lr = 1e-3
+
+    best_accuracies = []
+    best_params = None
+
+    normalizer = StandardScaler()
+    all_data = normalizer.fit_transform(torch.cat(labelled_data, unlabelled_data).numpy())
+    labelled_data = all_data[:len(labels)]
+
+    for h in hidden_layers:
+        print('Ladder params {}'.format(h))
+
+        model_name = '{}'.format(h)
+        denoising_cost = [1000.0, 10.0] + ([0.1] * h)
+        params = {'model name': model_name, 'input size': input_size, 'hidden layers': h * [hidden_layer_size],
+                  'denoising_cost': denoising_cost, 'num classes': num_classes}
+
+        accuracies = []
+
+        for train_ind, val_ind in train_val_folds:
+            s_d = TensorDataset(labelled_data[train_ind], labels[train_ind])
+
+            unlabelled_data = torch.cat(all_data[len(labels):], labelled_data[train_ind])
+            u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
+            v_d = TensorDataset(labelled_data[val_ind], labels[val_ind])
+
+            s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
+            u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+            v_dl = DataLoader(v_d, batch_size=v_d.__len__())
+
+            model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr, '',
+                                  device, model_name, state_path)
+            model.train_model(100, (s_dl, u_dl, v_dl), False)
+            validation_result = model.test_model(v_dl)
+
+            accuracies.append(validation_result)
+
+            if device == 'cuda':
+                torch.cuda.empty_cache()
+
+        if mean(accuracies) > mean(best_accuracies):
+            best_accuracies = accuracies
+            best_params = params
+
+    s_d = TensorDataset(labelled_data, labels)
+    unlabelled_data = all_data
+    u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
+
+    s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
+    u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+
+    final_model = LadderNetwork(best_params['input size'], best_params['hidden layers'], best_params['num classes'],
+                                best_params['denoising cost'], lr, '', device, 'ladder', state_path)
+    final_model.train_model(100, (s_dl, u_dl, None), False)
+
+    return final_model, normalizer, best_accuracies

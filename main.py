@@ -1,96 +1,96 @@
-import os
-import torch
-from torch import nn
-from torch.utils.data import DataLoader
+import sys
+import pickle
 import argparse
-from utils.datautils import load_MNIST_data, save_results
+from utils.datautils import *
 from Models import *
+import torch.nn.functional as F
+import csv
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-state_path = './Models/state'
 
+parser = argparse.ArgumentParser(description='Choose mode to run model')
+parser.add_argument('mode', type=str, choices=['train', 'classify'], help='Mode to run in')
+parser.add_argument('data_filepath', type=str, help='File to load data from')
+parser.add_argument('output_folder', type=str, help='Folder to save outputs to')
+parser.add_argument('--classification_file', type=str, default='outputs.csv', help='File to save classification '
+                                                                                   'results to')
+args = parser.parse_args()
 
-def get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, unsupervised_batch_size):
-    model = None
-    unsupervised_dataset, supervised_dataset, validation_dataset, test_dataset = datasets
+mode = args.mode
+output_folder = args.output_folder
 
-    unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=unsupervised_batch_size, shuffle=True)
-    supervised_dataloader = DataLoader(supervised_dataset, batch_size=batch_size, shuffle=True)
-    validation_dataloader = DataLoader(validation_dataset, batch_size=validation_dataset.__len__())
-    test_dataloader = DataLoader(test_dataset, batch_size=test_dataset.__len__())
+if not os.path.exists(output_folder):
+    print('{} does not exist - making directories')
+    os.makedirs(output_folder)
 
-    train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
+state_path = '{}/state'.format_map(output_folder)
+os.mkdir(state_path)
 
-    if model_name == 'simple':
-        model = SimpleNetwork(784, [397], 10, 1e-3, dataset_name, device)
+if mode == 'train':
+    (labelled_data, labels), unlabelled_data, label_map, col_means = load_train_data_from_file(args.data_filepath)
 
-    elif model_name == 'sdae':
-        model = SDAE(784, [1000, 500, 250, 250, 250], 10, 1e-3, dataset_name, device)
+    train_val_fold = stratified_k_fold(labelled_data, labels, 2)
 
-    elif model_name == 'm1':
-        model = M1(784, [256, 128], 32, [32], 10, lambda x: x, dataset_name, device)
+    m2, m2_normalizer, m2_accuracies = m2_tool_loop(train_val_fold, labelled_data, labels, unlabelled_data, output_folder,
+                                                    device)
+    ladder, ladder_normalizer, ladder_accuracies = ladder_tool_loop(train_val_fold, labelled_data, labels, unlabelled_data,
+                                                                    output_folder, device)
 
-    elif model_name == 'm2':
-        model = M2Runner(784, [256, 128], [256], 32, 10, lambda x: x, 1e-3, dataset_name, device)
+    torch.save(m2, '{}/m2.pt'.format(state_path))
+    pickle.dump(m2_normalizer, open('{}/m2_normalizer.p'.format(state_path), 'wb'))
 
-        unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
-        train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
+    torch.save(ladder, '{}/ladder.pt'.format(state_path))
+    pickle.dump(ladder_normalizer, open('{}/ladder_normalizer.p'.format(state_path), 'wb'))
 
-    elif model_name == 'ladder':
-        model = LadderNetwork(784, [397], 10, [1000.0, 10.0, 0.10, 0.10, 0.10, 0.10, 0.10], 1e-3,
-                              dataset_name, device)
+    pickle.dump(col_means, open('{}/imputation_means.p'.format(state_path), 'wb'))
+    pickle.dump(label_map, open('{}/label_map.p'.format(state_path), 'wb'))
 
-        unsupervised_dataloader = DataLoader(unsupervised_dataset, batch_size=batch_size, shuffle=True)
-        train_dataloaders = (unsupervised_dataloader, supervised_dataloader, validation_dataloader)
+    print('M2 2-fold accuracies: {}'.format(m2_accuracies))
+    print('Ladder 2-fold accuracies: {}'.format(ladder_accuracies))
 
-    return model, train_dataloaders, test_dataloader
+if mode == 'classify':
+    class_file = args.classification_file
 
+    if class_file == 'outputs.csv':
+        print('WARNING: Using default output file outputs.csv. This may override previous data')
+        press = input('Press Enter to continue, or e followed by Enter to exit')
 
-def main():
-    parser = argparse.ArgumentParser(description='Take arguments to construct model')
-    parser.add_argument('model', type=str,
-                        choices=['simple', 'sdae', 'm1', 'm2', 'ladder'],
-                        help="Choose which model to run"
-                        )
-    parser.add_argument('--max_epochs', type=int, default=100, help='Maximum number of epochs to run for')
-    parser.add_argument('--comparison', type=bool, default=False,
-                        help='Saves data on validation and losses per iteration for comparison between models (will '
-                             'slow down training)')
-    args = parser.parse_args()
+        if press == 'e':
+            sys.exit()
 
-    model_name = args.model
-    unsupervised_batch_size = 1000
-    batch_size = 100
+    if not (os.path.exists('{}/m2.pt'.format(state_path)) or os.path.exists('{}/ladder.pt'.format(state_path))):
+        sys.exit('Models have not been trained')
 
-    dataset_name = 'MNIST'
-    datasets = load_MNIST_data(100, 50000, True, True)
+    col_means = pickle.load(open('{}/imputation_means.p'.format(state_path), 'rb'))
+    int_string_map = pickle.load(open('{}/label_map.p'.format(state_path), 'rb'))
+    sample_names, data = load_data_to_classify_from_file(args.data_filepath, col_means)
 
-    if not os.path.exists(state_path):
-        os.mkdir(state_path)
-    if not os.path.exists('{}/{}'.format(state_path, model_name)):
-        os.mkdir('{}/{}'.format(state_path, model_name))
+    if device.type == 'cpu':
+        m2 = torch.load('{}/m2.pt'.format(state_path), map_location='cpu')
+        ladder = torch.load('{}/ladder.pt'.format(state_path), map_location='cpu')
+    else:
+        m2 = torch.load('{}/m2.pt'.format(state_path))
+        ladder = torch.load('{}/ladder.pt'.format(state_path))
 
-    epochs_list = []
-    losses_list = []
-    validation_accs_list = []
-    results_list = []
-    for i in range(5):
-        model, train_dataloaders, test_dataloader = \
-            get_models_and_dataloaders(model_name, dataset_name, datasets, batch_size, unsupervised_batch_size)
+    m2_normalizer = pickle.load(open('{}/m2_normalizer.p'.format(state_path), 'rb'))
+    ladder_normalizer = pickle.load(open('{}/ladder_normalizer.p'.format(state_path), 'rb'))
 
-        epochs, losses, validation_accs = model.train_model(args.max_epochs, train_dataloaders, True)
-        results = model.test_model(test_dataloader)
+    m2_data = m2_normalizer.transform(data)
+    m2_results = m2.classify(data)
 
-        epochs_list.append(epochs)
-        losses_list.append(losses)
-        validation_accs_list.append(validation_accs)
-        results_list.append([results])
+    ladder_data = ladder_normalizer.transform(data)
+    ladder_results = ladder.classify(data)
 
-    save_results(results_list, dataset_name, model_name, 'test_accuracy')
-    if args.comparison:
-        save_results(epochs_list, dataset_name, model_name, 'epochs')
-        save_results(losses_list, dataset_name, model_name, 'losses')
-        save_results(validation_accs_list, dataset_name, model_name, 'validation_accs')
+    predictions = (F.softmax(m2_data) + F.softmax(ladder_data))/2
 
+    _, predictions = torch.max(predictions.data, 1)
 
-if __name__ == '__main__':
-    main()
+    labels = [[sample_names[i], int_string_map[l]] for i, l in enumerate(predictions.numpy())]
+
+    file = open('{}/{}'.format(output_folder, class_file), 'w')
+    writer = csv.writer(file)
+
+    for row in labels:
+        writer.writerow(row)
+
+    file.close()
+

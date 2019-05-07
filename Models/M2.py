@@ -2,10 +2,13 @@ import torch
 import pickle
 from torch import nn
 from torch.nn import functional as F
+from torch.utils.data import TensorDataset, DataLoader
 from itertools import cycle
 from Models.BuildingBlocks import VariationalEncoder, Decoder, Classifier
 from Models.Model import Model
 from utils.trainingutils import EarlyStopping
+from statistics import mean
+from sklearn.preprocessing import MinMaxScaler
 
 # -----------------------------------------------------------------------
 # Implementation of Kingma M2 semi-supervised variational autoencoder
@@ -179,31 +182,18 @@ class M2Runner(Model):
                 loss.backward()
                 self.optimizer.step()
 
-                if comparison:
-                    acc = self.accuracy(validation_loader)
-                    epochs.append(epoch)
-                    train_losses.append(loss.item())
-                    validation_accs.append(acc)
+                train_loss += loss.item()
 
-                    early_stopping(1 - acc, self.M2)
-
-                    # print('Epoch: {} Classification Loss: {} Unlabelled Loss: {} Labelled Loss: {} Validation Accuracy: {}'
-                    #       .format(epoch, labelled_loss.item(), U.item(), L.item(), validation_acc))
-                else:
-                    train_loss += loss.item()
-
-            if not comparison:
+            if validation_loader is not None:
                 acc = self.accuracy(validation_loader)
-
-                epochs.append(epoch)
-                train_losses.append(train_loss)
                 validation_accs.append(acc)
-
                 early_stopping(1 - acc, self.M2)
 
-                print('Epoch: {} Validation acc: {}'.format(epoch, acc))
+            epochs.append(epoch)
+            train_losses.append(train_loss)
 
-        early_stopping.load_checkpoint(self.M2)
+        if validation_loader is not None:
+            early_stopping.load_checkpoint(self.M2)
 
         return epochs, train_losses, validation_accs
 
@@ -305,3 +295,68 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
     classify = model.classify(test.dataset.tensors[0])
 
     return model_name, test_acc, classify
+
+
+def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, output_folder, device):
+    input_size = labelled_data.size(1)
+    num_classes = labels.unique().size(0)
+    state_path = '{}/state'.format(output_folder)
+
+    hidden_layer_size = min(500, (input_size + num_classes) // 2)
+    hidden_layers_vae = range(1, 3)
+    hidden_layers_classifier = range(1, 3)
+    z_size = [200, 100, 50]
+    param_combinations = [(i, j, k) for i in hidden_layers_vae for j in hidden_layers_classifier for k in z_size]
+    lr = 1e-3
+
+    best_accuracies = []
+    best_params = None
+
+    normalizer = MinMaxScaler()
+    data = normalizer.fit_transform(torch.cat(labelled_data, unlabelled_data).numpy())
+    labelled_data = data[:len(labels)]
+    unlabelled_data = data[len(labels):]
+
+    for p in param_combinations:
+        print('M2 params {}'.format(p))
+        h_v, h_c, z = p
+        model_name = '{}_{}_{}'.format(h_v, h_c, z)
+        params = {'model name': model_name, 'input size': input_size, 'hidden layers vae': h_v * [hidden_layer_size],
+                  'hidden layers classifier': h_c * [hidden_layer_size], 'latent dim': z, 'num classes': num_classes}
+
+        accuracies = []
+
+        for train_ind, val_ind in train_val_folds:
+            s_d = TensorDataset(labelled_data[train_ind], labels[train_ind])
+            u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
+            v_d = TensorDataset(labelled_data[val_ind], labels[val_ind])
+
+            s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
+            u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+            v_dl = DataLoader(v_d, batch_size=v_d.__len__())
+
+            model = M2Runner(input_size, [hidden_layer_size] * h_v, [hidden_layer_size] * h_c, z, num_classes,
+                             nn.Sigmoid(), lr, "", device, model_name, state_path)
+            model.train_model(100, (s_dl, u_dl, v_dl), False)
+            validation_result = model.test_model(v_dl)
+
+            accuracies.append(validation_result)
+
+            if device == 'cuda':
+                torch.cuda.empty_cache()
+
+        if mean(accuracies) > mean(best_accuracies):
+            best_accuracies = accuracies
+            best_params = params
+
+    s_d = TensorDataset(labelled_data, labels)
+    u_d = TensorDataset(unlabelled_data, -1 * torch.ones(unlabelled_data.size(0)))
+
+    s_dl = DataLoader(s_d, batch_size=100, shuffle=True)
+    u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
+
+    final_model = M2Runner(best_params['input size'], best_params['hidden layers vae'], best_params['hidden layers classifier'],
+                           best_params['z'], best_params['num_classes'], nn.Sigmoid(), lr, "", device, 'm2', state_path)
+    final_model.train_model(100, (s_dl, u_dl, None), False)
+
+    return final_model, normalizer, best_accuracies

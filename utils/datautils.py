@@ -54,6 +54,42 @@ class ImputationType(Enum):
     ZERO = 4
 
 
+def load_train_data_from_file(filepath):
+    df = pd.read_csv(filepath, index_col=0)
+
+    label_column = df[df.columns[-1]]
+
+    data_to_impute = df[df.columns[:-1]]
+    col_means = data_to_impute.mean()
+    data_to_impute = data_to_impute.fillna(col_means)
+
+    unlabel_mask = label_column.isna()
+    labelled_data = data_to_impute[~unlabel_mask]
+    labels = label_column[~unlabel_mask]
+    unlabelled_data = data_to_impute[unlabel_mask]
+
+    unique_labels = labels.unique()
+    string_int_label_map = dict(zip(unique_labels, range(len(unique_labels))))
+
+    labelled_data = torch.tensor(labelled_data.values).float()
+    labels = torch.tensor([string_int_label_map[d] for d in labels.values]).long()
+    unlabelled_data = torch.tensor(unlabelled_data.values).float()
+
+    int_string_map = {v: k for k, v in string_int_label_map.items()}
+
+    return (labelled_data, labels), unlabelled_data, int_string_map, col_means
+
+
+def load_data_to_classify_from_file(filepath, col_means):
+    df = pd.read_csv(filepath, index_col=0)
+    df.fillna(col_means)
+    sample_names = df.index
+
+    data = torch.tensor(df.values).float()
+
+    return sample_names, data
+
+
 def load_tcga_data(imputation_type=ImputationType.DROP_SAMPLES):
     rnaseq_df = pd.read_csv('data/tcga/rnaseq_data_with_labels.csv', index_col=0)
 

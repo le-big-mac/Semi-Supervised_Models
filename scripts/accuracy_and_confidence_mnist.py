@@ -1,7 +1,7 @@
 import argparse
 import pickle
 from utils.datautils import *
-import torch
+import statistics
 import math
 
 parser = argparse.ArgumentParser(description='Take arguments to construct model')
@@ -15,25 +15,13 @@ args = parser.parse_args()
 
 results_path = './outputs/{}/{}/results'.format(args.dataset_name, args.model)
 
-predictions = []
-actual = []
+accuracies = []
 
 for i in range(5):
-    prediction_dict = pickle.load(open('{}/{}_{}_{}_classification.p'.format(results_path, i, args.imputation_type, args.num_labelled), 'rb'))
-    for pred, real in prediction_dict.values():
-        predictions.append(pred)
-        actual.append(real)
+    fold_accuracies = pickle.load(open('{}/{}_{}_test_results.p'.format(results_path, i, args.num_labelled), 'rb'))
+    accuracies.extend(list(fold_accuracies.values()))
 
-        _, p = torch.max(pred.data, 1)
-        print('Correct: {}'.format((p.cpu() == real).sum()))
-        print('Total: {}'.format(len(real)))
+av_acc = round(statistics.mean(accuracies), 4)
+confidence = 1.96*math.sqrt((av_acc*(1-av_acc))/10000)
 
-predictions = torch.cat(predictions)
-actual = torch.cat(actual)
-
-_, predictions = torch.max(predictions.data, 1)
-
-accuracy = (predictions == actual).sum().item()/len(actual)
-confidence = 1.96*math.sqrt((accuracy*(1-accuracy))/len(actual))
-
-print('Accuracy: {} +- {}'.format(accuracy, confidence))
+print('Accuracy: {} +- {}'.format(av_acc, confidence))
