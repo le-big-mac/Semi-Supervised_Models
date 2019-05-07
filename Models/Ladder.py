@@ -359,7 +359,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
         model_name = '{}'.format(h)
         denoising_cost = [1000.0, 10.0] + ([0.1] * h)
         params = {'model name': model_name, 'input size': input_size, 'hidden layers': h * [hidden_layer_size],
-                  'denoising_cost': denoising_cost, 'num classes': num_classes}
+                  'denoising cost': denoising_cost, 'num classes': num_classes}
 
         accuracies = []
 
