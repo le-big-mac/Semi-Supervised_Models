@@ -364,7 +364,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
         u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
 
     final_model = M2Runner(best_params['input size'], best_params['hidden layers vae'], best_params['hidden layers classifier'],
-                           best_params['latent dim'], best_params['num_classes'], nn.Sigmoid(), lr, "", device, 'm2', state_path)
+                           best_params['latent dim'], best_params['num classes'], nn.Sigmoid(), lr, "", device, 'm2', state_path)
     final_model.train_model(100, (u_dl, s_dl, None), False)
 
     return final_model, normalizer, best_accuracies
