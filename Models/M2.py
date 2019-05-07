@@ -350,8 +350,6 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
             if device == 'cuda':
                 torch.cuda.empty_cache()
 
-        print(accuracies)
-        print(best_accuracies)
         if mean(accuracies) > mean(best_accuracies):
             best_accuracies = accuracies
             best_params = params
@@ -366,7 +364,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
         u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
 
     final_model = M2Runner(best_params['input size'], best_params['hidden layers vae'], best_params['hidden layers classifier'],
-                           best_params['z'], best_params['num_classes'], nn.Sigmoid(), lr, "", device, 'm2', state_path)
+                           best_params['latent dim'], best_params['num_classes'], nn.Sigmoid(), lr, "", device, 'm2', state_path)
     final_model.train_model(100, (u_dl, s_dl, None), False)
 
     return final_model, normalizer, best_accuracies
