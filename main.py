@@ -22,17 +22,17 @@ if not os.path.exists(output_folder):
     print('{} does not exist - making directories'.format(output_folder))
     os.makedirs(output_folder)
 
-state_path = '{}/state'.format(output_folder)
-if not os.path.exists(state_path):
-    os.mkdir(state_path)
-else:
-    print('WARNING: Possibly overriding previous data in {}'.format(output_folder))
-    press = input('Press Enter to continue, or \'e\' followed by Enter to exit:')
-
-    if press == 'e':
-        sys.exit()
-
 if mode == 'train':
+    state_path = '{}/state'.format(output_folder)
+    if not os.path.exists(state_path):
+        os.mkdir(state_path)
+    else:
+        print('WARNING: Possibly overriding previous data in {}'.format(output_folder))
+        press = input('Press Enter to continue, or \'e\' followed by Enter to exit:')
+
+        if press == 'e':
+            sys.exit()
+
     print('==Loading Data==')
 
     (labelled_data, labels), unlabelled_data, label_map, col_means = load_train_data_from_file(args.data_filepath)
@@ -97,7 +97,7 @@ if mode == 'classify':
     m2_data = m2_normalizer.transform(data)
     m2_results = m2.classify(data)
 
-    ladder_data = ladder_normalizer.transform(data)
+    ladder_data = torch.tensor(ladder_normalizer.transform(data)).float()
     ladder_results = ladder.classify(data)
 
     predictions = (F.softmax(m2_data) + F.softmax(ladder_data))/2
