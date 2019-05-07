@@ -378,6 +378,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
                                   device, model_name, state_path)
             model.train_model(100, (u_dl, s_dl, v_dl), False)
             validation_result = model.test_model(v_dl)
+            print('Validation accuracy: {}'.format(validation_result))
 
             accuracies.append(validation_result)
 
