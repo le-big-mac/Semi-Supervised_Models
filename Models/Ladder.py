@@ -350,7 +350,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
     best_params = None
 
     normalizer = StandardScaler()
-    all_data = normalizer.fit_transform(torch.cat((labelled_data, unlabelled_data)).numpy())
+    all_data = torch.tensor(normalizer.fit_transform(torch.cat((labelled_data, unlabelled_data)).numpy())).float()
     labelled_data = all_data[:len(labels)]
 
     for h in hidden_layers:
@@ -376,7 +376,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
 
             model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr, '',
                                   device, model_name, state_path)
-            model.train_model(100, (s_dl, u_dl, v_dl), False)
+            model.train_model(100, (u_dl, s_dl, v_dl), False)
             validation_result = model.test_model(v_dl)
 
             accuracies.append(validation_result)
@@ -397,6 +397,6 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
 
     final_model = LadderNetwork(best_params['input size'], best_params['hidden layers'], best_params['num classes'],
                                 best_params['denoising cost'], lr, '', device, 'ladder', state_path)
-    final_model.train_model(100, (s_dl, u_dl, None), False)
+    final_model.train_model(100, (u_dl, s_dl, None), False)
 
     return final_model, normalizer, best_accuracies

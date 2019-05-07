@@ -55,7 +55,7 @@ class ImputationType(Enum):
 
 
 def load_train_data_from_file(filepath):
-    df = pd.read_csv(filepath, index_col=0)
+    df = pd.read_csv(filepath, index_col=0, low_memory=False)
 
     label_column = df[df.columns[-1]]
 

@@ -19,28 +19,37 @@ mode = args.mode
 output_folder = args.output_folder
 
 if not os.path.exists(output_folder):
-    print('{} does not exist - making directories')
+    print('{} does not exist - making directories'.format(output_folder))
     os.makedirs(output_folder)
 
 state_path = '{}/state'.format(output_folder)
 if not os.path.exists(state_path):
     os.mkdir(state_path)
 else:
-    print('WARNING: Possibly overriding previous data')
-    press = input('Press Enter to continue, or e followed by Enter to exit')
+    print('WARNING: Possibly overriding previous data in {}'.format(output_folder))
+    press = input('Press Enter to continue, or \'e\' followed by Enter to exit')
 
     if press == 'e':
         sys.exit()
 
 if mode == 'train':
+    print('==Loading Data==')
+
     (labelled_data, labels), unlabelled_data, label_map, col_means = load_train_data_from_file(args.data_filepath)
 
     train_val_fold = stratified_k_fold(labelled_data, labels, 2)
 
+    print("==M2 optimisation==")
+
     m2, m2_normalizer, m2_accuracies = m2_tool_loop(train_val_fold, labelled_data, labels, unlabelled_data, output_folder,
                                                     device)
+
+    print("==Ladder optimisation==")
+
     ladder, ladder_normalizer, ladder_accuracies = ladder_tool_loop(train_val_fold, labelled_data, labels, unlabelled_data,
                                                                     output_folder, device)
+
+    print('==Saving State==')
 
     torch.save(m2, '{}/m2.pt'.format(state_path))
     pickle.dump(m2_normalizer, open('{}/m2_normalizer.p'.format(state_path), 'wb'))
@@ -59,13 +68,15 @@ if mode == 'classify':
 
     if class_file == 'outputs.csv':
         print('WARNING: Using default output file outputs.csv. This may override previous data')
-        press = input('Press Enter to continue, or e followed by Enter to exit')
+        press = input('Press Enter to continue, or \'e\' followed by Enter to exit')
 
         if press == 'e':
             sys.exit()
 
     if not (os.path.exists('{}/m2.pt'.format(state_path)) or os.path.exists('{}/ladder.pt'.format(state_path))):
         sys.exit('Models have not been trained')
+
+    print('==Loading Data==')
 
     col_means = pickle.load(open('{}/imputation_means.p'.format(state_path), 'rb'))
     int_string_map = pickle.load(open('{}/label_map.p'.format(state_path), 'rb'))
@@ -77,6 +88,8 @@ if mode == 'classify':
     else:
         m2 = torch.load('{}/m2.pt'.format(state_path))
         ladder = torch.load('{}/ladder.pt'.format(state_path))
+
+    print('==Classifying==')
 
     m2_normalizer = pickle.load(open('{}/m2_normalizer.p'.format(state_path), 'rb'))
     ladder_normalizer = pickle.load(open('{}/ladder_normalizer.p'.format(state_path), 'rb'))
@@ -92,6 +105,8 @@ if mode == 'classify':
     _, predictions = torch.max(predictions.data, 1)
 
     labels = [[sample_names[i], int_string_map[l]] for i, l in enumerate(predictions.numpy())]
+
+    print('==Writing Output==')
 
     file = open('{}/{}'.format(output_folder, class_file), 'w')
     writer = csv.writer(file)
