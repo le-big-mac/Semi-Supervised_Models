@@ -105,7 +105,7 @@ if mode == 'classify':
 
     _, predictions = torch.max(predictions.data, 1)
 
-    labels = [[sample_names[i], int_string_map[l]] for i, l in enumerate(predictions.numpy())]
+    labels = [[sample_names[i], int_string_map[l]] for i, l in enumerate(predictions.cpu().numpy())]
 
     print('==Writing Output==')
 
