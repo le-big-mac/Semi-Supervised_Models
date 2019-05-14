@@ -64,6 +64,15 @@ if mode == 'train':
     print('M2 2-fold accuracies: {}'.format(m2_accuracies))
     print('Ladder 2-fold accuracies: {}'.format(ladder_accuracies))
 
+    m2_accuracies.insert(0, 'M2')
+    ladder_accuracies.insert(0, "Ladder")
+
+    f = open("{}/accs.csv".format(output_folder), 'w')
+    writer = csv.writer(f)
+    writer.writerow(m2_accuracies)
+    writer.writerow(ladder_accuracies)
+    f.close()
+
 if mode == 'classify':
     class_file = args.classification_file
 
