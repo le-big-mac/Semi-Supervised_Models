@@ -7,8 +7,8 @@ import pickle
 
 
 class SimpleNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, lr, dataset_name, device, model_name, state_path):
-        super(SimpleNetwork, self).__init__(dataset_name, device)
+    def __init__(self, input_size, hidden_dimensions, num_classes, lr, device, model_name, state_path):
+        super(SimpleNetwork, self).__init__(device, state_path, model_name)
 
         self.Classifier = Classifier(input_size, hidden_dimensions, num_classes).to(device)
         self.optimizer = torch.optim.Adam(self.Classifier.parameters(), lr=lr)
@@ -46,15 +46,17 @@ class SimpleNetwork(Model):
 
                 train_loss += loss.item()
 
-            acc = accuracy(self.Classifier, validation_dataloader, self.device)
+            if validation_dataloader is not None:
+                acc = accuracy(self.Classifier, validation_dataloader, self.device)
+                validation_accs.append(acc)
+
+                early_stopping(1 - acc, self.Classifier)
 
             epochs.append(epoch)
             train_losses.append(train_loss/len(train_dataloader))
-            validation_accs.append(acc)
 
-            early_stopping(1 - acc, self.Classifier)
-
-        early_stopping.load_checkpoint(self.Classifier)
+        if validation_dataloader is not None:
+            early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 
@@ -99,8 +101,7 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
         logging_list = pickle.load(open(hyperparameter_file, 'rb'))
 
         model_name = '{}_{}_{}_{}'.format(fold, validation_fold, num_labelled, h)
-        model = SimpleNetwork(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device, model_name,
-                              state_path)
+        model = SimpleNetwork(input_size, [hidden_layer_size] * h, num_classes, lr, device, model_name, state_path)
         epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders)
         validation_result = model.test_model(validation)
 
@@ -123,8 +124,7 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
             torch.cuda.empty_cache()
 
     model_name = best_params['model name']
-    model = SimpleNetwork(input_size, best_params['hidden layers'], num_classes, lr, dataset_name, device, model_name,
-                          state_path)
+    model = SimpleNetwork(input_size, best_params['hidden layers'], num_classes, lr, device, model_name, state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
     classify = model.classify(test.dataset.tensors[0])

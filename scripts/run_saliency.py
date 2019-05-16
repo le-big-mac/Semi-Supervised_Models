@@ -16,7 +16,7 @@ saliency_map = {
 def __main__():
     (data, labels), (t, l) = load_MNIST_data()
 
-    model = SimpleNetwork(784, [400, 400], 10, 1e-3, 'saliency', device, 'simple_saliency', './outputs/saliency')
+    model = SimpleNetwork(784, [400, 400], 10, 1e-3, device, 'simple_saliency', './outputs/saliency')
 
     indices = stratified_k_fold(data, labels, 2)
     train, val = next(indices)

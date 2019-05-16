@@ -72,7 +72,7 @@ for i, (train_indices, val_test_indices) in enumerate(folds):
 
         dataloaders = (u_dl, s_dl, v_dl)
 
-        model = SimpleNetwork(input_size, [500, 500], num_classes, 1e-3, dataset_name, device, model_name, state_path)
+        model = SimpleNetwork(input_size, [500, 500], num_classes, 1e-3, device, model_name, state_path)
         epochs, losses, validation_accs = model.train_model(max_epochs, dataloaders)
         result = model.test_model(t_dl)
 
