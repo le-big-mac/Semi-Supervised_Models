@@ -153,9 +153,8 @@ class Ladder(nn.Module):
 
 
 class LadderNetwork(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, denoising_cost, lr, dataset_name, device,
-                 model_name, state_path):
-        super(LadderNetwork, self).__init__(dataset_name, device)
+    def __init__(self, input_size, hidden_dimensions, num_classes, denoising_cost, lr, device, model_name, state_path):
+        super(LadderNetwork, self).__init__(device, state_path, model_name)
 
         layer_sizes = [input_size] + hidden_dimensions + [num_classes]
         shapes = list(zip(layer_sizes[:-1], layer_sizes[1:]))
@@ -188,8 +187,7 @@ class LadderNetwork(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train_ladder(self, max_epochs, supervised_dataloader, unsupervised_dataloader, validation_dataloader,
-                     comparison):
+    def train_ladder(self, max_epochs, supervised_dataloader, unsupervised_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -256,11 +254,11 @@ class LadderNetwork(Model):
 
         return epochs, train_losses, validation_accs
 
-    def train_model(self, max_epochs, dataloaders, comparison):
+    def train_model(self, max_epochs, dataloaders):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         epochs, losses, validation_accs = self.train_ladder(max_epochs, supervised_dataloader, unsupervised_dataloader,
-                                                            validation_dataloader, comparison)
+                                                            validation_dataloader)
 
         return epochs, losses, validation_accs
 
@@ -278,7 +276,7 @@ class LadderNetwork(Model):
         return y
 
 
-def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset_name, dataloaders, input_size,
+def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataloaders, input_size,
                         num_classes, max_epochs, device):
     hidden_layer_size = min(500, (input_size + num_classes) // 2)
     hidden_layers = range(1, 5)
@@ -301,10 +299,10 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
         denoising_cost = [1000.0, 10.0] + ([0.1] * h)
 
         model_name = '{}_{}_{}_{}'.format(fold, validation_fold, num_labelled, h)
-        model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr, dataset_name,
-                              device, model_name, state_path)
+        model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr, device, model_name,
+                              state_path)
 
-        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
+        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders)
         validation_result = model.test_model(validation)
 
         model_path = '{}/{}.pt'.format(state_path, model_name)
@@ -328,8 +326,7 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
     model_name = best_params['model name']
     hidden_layers = best_params['hidden layers']
     denoising_cost = [1000.0, 10.0] + ([0.1] * len(hidden_layers))
-    model = LadderNetwork(input_size, hidden_layers, num_classes, denoising_cost, lr, dataset_name, device, model_name,
-                          state_path)
+    model = LadderNetwork(input_size, hidden_layers, num_classes, denoising_cost, lr, device, model_name, state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
     classify = model.classify(test.dataset.tensors[0])
@@ -374,9 +371,9 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
             u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
             v_dl = DataLoader(v_d, batch_size=v_d.__len__())
 
-            model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr, '',
+            model = LadderNetwork(input_size, [hidden_layer_size] * h, num_classes, denoising_cost, lr,
                                   device, model_name, state_path)
-            model.train_model(100, (u_dl, s_dl, v_dl), False)
+            model.train_model(100, (u_dl, s_dl, v_dl))
             validation_result = model.test_model(v_dl)
             print('Validation accuracy: {}'.format(validation_result))
 
@@ -397,7 +394,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
     u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
 
     final_model = LadderNetwork(best_params['input size'], best_params['hidden layers'], best_params['num classes'],
-                                best_params['denoising cost'], lr, '', device, 'ladder', state_path)
-    final_model.train_model(100, (u_dl, s_dl, None), False)
+                                best_params['denoising cost'], lr, device, 'ladder', state_path)
+    final_model.train_model(100, (u_dl, s_dl, None))
 
     return final_model, normalizer, best_accuracies

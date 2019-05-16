@@ -9,8 +9,8 @@ import pickle
 
 class M1(Model):
     def __init__(self, input_size, hidden_dimensions_encoder, latent_size, hidden_dimensions_classifier,
-                 num_classes, output_activation, lr, dataset_name, device, model_name, state_path):
-        super(M1, self).__init__(dataset_name, device)
+                 num_classes, output_activation, lr, device, model_name, state_path):
+        super(M1, self).__init__(device, state_path, model_name)
 
         self.VAE = VAE(input_size, hidden_dimensions_encoder, latent_size, output_activation).to(device)
         self.VAE_optim = torch.optim.Adam(self.VAE.parameters(), lr=lr)
@@ -89,7 +89,7 @@ class M1(Model):
         if early_stopping.early_stop:
             early_stopping.load_checkpoint(self.VAE)
 
-    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader, comparison):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -119,26 +119,15 @@ class M1(Model):
                 loss.backward()
                 self.Classifier_optim.step()
 
-                if comparison:
-                    acc = self.accuracy(validation_dataloader)
+                train_loss += loss.item()
 
-                    epochs.append(epoch)
-                    train_losses.append(loss.item())
-                    validation_accs.append(acc)
+            acc = self.accuracy(validation_dataloader)
 
-                    early_stopping(1 - acc, self.Classifier)
-                else:
-                    train_loss += loss.item()
+            epochs.append(epoch)
+            train_losses.append(train_loss/len(train_dataloader))
+            validation_accs.append(acc)
 
-            if not comparison:
-                acc = self.accuracy(validation_dataloader)
-
-                epochs.append(epoch)
-                train_losses.append(train_loss/len(train_dataloader))
-                validation_accs.append(acc)
-
-                early_stopping(1 - acc, self.Classifier)
-                # print('Supervised Epoch: {} Validation acc: {}'.format(epoch, val))
+            early_stopping(1 - acc, self.Classifier)
 
         early_stopping.load_checkpoint(self.Classifier)
 
@@ -162,13 +151,13 @@ class M1(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train_model(self, max_epochs, dataloaders, comparison):
+    def train_model(self, max_epochs, dataloaders):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         self.train_VAE(max_epochs, unsupervised_dataloader, validation_dataloader)
 
         classifier_epochs, classifier_losses, classifier_accs = \
-            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader, comparison)
+            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader)
 
         return classifier_epochs, classifier_losses, classifier_accs
 
@@ -187,7 +176,7 @@ class M1(Model):
         return self.Classifier(z)
 
 
-def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset_name, dataloaders, input_size,
+def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataloaders, input_size,
                         num_classes, max_epochs, device):
     hidden_layer_vae_size = min(500, (input_size + num_classes) // 2)
     hidden_layer_classifier_size = 50
@@ -216,8 +205,8 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
 
         model_name = '{}_{}_{}_{}_{}_{}'.format(fold, validation_fold, num_labelled, h_v, h_c, z)
         model = M1(input_size, h_v * [hidden_layer_vae_size], z, h_c * [hidden_layer_classifier_size], num_classes,
-                   nn.Sigmoid(), lr, dataset_name, device, model_name, state_path)
-        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
+                   nn.Sigmoid(), lr, device, model_name, state_path)
+        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders)
         validation_result = model.test_model(validation)
 
         model_path = '{}/{}.pt'.format(state_path, model_name)
@@ -243,8 +232,7 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
     hidden_v = best_params['hidden layers vae']
     hidden_c = best_params['hidden layers classifier']
     latent = best_params['latent dim']
-    model = M1(input_size, hidden_v, latent, hidden_c, num_classes, nn.Sigmoid(), lr, dataset_name, device, model_name,
-               state_path)
+    model = M1(input_size, hidden_v, latent, hidden_c, num_classes, nn.Sigmoid(), lr, device, model_name, state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
     classify = model.classify(test.dataset.tensors[0])
