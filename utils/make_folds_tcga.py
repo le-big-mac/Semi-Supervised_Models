@@ -3,7 +3,7 @@ import pickle
 import argparse
 import numpy as np
 
-parser = argparse.ArgumentParser(description='Take arguments to construct model')
+parser = argparse.ArgumentParser(description='Arguments to make TCGA folds')
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
 parser.add_argument('num_folds', type=int, help='Number of folds')
 parser.add_argument('--drop_samples', default=False, action='store_true', help='Drop samples')

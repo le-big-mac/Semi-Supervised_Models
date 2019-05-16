@@ -7,7 +7,7 @@ from sklearn.metrics import matthews_corrcoef, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sn
 
-parser = argparse.ArgumentParser(description='Take arguments to construct model')
+parser = argparse.ArgumentParser(description='Compute metrics for evaluating TCGA classification')
 parser.add_argument('model', type=str, choices=['simple', 'm1', 'sdae', 'm2', 'ladder'],
                     help="Choose which model to run")
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')

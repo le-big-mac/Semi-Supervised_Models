@@ -3,7 +3,7 @@ import pickle
 import argparse
 
 
-parser = argparse.ArgumentParser(description='Take arguments to construct model')
+parser = argparse.ArgumentParser(description='Arguments to make MNIST folds')
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')
 parser.add_argument('num_folds', type=int, help='Number of folds')
 args = parser.parse_args()

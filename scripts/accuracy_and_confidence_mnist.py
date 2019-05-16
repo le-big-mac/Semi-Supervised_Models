@@ -4,7 +4,7 @@ from utils.datautils import *
 import statistics
 import math
 
-parser = argparse.ArgumentParser(description='Take arguments to construct model')
+parser = argparse.ArgumentParser(description='Compute accuracy and confidence intervals for model')
 parser.add_argument('model', type=str, choices=['simple', 'm1', 'sdae', 'm2', 'ladder'],
                     help="Choose which model to run")
 parser.add_argument('num_labelled', type=int, help='Number of labelled examples to use')

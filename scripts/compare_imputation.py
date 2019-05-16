@@ -4,7 +4,7 @@ from Models import *
 import argparse
 import pickle
 
-parser = argparse.ArgumentParser(description='Take arguments to construct model')
+parser = argparse.ArgumentParser(description='Imputation type for data')
 parser.add_argument('imputation_type', type=str, choices=[i.name.lower() for i in ImputationType])
 args = parser.parse_args()
 
