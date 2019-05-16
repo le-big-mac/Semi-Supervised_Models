@@ -179,7 +179,7 @@ class LadderNetwork(Model):
 
                 outputs, _ = self.ladder.forward_encoders(data, 0.0, False, batch_size)
 
-                _, predicted = torch.max(F.softmax(outputs).data, 1)
+                _, predicted = torch.max(F.softmax(outputs, dim=1).data, 1)
                 correct += (predicted == labels).sum().item()
 
         return correct / len(dataloader.dataset)
@@ -216,7 +216,7 @@ class LadderNetwork(Model):
                 y_c, corr = self.ladder.forward_encoders(inputs, self.noise_std, True, batch_size)
                 y, clean = self.ladder.forward_encoders(inputs, 0.0, True, batch_size)
 
-                z_est_bn = self.ladder.forward_decoders(F.softmax(y_c), corr, clean, batch_size)
+                z_est_bn = self.ladder.forward_decoders(F.softmax(y_c, dim=1), corr, clean, batch_size)
 
                 cost = self.supervised_cost_function.forward(labeled(y_c, batch_size), labels)
 
