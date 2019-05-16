@@ -1,5 +1,4 @@
 import torch
-import csv
 from torch import nn
 from utils.trainingutils import accuracy
 from Models.BuildingBlocks import Encoder, Decoder
@@ -42,17 +41,14 @@ class SDAEClassifier(nn.Module):
 
 
 class SDAE(Model):
-    def __init__(self, input_size, hidden_dimensions, num_classes, lr, dataset_name, device, model_name, state_path):
-        super(SDAE, self).__init__(dataset_name, device)
+    def __init__(self, input_size, hidden_dimensions, num_classes, lr, device, model_name, state_path):
+        super(SDAE, self).__init__(device, state_path, model_name)
 
         self.SDAEClassifier = SDAEClassifier(input_size, hidden_dimensions, num_classes).to(device)
         self.optimizer = torch.optim.Adam(self.SDAEClassifier.parameters(), lr=lr)
         self.criterion = nn.CrossEntropyLoss()
 
-        self.state_path = state_path
-        self.model_name = model_name
-
-    def pretrain_hidden_layers(self, max_epochs, pretraining_dataloader):
+    def pretrain_hidden_layers(self, pretraining_dataloader):
         for i in range(len(self.SDAEClassifier.hidden_layers)):
             dae = AutoencoderSDAE(self.SDAEClassifier.hidden_layers[i]).to(self.device)
             criterion = nn.MSELoss()
@@ -60,7 +56,6 @@ class SDAE(Model):
 
             previous_layers = self.SDAEClassifier.hidden_layers[0:i]
 
-            # TODO: think about implementing early stopping
             for epoch in range(50):
                 for batch_idx, (data, _) in enumerate(pretraining_dataloader):
                     dae.train()
@@ -77,14 +72,11 @@ class SDAE(Model):
                     predictions = dae(noisy_data)
 
                     loss = criterion(predictions, data)
-                    # print(loss.item())
 
                     loss.backward()
                     optimizer.step()
 
-                    # print('Unsupervised Layer: {} Epoch: {} Loss: {}'.format(i, epoch, loss.item()))
-
-    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader, comparison):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
@@ -111,38 +103,28 @@ class SDAE(Model):
                 loss.backward()
                 self.optimizer.step()
 
-                if comparison:
-                    acc = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
+                train_loss += loss.item()
 
-                    epochs.append(epoch)
-                    train_losses.append(loss.item())
-                    validation_accs.append(acc)
-
-                    early_stopping(1 - acc, self.SDAEClassifier)
-                else:
-                    train_loss += loss.item()
-
-            if not comparison:
+            if validation_dataloader is not None:
                 acc = accuracy(self.SDAEClassifier, validation_dataloader, self.device)
-                print(acc)
-
-                epochs.append(epoch)
-                train_losses.append(train_loss/len(train_dataloader))
                 validation_accs.append(acc)
 
                 early_stopping(1 - acc, self.SDAEClassifier)
+
+            epochs.append(epoch)
+            train_losses.append(train_loss/len(train_dataloader))
 
         early_stopping.load_checkpoint(self.SDAEClassifier)
 
         return epochs, train_losses, validation_accs
 
-    def train_model(self, max_epochs, dataloaders, comparison):
+    def train_model(self, max_epochs, dataloaders):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
-        self.pretrain_hidden_layers(max_epochs, unsupervised_dataloader)
+        self.pretrain_hidden_layers(unsupervised_dataloader)
 
         classifier_epochs, classifier_train_losses, classifier_validation_accs = \
-            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader, comparison)
+            self.train_classifier(max_epochs, supervised_dataloader, validation_dataloader)
 
         return classifier_epochs, classifier_train_losses, classifier_validation_accs
 
@@ -179,8 +161,8 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
         logging_list = pickle.load(open(hyperparameter_file, 'rb'))
 
         model_name = '{}_{}_{}_{}'.format(fold, validation_fold, num_labelled, h)
-        model = SDAE(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device, model_name, state_path)
-        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
+        model = SDAE(input_size, [hidden_layer_size] * h, num_classes, lr, device, model_name, state_path)
+        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders)
         validation_result = model.test_model(validation)
 
         model_path = '{}/{}.pt'.format(state_path, model_name)
@@ -202,7 +184,7 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
             torch.cuda.empty_cache()
 
     model_name = best_params['model name']
-    model = SDAE(input_size, best_params['hidden layers'], num_classes, lr, dataset_name, device, model_name, state_path)
+    model = SDAE(input_size, best_params['hidden layers'], num_classes, lr, device, model_name, state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
     classify = model.classify(test.dataset.tensors[0])

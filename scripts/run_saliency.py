@@ -26,7 +26,7 @@ def __main__():
     t_dl = DataLoader(train_dataset, batch_size=100, shuffle=True)
     v_dl = DataLoader(val_dataset, batch_size=val_dataset.__len__())
 
-    model.train_model(100, (None, t_dl, v_dl), False)
+    model.train_model(100, (None, t_dl, v_dl))
 
     input = t[12].unsqueeze(0)
     output = model.classify(input)

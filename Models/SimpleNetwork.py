@@ -17,14 +17,13 @@ class SimpleNetwork(Model):
         self.state_path = state_path
         self.model_name = model_name
 
-    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader, comparison):
+    def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
         epochs = []
         train_losses = []
         validation_accs = []
 
         early_stopping = EarlyStopping('{}/{}_inner.pt'.format(self.state_path, self.model_name))
 
-        print(accuracy(self.Classifier, validation_dataloader, self.device))
         for epoch in range(max_epochs):
             if early_stopping.early_stop:
                 break
@@ -45,35 +44,25 @@ class SimpleNetwork(Model):
                 loss.backward()
                 self.optimizer.step()
 
-                if comparison:
-                    acc = accuracy(self.Classifier, validation_dataloader, self.device)
+                train_loss += loss.item()
 
-                    epochs.append(epoch)
-                    train_losses.append(loss.item())
-                    validation_accs.append(acc)
+            acc = accuracy(self.Classifier, validation_dataloader, self.device)
 
-                    early_stopping(1 - acc, self.Classifier)
-                else:
-                    train_loss += loss.item()
+            epochs.append(epoch)
+            train_losses.append(train_loss/len(train_dataloader))
+            validation_accs.append(acc)
 
-            if not comparison:
-                acc = accuracy(self.Classifier, validation_dataloader, self.device)
-
-                epochs.append(epoch)
-                train_losses.append(train_loss/len(train_dataloader))
-                validation_accs.append(acc)
-
-                early_stopping(1 - acc, self.Classifier)
+            early_stopping(1 - acc, self.Classifier)
 
         early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 
-    def train_model(self, max_epochs, dataloaders, comparison):
+    def train_model(self, max_epochs, dataloaders):
         _, supervised_dataloader, validation_dataloader = dataloaders
 
         epochs, losses, validation_accs = self.train_classifier(max_epochs, supervised_dataloader,
-                                                                validation_dataloader, comparison)
+                                                                validation_dataloader)
 
         return epochs, losses, validation_accs
 
@@ -112,7 +101,7 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
         model_name = '{}_{}_{}_{}'.format(fold, validation_fold, num_labelled, h)
         model = SimpleNetwork(input_size, [hidden_layer_size] * h, num_classes, lr, dataset_name, device, model_name,
                               state_path)
-        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
+        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders)
         validation_result = model.test_model(validation)
 
         model_path = '{}/{}.pt'.format(state_path, model_name)
