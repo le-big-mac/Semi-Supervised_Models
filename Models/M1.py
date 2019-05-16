@@ -25,13 +25,11 @@ class M1(Model):
         recons, mu, logvar = batch_params
 
         KLD = 0.5*torch.sum(logvar.exp() + mu.pow(2) - logvar - 1, dim=1)
-        # print(KLD.data)
 
-        # reconstruction error (use BCE because we normalize input data to [0, 1] and sigmoid output)
+        # MSE error
         # recons = F.mse_loss(recons, x, reduction='none').sum(dim=1)
-        # print(recons.data)
 
-        # BCE used for mnist in original, removed here to allow for non-constrained input
+        # BCE used as data is normalised
         recons = F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
 
         return (KLD + recons).mean()

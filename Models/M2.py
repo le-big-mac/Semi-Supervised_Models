@@ -74,7 +74,7 @@ class M2Runner(Model):
         accuracy = -F.binary_cross_entropy(recons, x, reduction='none').sum(dim=1)
         # accuracy = -F.mse_loss(recons, x, reduction='none').sum(dim=1)
 
-        # prior over y (commented out because a uniform prior results in a constant for all labels)
+        # prior over y
         # prior_y = log_standard_categorical(y)
 
         return accuracy - KLD

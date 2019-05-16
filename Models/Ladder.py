@@ -224,9 +224,6 @@ class LadderNetwork(Model):
 
                 u_cost = 0
                 for l in range(self.L, -1, -1):
-                    # print('z_est', z_est_bn[l][0])
-                    # print('z', zs[l][0])
-                    # print(unsupervised_cost_function.forward(z_est_bn[l][0], zs[l][0]))
                     u_cost += self.unsupervised_cost_function.forward(z_est_bn[l], zs[l]) * self.denoising_cost[l]
 
                 loss = cost + u_cost
