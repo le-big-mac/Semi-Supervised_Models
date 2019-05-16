@@ -167,9 +167,6 @@ class LadderNetwork(Model):
         self.denoising_cost = denoising_cost
         self.noise_std = 0.3
 
-        self.state_path = state_path
-        self.model_name = model_name
-
     def accuracy(self, dataloader, batch_size):
         self.ladder.eval()
 
@@ -246,8 +243,6 @@ class LadderNetwork(Model):
 
             epochs.append(epoch)
             train_losses.append(train_loss/len(unsupervised_dataloader))
-
-            # print('Epoch: {} Validation Accuracy: {}'.format(epoch, val))
 
         if validation_dataloader is not None:
             early_stopping.load_checkpoint(self.ladder)

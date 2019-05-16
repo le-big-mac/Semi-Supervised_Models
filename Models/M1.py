@@ -20,9 +20,6 @@ class M1(Model):
         self.Classifier_criterion = nn.CrossEntropyLoss()
         self.Classifier_optim = torch.optim.Adam(self.Classifier.parameters(), lr=lr)
 
-        self.state_path = state_path
-        self.model_name = model_name
-
     def VAE_criterion(self, batch_params, x):
         # KL divergence between two normal distributions (N(0, 1) and parameterized)
         recons, mu, logvar = batch_params
@@ -77,16 +74,13 @@ class M1(Model):
                 train_loss += loss.item()
 
                 loss.backward()
-                # print(loss.item())
                 self.VAE_optim.step()
 
-            validation_loss = self.unsupervised_validation_loss(validation_dataloader)
+            if validation_dataloader is not None:
+                validation_loss = self.unsupervised_validation_loss(validation_dataloader)
+                early_stopping(validation_loss, self.VAE)
 
-            early_stopping(validation_loss, self.VAE)
-
-            # print('Unsupervised Epoch: {} Loss: {} Validation loss: {}'.format(epoch, train_loss, validation_loss))
-
-        if early_stopping.early_stop:
+        if validation_dataloader is not None:
             early_stopping.load_checkpoint(self.VAE)
 
     def train_classifier(self, max_epochs, train_dataloader, validation_dataloader):
@@ -121,15 +115,17 @@ class M1(Model):
 
                 train_loss += loss.item()
 
-            acc = self.accuracy(validation_dataloader)
+            if validation_dataloader is not None:
+                acc = self.accuracy(validation_dataloader)
+                validation_accs.append(acc)
+
+                early_stopping(1 - acc, self.Classifier)
 
             epochs.append(epoch)
-            train_losses.append(train_loss/len(train_dataloader))
-            validation_accs.append(acc)
+            train_losses.append(train_loss / len(train_dataloader))
 
-            early_stopping(1 - acc, self.Classifier)
-
-        early_stopping.load_checkpoint(self.Classifier)
+        if validation_dataloader is not None:
+            early_stopping.load_checkpoint(self.Classifier)
 
         return epochs, train_losses, validation_accs
 

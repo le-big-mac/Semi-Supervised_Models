@@ -49,17 +49,14 @@ class M2(nn.Module):
 
 class M2Runner(Model):
     def __init__(self, input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim, num_classes, activation,
-                 lr, dataset_name, device, model_name, state_path):
-        super(M2Runner, self).__init__(dataset_name, device)
+                 lr, device, model_name, state_path):
+        super(M2Runner, self).__init__(device, state_path, model_name)
 
         self.M2 = M2(input_size, hidden_dimensions_VAE, hidden_dimensions_clas, latent_dim,
                      num_classes, activation).to(device)
         # change this to something more applicable with softmax
         self.optimizer = torch.optim.Adam(self.M2.parameters(), lr=lr)
         self.num_classes = num_classes
-
-        self.state_path = state_path
-        self.model_name = model_name
 
     def onehot(self, labels):
         labels = labels.unsqueeze(1)
@@ -132,7 +129,7 @@ class M2Runner(Model):
 
             return -self.minus_U(x, pred_y)
 
-    def train_m2(self, max_epochs, labelled_loader, unlabelled_loader, validation_loader, comparison):
+    def train_m2(self, max_epochs, labelled_loader, unlabelled_loader, validation_loader):
 
         if unlabelled_loader is None:
             alpha = 1
@@ -214,11 +211,11 @@ class M2Runner(Model):
 
         return correct / len(dataloader.dataset)
 
-    def train_model(self, max_epochs, dataloaders, comparison):
+    def train_model(self, max_epochs, dataloaders):
         unsupervised_dataloader, supervised_dataloader, validation_dataloader = dataloaders
 
         epochs, losses, validation_accs = self.train_m2(max_epochs, supervised_dataloader, unsupervised_dataloader,
-                                                        validation_dataloader, comparison)
+                                                        validation_dataloader)
 
         return epochs, losses, validation_accs
 
@@ -262,8 +259,8 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
 
         model_name = '{}_{}_{}_{}_{}_{}'.format(fold, validation_fold, num_labelled, h_v, h_c, z)
         model = M2Runner(input_size, [hidden_layer_size] * h_v, [hidden_layer_size] * h_c, z, num_classes,
-                         nn.Sigmoid(), lr, dataset_name, device, model_name, state_path)
-        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders, False)
+                         nn.Sigmoid(), lr, device, model_name, state_path)
+        epochs, losses, val_accs = model.train_model(max_epochs, train_dataloaders)
         validation_result = model.test_model(validation)
 
         model_path = '{}/{}.pt'.format(state_path, model_name)
@@ -288,7 +285,7 @@ def hyperparameter_loop(fold, validation_fold, state_path, results_path, dataset
     hidden_v = best_params['hidden layers vae']
     hidden_c = best_params['hidden layers classifier']
     latent = best_params['latent dim']
-    model = M2Runner(input_size, hidden_v, hidden_c, latent, num_classes, nn.Sigmoid(), lr, dataset_name, device,
+    model = M2Runner(input_size, hidden_v, hidden_c, latent, num_classes, nn.Sigmoid(), lr, device,
                      model_name, state_path)
     model.load_state_dict(torch.load('{}/{}.pt'.format(state_path, model_name)))
     test_acc = model.test_model(test)
@@ -340,8 +337,8 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
                 u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
 
             model = M2Runner(input_size, [hidden_layer_size] * h_v, [hidden_layer_size] * h_c, z, num_classes,
-                             nn.Sigmoid(), lr, "", device, model_name, state_path)
-            model.train_model(100, (u_dl, s_dl, v_dl), False)
+                             nn.Sigmoid(), lr, device, model_name, state_path)
+            model.train_model(100, (u_dl, s_dl, v_dl))
             validation_result = model.test_model(v_dl)
             print('Validation accuracy: {}'.format(validation_result))
 
@@ -364,7 +361,7 @@ def tool_hyperparams(train_val_folds, labelled_data, labels, unlabelled_data, ou
         u_dl = DataLoader(u_d, batch_size=100, shuffle=True)
 
     final_model = M2Runner(best_params['input size'], best_params['hidden layers vae'], best_params['hidden layers classifier'],
-                           best_params['latent dim'], best_params['num classes'], nn.Sigmoid(), lr, "", device, 'm2', state_path)
-    final_model.train_model(100, (u_dl, s_dl, None), False)
+                           best_params['latent dim'], best_params['num classes'], nn.Sigmoid(), lr, device, 'm2', state_path)
+    final_model.train_model(100, (u_dl, s_dl, None))
 
     return final_model, normalizer, best_accuracies
