@@ -2,7 +2,7 @@
 
 This repository contains PyTorch implementations of a stacked denoising autoencoder, M2 model as described the Kingma paper 
 "Semi-supervised learning with deep generative models", and the ladder network as described in "Semi-supervised learning with 
-ladder networks". These were constructed as part of my undergraduate thesis (https://github.com/Clondon98/PartIIDiss), and 
+ladder networks". These were constructed as part of my undergraduate thesis (https://github.com/le-big-mac/PartIIDiss), and 
 were evaluated on TCGA Pancancer gene expression data.
 
 ## Usage
